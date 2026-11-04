@@ -51,6 +51,51 @@ export function parseDocumentInput(body) {
   return { documentName: name, documentNameKey: nameKey(name), isMandatory, notes };
 }
 
+export const MAX_DOCUMENTS_ON_CREATE = 50;
+
+/**
+ * The optional "documents" list sent when a service is created. Each item follows the same rules as adding one document later;
+ * errors are keyed "documents.<n>.<field>" (n from 0). A name used twice in the list is refused. No list means no documents.
+ */
+export function parseDocumentList(list, details) {
+  if (list === undefined || list === null) return [];
+  if (!Array.isArray(list)) {
+    details.documents = 'Documents must be a list';
+    return [];
+  }
+  if (list.length > MAX_DOCUMENTS_ON_CREATE) {
+    details.documents = `A service can be created with at most ${MAX_DOCUMENTS_ON_CREATE} documents`;
+    return [];
+  }
+  const seen = new Set();
+  const inputs = [];
+  list.forEach((item, index) => {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      details[`documents.${index}.document_name`] = 'Document name is required';
+      return;
+    }
+    try {
+      const input = parseDocumentInput(item);
+      if (seen.has(input.documentNameKey)) details[`documents.${index}.document_name`] = DOCUMENT_NAME_TAKEN;
+      seen.add(input.documentNameKey);
+      inputs.push(input);
+    } catch (err) {
+      for (const [field, message] of Object.entries(err?.details ?? { document_name: 'Document is not valid' })) details[`documents.${index}.${field}`] = message;
+    }
+  });
+  return inputs;
+}
+
+/** Saves the documents of a brand-new service inside the caller's transaction (no other document can exist yet). */
+export async function insertDocumentsForNewService(manager, actor, service, inputs, ipAddress) {
+  for (const input of inputs) {
+    const documentId = randomUUID();
+    await manager.getRepository(RequiredDocument).insert({ documentId, serviceId: service.service_id, ...input });
+    const created = await loadDocument(manager, service.service_id, documentId);
+    await audit(manager, actor, 'REQUIRED_DOCUMENT_ADDED', service, null, created, ipAddress);
+  }
+}
+
 async function lockService(manager, serviceId) {
   const rows = await manager.query('SELECT service_id, office_id FROM services WHERE service_id = $1 FOR UPDATE', [serviceId]);
   if (!rows[0]) throw Errors.notFound('Service not found', 'SERVICE_NOT_FOUND');

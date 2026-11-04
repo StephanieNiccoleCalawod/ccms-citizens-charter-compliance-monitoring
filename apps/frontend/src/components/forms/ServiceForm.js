@@ -20,10 +20,11 @@ import {
 import DateHint from './DateHint.js';
 import { FieldError, FieldWarning, RequiredMark } from './Field.js';
 import ProcedureStepsEditor from './ProcedureStepsEditor.js';
+import RequiredDocumentsEditor from './RequiredDocumentsEditor.js';
 
 export { EMPTY_SERVICE_FORM, formToBody, serviceToForm } from '../../lib/ui/service-form.js';
 
-const FIELD_FOCUS_ORDER = ['office_id', 'service_abbr', 'service_name', 'classification', 'service_scope', 'transaction_types', 'fees', 'who_may_avail', 'processing_steps', 'duration_days', 'duration_hours', 'duration_minutes', 'effective_from', 'charter_reference'];
+const FIELD_FOCUS_ORDER = ['office_id', 'service_abbr', 'service_name', 'classification', 'service_scope', 'transaction_types', 'fees', 'who_may_avail', 'processing_steps', 'documents', 'duration_days', 'duration_hours', 'duration_minutes', 'effective_from', 'charter_reference'];
 
 /**
  * Asks Core which code the next new service of this office and abbreviation would get (GET /services/next-code). It only asks when
@@ -417,6 +418,17 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
         )}
         <FieldError id={`${id}-processing_steps-error`}>{fieldError('processing_steps')}</FieldError>
       </div>
+
+      {isNew ? (
+        <div>
+          <p className={legendClass}>Required documents</p>
+          <p className="text-xs text-slate-500">Optional. List what the client must bring. Names only: no files are uploaded.</p>
+          <div className="mt-2">
+            <RequiredDocumentsEditor id={id} documents={form.documents ?? []} onChange={(documents) => change({ documents }, 'documents')} describedBy={fieldError('documents') ? `${id}-documents-error` : undefined} />
+          </div>
+          <FieldError id={`${id}-documents-error`}>{fieldError('documents')}</FieldError>
+        </div>
+      ) : null}
 
       {isNew ? (
         <fieldset className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4">

@@ -15,7 +15,7 @@ import {
   parseStandardFields,
   throwIfInvalid,
 } from './catalogue-rules.js';
-import { listDocumentRows, toDocumentDto } from './documents.js';
+import { insertDocumentsForNewService, listDocumentRows, parseDocumentList, toDocumentDto } from './documents.js';
 import { Service } from '../entities/index.js';
 import { kickOutbox } from '../outbox.js';
 import { insertFirstStandard, listStandardRows, toStandardDto } from './standards.js';
@@ -142,6 +142,8 @@ export async function createService(dataSource, actor, body, { ipAddress, truste
   } else {
     standardFields = parseStandardFields(body.standard, details, 'standard.');
   }
+  // Optional checklist saved with the service. The seeding script (trustedCode) adds its own documents afterwards, so it is not read here.
+  const documentInputs = trustedCode ? [] : parseDocumentList(body.documents, details);
   throwIfInvalid(details);
   try {
     const dto = await dataSource.transaction(async (manager) => {
@@ -169,6 +171,7 @@ export async function createService(dataSource, actor, body, { ipAddress, truste
       const created = await loadServiceDto(manager, serviceId);
       await audit(manager, actor, 'SERVICE_CREATED', null, created, ipAddress);
       await insertFirstStandard(manager, actor, { service_id: serviceId, office_id: office.office_id, service_name: created.service_name }, standardFields, ipAddress);
+      await insertDocumentsForNewService(manager, actor, { service_id: serviceId, office_id: office.office_id }, documentInputs, ipAddress);
       return loadServiceDto(manager, serviceId);
     });
     kickOutbox();

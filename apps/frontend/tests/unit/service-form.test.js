@@ -181,3 +181,26 @@ describe('standard and service wording', () => {
     assert.equal(transactionTypesText(null), '');
   });
 });
+
+describe('Required documents on the Add Service form (Defect 12)', () => {
+  it('sends the documents with a new service, and none with an edit', async () => {
+    const { formToBody, EMPTY_SERVICE_FORM } = await import('../../src/lib/ui/service-form.js');
+    const form = { ...EMPTY_SERVICE_FORM, office_id: 'o', service_name: 'Transcript', service_abbr: 'tor', transaction_types: ['G2C'], duration_days: '1', effective_from: '2026-11-01',
+      documents: [{ document_name: 'Valid ID', is_mandatory: true, notes: '' }, { document_name: 'Application form', is_mandatory: false, notes: 'Two copies' }] };
+    assert.deepEqual(formToBody(form, true).documents, [
+      { document_name: 'Valid ID', is_mandatory: true, notes: null },
+      { document_name: 'Application form', is_mandatory: false, notes: 'Two copies' },
+    ]);
+    assert.equal('documents' in formToBody(form, false), false);
+    assert.deepEqual(formToBody({ ...form, documents: [] }, true).documents, []);
+  });
+  it('checks the rows before sending: name needed, no duplicates, row number in the message', async () => {
+    const { documentsProblem, mapServiceErrors, SERVICE_FORM_FIELDS } = await import('../../src/lib/ui/service-form.js');
+    assert.equal(documentsProblem([]), null);
+    assert.match(documentsProblem([{ document_name: ' ', notes: '' }]), /^Document 1: enter the document name/);
+    assert.match(documentsProblem([{ document_name: 'Valid ID' }, { document_name: '  valid   id ' }]), /^Document 2: .*already has a document with this name/);
+    assert.equal(documentsProblem([{ document_name: 'Valid ID', notes: 'x'.repeat(1000) }]), null);
+    const mapped = mapServiceErrors({ 'documents.1.document_name': 'Document name is required' }, SERVICE_FORM_FIELDS, { isNew: true });
+    assert.deepEqual(mapped.fields, { documents: 'Document 2: Document name is required' });
+  });
+});

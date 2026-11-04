@@ -563,6 +563,26 @@ describe('CC009 version a standard', () => {
 });
 
 describe('CC007 required documents saved together with a new service', () => {
+  it('saves the listed documents with the service, audited; a service without documents still works', async () => {
+    const created = await createService({ service_name: 'With Documents', documents: [{ document_name: 'Valid ID' }, { document_name: 'Application form', is_mandatory: false, notes: 'Two copies' }] });
+    assert.equal(created.response.status, 201, JSON.stringify(created.body));
+    const docs = (await detail(created.service.service_id, tokens.officeStaffA)).body.documents;
+    assert.deepEqual(docs.map((d) => [d.document_name, d.is_mandatory, d.notes]), [['Valid ID', true, null], ['Application form', false, 'Two copies']]);
+    assert.equal((await audits('REQUIRED_DOCUMENT_ADDED', docs[0].document_id)).length, 1);
+    const plain = await createService({ service_name: 'Without Documents' });
+    assert.equal(plain.response.status, 201);
+    assert.deepEqual((await detail(plain.service.service_id, tokens.officeStaffA)).body.documents, []);
+  });
+
+  it('refuses a duplicate or blank document name, and then saves nothing', async () => {
+    const dup = await createService({ service_name: 'Dup Docs', documents: [{ document_name: 'Valid ID' }, { document_name: ' valid  id ' }] });
+    assert.equal(dup.response.status, 400);
+    assert.ok(dup.body.error.details['documents.1.document_name']);
+    const blank = await createService({ service_name: 'Blank Docs', documents: [{ document_name: '' }] });
+    assert.ok(blank.body.error.details['documents.0.document_name']);
+    assert.equal((await ds.query(`SELECT 1 FROM services WHERE service_name IN ('Dup Docs', 'Blank Docs')`)).length, 0);
+  });
+
   it('hours stay within 0 to 23 and minutes within 0 to 59 (the parts are never converted)', async () => {
     const tooMany = await createService({ standard: validStandard({ duration_days: 10, duration_hours: 0, duration_minutes: 1000 }) });
     assert.equal(tooMany.response.status, 400);

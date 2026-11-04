@@ -13,6 +13,8 @@ export const FEES_MAX = 500;
 export const NAME_MIN = 3;
 export const NAME_MAX = 200;
 export const CHARTER_REFERENCE_MAX = 200;
+export const DOCUMENT_NAME_MAX = 250;
+export const DOCUMENT_NOTES_MAX = 1000;
 export const ABBR_PATTERN = /^[A-Z0-9]{2,5}$/;
 const PART_MAX = 1000000;
 const PART_LIMITS = { duration_days: PART_MAX, duration_hours: 23, duration_minutes: 59 }; // hours within a day, minutes within an hour
@@ -38,6 +40,7 @@ export const EMPTY_SERVICE_FORM = {
   duration_minutes: '0',
   effective_from: '',
   charter_reference: '',
+  documents: [], // required documents saved with a NEW service: { document_name, is_mandatory, notes }
 };
 
 /** The form for a saved service. Every editable field starts from what is stored, so an edit never blanks another one. */
@@ -54,6 +57,28 @@ export function serviceToForm(service) {
     fees: service.fees ?? '',
     who_may_avail: service.who_may_avail ?? '',
   };
+}
+
+// ---- Required documents on the Add Service form ----
+export const addDocumentRow = (documents) => [...documents, { document_name: '', is_mandatory: true, notes: '' }];
+export const removeDocumentRow = (documents, index) => documents.filter((_, i) => i !== index);
+export const setDocumentRow = (documents, index, patch) => documents.map((doc, i) => (i === index ? { ...doc, ...patch } : doc));
+const documentKey = (name) => String(name ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** The first problem in the documents list as one message that names the row, or null. */
+export function documentsProblem(documents) {
+  const seen = new Set();
+  for (const [index, doc] of (documents ?? []).entries()) {
+    const label = `Document ${index + 1}`;
+    const name = String(doc.document_name ?? '').replace(/\s+/g, ' ').trim();
+    if (!name) return `${label}: enter the document name, or remove the row.`;
+    if (name.length > DOCUMENT_NAME_MAX) return `${label}: the name must be ${DOCUMENT_NAME_MAX} characters or fewer.`;
+    if (/[<>"`]/.test(name)) return `${label}: the name cannot contain < > " or \` characters.`;
+    if (String(doc.notes ?? '').length > DOCUMENT_NOTES_MAX) return `${label}: notes must be ${DOCUMENT_NOTES_MAX} characters or fewer.`;
+    if (seen.has(documentKey(name))) return `${label}: this service already has a document with this name.`;
+    seen.add(documentKey(name));
+  }
+  return null;
 }
 
 const blank = (text) => String(text ?? '').trim() === '';
@@ -78,6 +103,8 @@ export function formToBody(form, isNew) {
   if (isNew) {
     body.service_abbr = form.service_abbr.trim().toUpperCase();
     body.standard = standardToBody(form);
+    // Names only. Every row has a name (validated before sending); the notes are optional.
+    body.documents = (form.documents ?? []).map((doc) => ({ document_name: doc.document_name, is_mandatory: doc.is_mandatory !== false, notes: doc.notes?.trim() ? doc.notes : null }));
   }
   return body;
 }
@@ -136,6 +163,8 @@ export function validateServiceForm(form, isNew) {
   const procedure = procedureProblem(form);
   if (procedure) errors.processing_steps = procedure;
   if (isNew) {
+    const documents = documentsProblem(form.documents);
+    if (documents) errors.documents = documents;
     Object.assign(errors, durationErrors(form));
     if (blank(form.effective_from)) errors.effective_from = 'Enter the date the standard starts.';
     const reference = form.charter_reference.replace(/\s+/g, ' ').trim();
@@ -158,19 +187,22 @@ export function mapServiceErrors(details, shownFields, { isNew = false } = {}) {
   const other = [];
   for (const [key, message] of Object.entries(details ?? {})) {
     if (typeof message !== 'string') continue;
-    const name = key.startsWith('standard.') ? key.slice('standard.'.length) : key;
+    // A problem in one document row ("documents.1.document_name") is shown under the Required documents list with its row number.
+    const row = /^documents\.(\d+)\./.exec(key);
+    const name = row ? 'documents' : key.startsWith('standard.') ? key.slice('standard.'.length) : key;
+    const text = row ? `Document ${Number(row[1]) + 1}: ${message}` : message;
     // The code is generated from the abbreviation, so a "code already exists" answer belongs to the abbreviation field when adding.
     // When editing the code is read-only and has no field, so it stays a general message.
     const field = name === 'officeId' ? 'office_id' : name === 'service_code' && isNew ? 'service_abbr' : name;
-    if (shownFields.includes(field) && !fields[field]) fields[field] = message;
-    else if (!other.includes(message)) other.push(message);
+    if (shownFields.includes(field) && !fields[field]) fields[field] = text;
+    else if (!other.includes(text)) other.push(text);
   }
   return { fields, other };
 }
 
 export const SERVICE_FORM_FIELDS = [
   'office_id', 'service_abbr', 'service_name', 'classification', 'service_scope', 'transaction_types', 'processing_steps',
-  'fees', 'who_may_avail', 'duration_days', 'duration_hours', 'duration_minutes', 'duration', 'effective_from', 'charter_reference',
+  'fees', 'who_may_avail', 'documents', 'duration_days', 'duration_hours', 'duration_minutes', 'duration', 'effective_from', 'charter_reference',
 ];
 
 // ---- Service code built by the system (CC007) ----
