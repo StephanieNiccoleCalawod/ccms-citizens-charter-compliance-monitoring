@@ -1,0 +1,56 @@
+{
+  "automaticScheduling": false,
+  "description": "Manual local HTTP job endpoints. Historical cron expressions are reference data only; no scheduler or deployment is configured. Call with Authorization: Bearer <local CRON_SECRET>.",
+  "services": {
+    "identity-service": {
+      "port": 3001,
+      "jobs": [
+        {
+          "path": "/api/jobs/outbox",
+          "method": "GET",
+          "historicalSchedule": "0 1 * * *"
+        }
+      ]
+    },
+    "core-service": {
+      "port": 3003,
+      "jobs": [
+        {
+          "path": "/api/jobs/outbox",
+          "method": "GET",
+          "historicalSchedule": "0 1 * * *"
+        },
+        {
+          "path": "/api/jobs/calendar-sync",
+          "method": "GET",
+          "historicalSchedule": "5 1 * * *"
+        }
+      ]
+    },
+    "operations-service": {
+      "port": 3004,
+      "jobs": [
+        {
+          "path": "/api/jobs/outbox",
+          "method": "GET",
+          "historicalSchedule": "0 1 * * *"
+        },
+        {
+          "path": "/api/jobs/compute-pending",
+          "method": "GET",
+          "historicalSchedule": "10 1 * * *"
+        },
+        {
+          "path": "/api/jobs/auto-close",
+          "method": "GET",
+          "historicalSchedule": "20 1 * * *"
+        },
+        {
+          "path": "/api/jobs/receipt-emails",
+          "method": "GET",
+          "historicalSchedule": "30 1 * * *"
+        }
+      ]
+    }
+  }
+}

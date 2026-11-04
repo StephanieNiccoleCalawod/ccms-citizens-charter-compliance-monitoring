@@ -1,0 +1,44 @@
+{
+  "name": "ccms-core-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "ccms": {
+    "service": "core",
+    "port": 3003
+  },
+  "scripts": {
+    "readiness": "node --env-file-if-exists=.env.local scripts/readiness-report.js",
+    "migrate:sprint4": "node --env-file-if-exists=.env.local scripts/migrate-sprint4-critical.js",
+    "freeze:offices": "node --env-file-if-exists=.env.local scripts/freeze-offices.js",
+    "setup:pup": "node --env-file-if-exists=.env.local scripts/setup-pup.js",
+    "db:bootstrap": "node --env-file-if-exists=.env.local scripts/bootstrap.js",
+    "dev": "next dev -p 3003",
+    "build": "next build",
+    "start": "next start -p 3003",
+    "lint": "eslint .",
+    "check:time": "ccms-check-time src scripts mocks",
+    "test": "node --test \"test/**/*.test.js\" && npm run test:engine:tz",
+    "test:engine:tz": "node scripts/test-engine-tz.mjs",
+    "db:sync": "node --env-file-if-exists=.env.local scripts/sync-db.js",
+    "seed": "node --env-file-if-exists=.env.local scripts/seed.js",
+    "recode:pup-offices": "node --env-file-if-exists=.env.local scripts/recode-pup-offices.js",
+    "seed:holidays": "node --env-file-if-exists=.env.local scripts/seed-holidays.js",
+    "mocks": "node --env-file-if-exists=.env.local mocks/index.js",
+    "ci": "npm run lint && npm run check:time && npm test && npm run build",
+    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js"
+  },
+  "dependencies": {
+    "ccms-shared": "0.1.0",
+    "jose": "6.2.12",
+    "next": "16.4.5",
+    "pg": "8.23.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typeorm": "0.3.31"
+  },
+  "devDependencies": {
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.5"
+  }
+}

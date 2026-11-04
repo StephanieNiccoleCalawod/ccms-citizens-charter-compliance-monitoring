@@ -1,0 +1,73 @@
+{
+  "rootStart": {
+    "readyProcesses": 6,
+    "results": [
+      {
+        "url": "http://127.0.0.1:3000/",
+        "status": 200
+      },
+      {
+        "url": "http://127.0.0.1:3000/api/health",
+        "status": 200
+      },
+      {
+        "url": "http://127.0.0.1:8080/api/health",
+        "status": 200
+      },
+      {
+        "url": "http://127.0.0.1:3001/api/health",
+        "status": 200
+      },
+      {
+        "url": "http://127.0.0.1:3003/api/health",
+        "status": 200
+      }
+    ]
+  },
+  "isolatedSchemas": [
+    "ccms_identity",
+    "ccms_core",
+    "ccms_operations",
+    "ccms_oversight"
+  ],
+  "databaseBackedSmoke": [
+    {
+      "app": "oversight-service",
+      "port": 3002,
+      "status": 200
+    },
+    {
+      "app": "identity-service",
+      "port": 3001,
+      "status": 200
+    },
+    {
+      "app": "core-service",
+      "port": 3003,
+      "status": 200
+    },
+    {
+      "app": "operations-service",
+      "port": 3004,
+      "status": 200
+    },
+    {
+      "app": "api-gateway",
+      "port": 8080,
+      "status": 200
+    },
+    {
+      "app": "frontend",
+      "port": 3000,
+      "status": 200
+    },
+    {
+      "check": "frontend-to-gateway rewrite",
+      "status": 200
+    },
+    {
+      "check": "gateway rejects unauthenticated protected request",
+      "status": 401
+    }
+  ]
+}

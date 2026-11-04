@@ -1,0 +1,1556 @@
+{
+  "frontend": {
+    "archive": "ccms-frontend-Sprint-4-updated.zip",
+    "sha256": "de36d2914a88245d04abb03a6940c1b58b2bfee526474d11052d75cda66a7edb",
+    "archivePackageRoot": "ccms-frontend-Sprint-4-updated/",
+    "originalPackage": {
+      "name": "ccms-frontend",
+      "version": "0.1.0",
+      "private": true,
+      "type": "module",
+      "description": "CCMS frontend: every screen of the system (public home, sign-in, accounts, offices, services, calendar). Calls the API gateway only.",
+      "ccms": {
+        "service": "frontend",
+        "port": 3000
+      },
+      "scripts": {
+        "dev": "next dev -p 3000",
+        "build": "next build",
+        "start": "next start -p 3000",
+        "lint": "eslint .",
+        "test": "node --test \"tests/unit/**/*.test.js\"",
+        "ci": "npm run lint && npm test && npm run build"
+      },
+      "dependencies": {
+        "ccms-shared": "file:./vendor/ccms-shared",
+        "next": "^16.4.2",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
+      },
+      "devDependencies": {
+        "@tailwindcss/postcss": "^4.1.0",
+        "eslint": "^9.0.0",
+        "eslint-config-next": "^16.3.0",
+        "playwright": "^1.64.0",
+        "postcss": "^8.5.0",
+        "tailwindcss": "^4.1.0"
+      }
+    },
+    "environmentVariables": [
+      "ADMIN_EMAIL",
+      "ADMIN_PASSWORD",
+      "API_GATEWAY_URL",
+      "BASE_URL",
+      "OUT_DIR",
+      "TZ"
+    ],
+    "schemaAndMigrationFiles": [],
+    "crossPackageImports": [
+      {
+        "file": "src/app/accounts/page.js",
+        "line": "import { ROLES, ROLE_LABELS, ROLE_LIST, isOfficeBound } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/calendar/WorkingHours.js",
+        "line": "import { ROLE_LABELS } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/calendar/page.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/campus/page.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/logs/page.js",
+        "line": "import { ROLES, ROLE_LABELS } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/office/page.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/offices/page.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/services/[id]/page.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/services/page.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/settings/Counters.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/transactions/[id]/page.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/transactions/new/page.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/app/transactions/page.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/components/layout/AppShell.js",
+        "line": "import { landingForRole } from 'ccms-shared/nav';"
+      },
+      {
+        "file": "src/components/layout/AppShell.js",
+        "line": "import { ROLES, ROLE_LABELS } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/components/transactions/StartTransactionForm.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/components/ui/RoleBadge.js",
+        "line": "import { ROLE_LABELS } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/lib/auth/guards.js",
+        "line": "import { ROLE_LIST } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/lib/auth/permissions.js",
+        "line": "import { navForRole } from 'ccms-shared/nav';"
+      },
+      {
+        "file": "src/lib/auth/permissions.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/lib/auth/permissions.js",
+        "line": "export { landingForRole, navForRole } from 'ccms-shared/nav';"
+      },
+      {
+        "file": "src/lib/auth/permissions.js",
+        "line": "export { ROLE_LABELS } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/lib/ui/cancel-transaction.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "src/lib/ui/role-style.js",
+        "line": "// One place that decides the colour of each role badge. Role values and labels come from ccms-shared; this only styles them."
+      },
+      {
+        "file": "src/lib/ui/transaction-settings.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "tests/e2e/smoke.cjs",
+        "line": "//    Admin from ccms-identity-service/.env.local and sample data loaded."
+      },
+      {
+        "file": "tests/unit/audit-log.test.js",
+        "line": "import { ROLE_LIST, ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "tests/unit/cancel-transaction.test.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "tests/unit/role-badge.test.js",
+        "line": "import { ROLE_LIST, ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "tests/unit/role-badge.test.js",
+        "line": "it('the role values and labels are not changed here (they come from ccms-shared)', () => {"
+      },
+      {
+        "file": "tests/unit/roles.test.js",
+        "line": "import { ROLE_LIST } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "tests/unit/session.test.js",
+        "line": "// Roles are the canonical lowercase values from ccms-shared/roles (what Identity puts in the token)."
+      },
+      {
+        "file": "tests/unit/start-transaction.test.js",
+        "line": "import { ROLE_LIST, ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "tests/unit/structure.test.js",
+        "line": "import { ROLE_LIST } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "tests/unit/transaction-list.test.js",
+        "line": "import { ROLE_LIST, ROLES } from 'ccms-shared/roles';"
+      },
+      {
+        "file": "tests/unit/transaction-settings.test.js",
+        "line": "import { ROLES } from 'ccms-shared/roles';"
+      }
+    ],
+    "exampleEnvironmentVariables": [
+      "API_GATEWAY_URL"
+    ],
+    "migratedDirectDependencies": {
+      "ccms-shared": "0.1.0",
+      "next": "16.4.5",
+      "react": "19.3.0",
+      "react-dom": "19.3.0"
+    },
+    "migratedDevDependencies": {
+      "@tailwindcss/postcss": "4.3.3",
+      "eslint": "9.39.5",
+      "eslint-config-next": "16.4.5",
+      "playwright": "1.64.0",
+      "postcss": "8.5.29",
+      "tailwindcss": "4.3.3"
+    }
+  },
+  "api-gateway": {
+    "archive": "ccmc-api-gateway-development.zip",
+    "sha256": "65936f08d954a8cb80a418481015a0bd57f8871ecd2700fde853a5dc3881b4de",
+    "archivePackageRoot": "ccmc-api-gateway-development/ccms-api-gateway/",
+    "originalPackage": {
+      "name": "ccms-api-gateway",
+      "version": "0.1.0",
+      "private": true,
+      "type": "module",
+      "description": "CCMS API gateway: the one public entry point for the browser. Next.js Route Handlers that check the token and forward to Identity, Core and Logs.",
+      "ccms": {
+        "service": "api-gateway",
+        "port": 8080
+      },
+      "scripts": {
+        "dev": "next dev -p 8080",
+        "build": "next build",
+        "start": "next start -p 8080",
+        "lint": "eslint .",
+        "test": "node --test \"test/**/*.test.js\"",
+        "ci": "npm run lint && npm test && npm run build"
+      },
+      "dependencies": {
+        "jose": "^6.2.0",
+        "next": "^16.3.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
+      },
+      "devDependencies": {
+        "eslint": "^9.0.0",
+        "eslint-config-next": "^16.3.0"
+      }
+    },
+    "environmentVariables": [
+      "CORE_URL",
+      "IDENTITY_JWKS_URL",
+      "IDENTITY_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "LOGS_URL",
+      "OPERATIONS_URL",
+      "PROXY_TIMEOUT_SECONDS",
+      "REQUIRE_TLS",
+      "TRUST_PROXY",
+      "VERCEL",
+      "VERIFY_TOKENS"
+    ],
+    "schemaAndMigrationFiles": [],
+    "crossPackageImports": [],
+    "exampleEnvironmentVariables": [
+      "CORE_URL",
+      "IDENTITY_JWKS_URL",
+      "IDENTITY_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "LOGS_URL",
+      "OPERATIONS_URL",
+      "PROXY_TIMEOUT_SECONDS",
+      "REQUIRE_TLS",
+      "TRUST_PROXY",
+      "VERIFY_TOKENS"
+    ],
+    "migratedDirectDependencies": {
+      "jose": "6.2.12",
+      "next": "16.4.5",
+      "react": "19.3.0",
+      "react-dom": "19.3.0"
+    },
+    "migratedDevDependencies": {
+      "eslint": "9.39.5",
+      "eslint-config-next": "16.4.5"
+    }
+  },
+  "identity-service": {
+    "archive": "ccmc-identity-service-Development.zip",
+    "sha256": "537539b7855a13e5d0330ea1756c6eb3737ed17fca3e89db4c9bde4a4d17811c",
+    "archivePackageRoot": "ccmc-identity-service-Development/",
+    "originalPackage": {
+      "name": "ccms-identity-service",
+      "version": "0.1.0",
+      "private": true,
+      "type": "module",
+      "ccms": {
+        "service": "identity",
+        "port": 3001
+      },
+      "scripts": {
+        "dev": "next dev -p 3001",
+        "build": "next build",
+        "start": "next start -p 3001",
+        "lint": "eslint .",
+        "check:time": "ccms-check-time src scripts",
+        "test": "node --test \"test/**/*.test.js\"",
+        "db:sync": "node --env-file-if-exists=.env.local scripts/sync-db.js",
+        "ci": "npm run lint && npm run check:time && npm test && npm run build",
+        "bootstrap:admin": "node --env-file-if-exists=.env.local scripts/bootstrap.js",
+        "keygen": "node scripts/generate-jwt-key.js",
+        "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js"
+      },
+      "dependencies": {
+        "ccms-shared": "file:./vendor/ccms-shared",
+        "jose": "^6.2.0",
+        "next": "^16.3.0",
+        "nodemailer": "^7.0.13",
+        "pg": "^8.13.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "typeorm": "^0.3.20"
+      },
+      "devDependencies": {
+        "eslint": "^9.0.0",
+        "eslint-config-next": "^16.3.0"
+      }
+    },
+    "environmentVariables": [
+      "BOOTSTRAP_ADMIN_EMAIL",
+      "BOOTSTRAP_ADMIN_EMPLOYEE_NO",
+      "BOOTSTRAP_ADMIN_NAME",
+      "BOOTSTRAP_ADMIN_PASSWORD",
+      "COOKIE_SECURE",
+      "CORE_SERVICE_URL",
+      "CRON_SECRET",
+      "DATABASE_URL",
+      "DB_SYNCHRONIZE",
+      "EMAIL_API_KEY",
+      "EMAIL_API_URL",
+      "EMAIL_FROM",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "JWT_KEY_ID",
+      "JWT_PRIVATE_KEY",
+      "LOGS_SERVICE_URL",
+      "NODE_ENV",
+      "PUBLIC_API_BASE",
+      "PUBLIC_BASE_URL",
+      "SERVICE_KEY",
+      "SMTP_HOST",
+      "SMTP_PASS",
+      "SMTP_PORT",
+      "SMTP_SECURE",
+      "SMTP_USER"
+    ],
+    "schemaAndMigrationFiles": [
+      "scripts/bootstrap.js",
+      "scripts/migrate.js",
+      "scripts/sync-db.js",
+      "src/lib/after-sync.js",
+      "src/lib/entities/index.js"
+    ],
+    "crossPackageImports": [
+      {
+        "file": "scripts/bootstrap.js",
+        "line": "import { getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/sync-db.js",
+        "line": "import { getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/accounts/[id]/deactivate/route.js",
+        "line": "import { ROLES, clientIp, json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/accounts/[id]/reactivate/route.js",
+        "line": "import { ROLES, clientIp, json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/accounts/[id]/reset-password/route.js",
+        "line": "import { ROLES, clientIp, json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/accounts/[id]/route.js",
+        "line": "import { ROLES, assertOfficeAccess, clientIp, json, readJson, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/accounts/route.js",
+        "line": "import { ROLES, clientIp, json, readJson, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/auth/jwks/route.js",
+        "line": "import { json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/auth/login/route.js",
+        "line": "import { AppError, Errors, buildErrorBody, clientIp, createDbStore, createRateLimiter, json, readJson, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/auth/logout/route.js",
+        "line": "import { noContent, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/auth/password-reset/confirm/route.js",
+        "line": "import { clientIp, json, readJson, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/auth/refresh/route.js",
+        "line": "import { AppError, buildErrorBody, json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/health/route.js",
+        "line": "import { json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/jobs/outbox/route.js",
+        "line": "import { cronRoute } from 'ccms-shared';"
+      },
+      {
+        "file": "src/jobs/outbox-dispatch.js",
+        "line": "import { dispatchOutbox } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/accounts.js",
+        "line": "import { Errors, ROLES, ROLE_LIST, isOfficeBound, isUniqueViolation, isValidRole, isUuid, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/auth-service.js",
+        "line": "import { Errors } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/bootstrap.js",
+        "line": "import { ROLES, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/data-source.js",
+        "line": "import { getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/entities/index.js",
+        "line": "import { OutboxEvent, RateLimitHit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/guard.js",
+        "line": "import { createTokenVerifier, requirePermission } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/mailer.js",
+        "line": "import { AppError } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/offices-client.js",
+        "line": "import { Errors, isUuid, serviceHeaders } from 'ccms-shared';"
+      },
+      {
+        "file": "test/accounts.test.js",
+        "line": "import { ROLES } from 'ccms-shared';"
+      },
+      {
+        "file": "test/auth.test.js",
+        "line": "import { ROLES, createMemoryStore, createRateLimiter, createTokenVerifier } from 'ccms-shared';"
+      },
+      {
+        "file": "test/bootstrap.test.js",
+        "line": "import { ROLES } from 'ccms-shared';"
+      },
+      {
+        "file": "test/boundary.test.js",
+        "line": "import { ROLES } from 'ccms-shared';"
+      },
+      {
+        "file": "test/boundary.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/helpers.js",
+        "line": "import { Errors, ROLES, setDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "test/helpers.js",
+        "line": "import { createTestDatabase } from 'ccms-shared/testing';"
+      }
+    ],
+    "exampleEnvironmentVariables": [
+      "BOOTSTRAP_ADMIN_EMAIL",
+      "BOOTSTRAP_ADMIN_EMPLOYEE_NO",
+      "BOOTSTRAP_ADMIN_NAME",
+      "BOOTSTRAP_ADMIN_PASSWORD",
+      "CORE_SERVICE_URL",
+      "CRON_SECRET",
+      "DATABASE_URL",
+      "DB_SYNCHRONIZE",
+      "EMAIL_API_KEY",
+      "EMAIL_API_URL",
+      "EMAIL_FROM",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "JWT_PRIVATE_KEY",
+      "LOGS_SERVICE_URL",
+      "PUBLIC_BASE_URL",
+      "SERVICE_KEY",
+      "SMTP_HOST",
+      "SMTP_PASS",
+      "SMTP_PORT",
+      "SMTP_USER"
+    ],
+    "migratedDirectDependencies": {
+      "ccms-shared": "0.1.0",
+      "jose": "6.2.12",
+      "next": "16.4.5",
+      "nodemailer": "7.0.13",
+      "pg": "8.23.1",
+      "react": "19.3.0",
+      "react-dom": "19.3.0",
+      "typeorm": "0.3.31"
+    },
+    "migratedDevDependencies": {
+      "eslint": "9.39.5",
+      "eslint-config-next": "16.4.5"
+    },
+    "additionalSharedEnvironmentVariables": [
+      "CRON_SECRET",
+      "DATABASE_SSL",
+      "DATABASE_SSL_INSECURE",
+      "DATABASE_URL",
+      "DB_POOL_MAX",
+      "DB_SYNCHRONIZE",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "PUBLIC_RATE_LIMIT",
+      "PUBLIC_RATE_WINDOW_SECONDS",
+      "SERVICE_KEY",
+      "TEST_PG_URL",
+      "TZ"
+    ]
+  },
+  "core-service": {
+    "archive": "ccms-core-service-develop-1.0.zip",
+    "sha256": "9f94a55a75cf42f24baa9de7204ee90480e9cb0b534e169931d712c249275194",
+    "archivePackageRoot": "ccms-core-service-develop-1.0/",
+    "originalPackage": {
+      "name": "ccms-core-service",
+      "version": "0.1.0",
+      "private": true,
+      "type": "module",
+      "ccms": {
+        "service": "core",
+        "port": 3003
+      },
+      "scripts": {
+        "readiness": "node --env-file-if-exists=.env.local scripts/readiness-report.js",
+        "migrate:sprint4": "node --env-file-if-exists=.env.local scripts/migrate-sprint4-critical.js",
+        "freeze:offices": "node --env-file-if-exists=.env.local scripts/freeze-offices.js",
+        "setup:pup": "node --env-file-if-exists=.env.local scripts/setup-pup.js",
+        "predev": "npm run db:bootstrap",
+        "db:bootstrap": "node --env-file-if-exists=.env.local scripts/bootstrap.js",
+        "dev": "next dev -p 3003",
+        "build": "next build",
+        "start": "next start -p 3003",
+        "lint": "eslint .",
+        "check:time": "ccms-check-time src scripts mocks",
+        "test": "node --test \"test/**/*.test.js\" && npm run test:engine:tz",
+        "test:engine:tz": "node scripts/test-engine-tz.mjs",
+        "db:sync": "node --env-file-if-exists=.env.local scripts/sync-db.js",
+        "seed": "node --env-file-if-exists=.env.local scripts/seed.js",
+        "recode:pup-offices": "node --env-file-if-exists=.env.local scripts/recode-pup-offices.js",
+        "seed:holidays": "node --env-file-if-exists=.env.local scripts/seed-holidays.js",
+        "mocks": "node --env-file-if-exists=.env.local mocks/index.js",
+        "ci": "npm run lint && npm run check:time && npm test && npm run build",
+        "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js"
+      },
+      "dependencies": {
+        "ccms-shared": "file:vendor/ccms-shared",
+        "jose": "^6.2.0",
+        "next": "^16.3.0",
+        "pg": "^8.13.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "typeorm": "^0.3.20"
+      },
+      "devDependencies": {
+        "eslint": "^9.0.0",
+        "eslint-config-next": "^16.3.0"
+      }
+    },
+    "environmentVariables": [
+      "AUDIT_URL",
+      "CAL_EFFECT_ENABLED",
+      "CAL_WINDOW_FROM",
+      "CAL_WINDOW_TO",
+      "CCMS_CALENDAR_URL",
+      "CCMS_EXPECT_TZ_OFFSET",
+      "CCMS_SEED_ACTOR_ID",
+      "CRON_SECRET",
+      "DATABASE_URL",
+      "DB_SYNCHRONIZE",
+      "FMS_URL",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "LOGS_SERVICE_URL",
+      "MOCK_AUDIT_PORT",
+      "MOCK_FMS_PORT",
+      "NODE_ENV",
+      "PUBLIC_RATE_LIMIT",
+      "PUBLIC_RATE_WINDOW_SECONDS",
+      "SERVICE_KEY",
+      "SMS_SYNC_ENABLED",
+      "SMS_URL",
+      "SYNC_MAX_ATTEMPTS",
+      "SYNC_RETRY_INTERVAL_SECONDS"
+    ],
+    "schemaAndMigrationFiles": [
+      "scripts/bootstrap.js",
+      "scripts/migrate-sprint4-critical.js",
+      "scripts/migrate.js",
+      "scripts/sync-db.js",
+      "src/lib/after-sync.js",
+      "src/lib/catalogue/seeding-model-migration.js",
+      "src/lib/entities/index.js",
+      "src/lib/migrations/sprint4-critical.js",
+      "test/critical-migrations.test.js"
+    ],
+    "crossPackageImports": [
+      {
+        "file": "scripts/bootstrap.js",
+        "line": "import { createDataSource, getDataSource, isUuid } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/freeze-offices.js",
+        "line": "import { createDataSource, isUuid, ROLES } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/migrate-sprint4-critical.js",
+        "line": "import { createDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/readiness-report.js",
+        "line": "import { createDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/recode-pup-offices.js",
+        "line": "import { isUuid } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/seed-holidays.js",
+        "line": "import { getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/seed.js",
+        "line": "const args = { dryRun: false, file: null, actor: null };"
+      },
+      {
+        "file": "scripts/setup-pup.js",
+        "line": "import { createDataSource, isUuid, ROLES } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/sync-db.js",
+        "line": "import { createDataSource, getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/add-working-minutes/route.js",
+        "line": "import { json, readJson, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/catalogue-settings/route.js",
+        "line": "import { ROLE_LIST, clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/deadline/route.js",
+        "line": "import { json, readJson, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/declarations/route.js",
+        "line": "import { json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/exceptions/[id]/route.js",
+        "line": "import { Errors, ROLES, clientIp, isUuid, json, noContent, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/exceptions/route.js",
+        "line": "import { ROLES, ROLE_LIST, clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/health/route.js",
+        "line": "import { json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/holidays/route.js",
+        "line": "import { Errors, isValidManilaDate, json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/is-working-day/route.js",
+        "line": "import { json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/jobs/calendar-sync/route.js",
+        "line": "import { cronRoute } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/jobs/outbox/route.js",
+        "line": "import { cronRoute } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/machine-keys/[id]/revoke/route.js",
+        "line": "import { Errors, ROLES, clientIp, isUuid, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/machine-keys/[id]/rotate/route.js",
+        "line": "import { Errors, ROLES, clientIp, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/machine-keys/route.js",
+        "line": "import { ROLES, clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/offices/[id]/deactivate/route.js",
+        "line": "import { ROLES, Errors, clientIp, isUuid, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/offices/[id]/reactivate/route.js",
+        "line": "import { ROLES, Errors, clientIp, isUuid, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/offices/[id]/route.js",
+        "line": "import { ROLES, ROLE_LIST, Errors, clientIp, hasValidServiceKey, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/offices/route.js",
+        "line": "import { ROLES, ROLE_LIST, clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/public/services/[id]/route.js",
+        "line": "import { json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/public/services/route.js",
+        "line": "import { json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/schedule/history/route.js",
+        "line": "import { ROLES, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/schedule/route.js",
+        "line": "import { ROLES, ROLE_LIST, clientIp, json, readJson, requirePermission, route, hasValidServiceKey } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/[id]/deactivate/route.js",
+        "line": "import { ROLES, Errors, clientIp, isUuid, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/[id]/documents/[documentId]/route.js",
+        "line": "import { ROLES, Errors, clientIp, isUuid, json, noContent, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/[id]/documents/route.js",
+        "line": "import { ROLES, Errors, clientIp, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/[id]/reactivate/route.js",
+        "line": "import { ROLES, Errors, clientIp, isUuid, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/[id]/route.js",
+        "line": "import { ROLES, ROLE_LIST, Errors, clientIp, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/[id]/standard/route.js",
+        "line": "import { ROLE_LIST, Errors, hasValidServiceKey, isUuid, isValidManilaDate, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/[id]/standards/[standardId]/route.js",
+        "line": "import { ROLES, Errors, clientIp, isUuid, noContent, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/[id]/standards/route.js",
+        "line": "import { ROLES, ROLE_LIST, Errors, clientIp, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/next-code/route.js",
+        "line": "import { ROLES, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/services/route.js",
+        "line": "import { ROLES, ROLE_LIST, clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/sync/ack/route.js",
+        "line": "import { Errors, json, readJson, requireServiceKey, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/sync/status/route.js",
+        "line": "import { ROLES, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/terms/[id]/route.js",
+        "line": "import { Errors, ROLES, clientIp, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/terms/route.js",
+        "line": "import { ROLES, ROLE_LIST, clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/working-minutes/route.js",
+        "line": "import { json, readJson, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/jobs/outbox-dispatch.js",
+        "line": "import { dispatchOutbox } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/calendar-rules.js",
+        "line": "import { Errors, isUuid, isValidManilaDate } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/declarations.js",
+        "line": "import { Errors, isValidManilaDate } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/engine-auth.js",
+        "line": "import { ROLE_LIST, Errors, assertOfficeAccess, authenticate, hasValidServiceKey } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/engine-service.js",
+        "line": "import { Errors, isUuid, isValidManilaDate } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/engine/working-time.js",
+        "line": "import { MANILA_OFFSET_HOURS } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/exceptions.js",
+        "line": "import { Errors, assertOfficeAccess, officeFilter, isUniqueViolation, isValidManilaDate, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/holiday-import.js",
+        "line": "import { isValidManilaDate } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/message.js",
+        "line": "import { isValidManilaDate } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/schedule.js",
+        "line": "import { Errors, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/sync.js",
+        "line": "import { Errors, isUuid } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/calendar/terms.js",
+        "line": "import { Errors, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/catalogue-rules.js",
+        "line": "import { Errors, fromManila, isValidManilaDate, toManilaDate } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/documents.js",
+        "line": "import { Errors, isUniqueViolation, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/office-freeze.js",
+        "line": "import { Errors, ROLES, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/offices.js",
+        "line": "import { ROLES, Errors, isUniqueViolation, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/public-catalogue.js",
+        "line": "import { Errors, buildErrorBody, clientIp, createDbStore, createRateLimiter, isUuid, publicLimits } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/recode-pup-offices.js",
+        "line": "import { Errors, isUuid } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/seed.js",
+        "line": "import { AppError, Errors } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/service-codes.js",
+        "line": "import { Errors, isUuid } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/services.js",
+        "line": "import { ROLES, Errors, assertOfficeAccess, isOfficeBound, isUniqueViolation, isUuid, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/settings.js",
+        "line": "import { Errors, ROLES, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/catalogue/standards.js",
+        "line": "import { ROLES, Errors, assertOfficeAccess, isUniqueViolation, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/data-source.js",
+        "line": "import { getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/entities/index.js",
+        "line": "import { OutboxEvent, RateLimitHit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/machine-keys.js",
+        "line": "import { Errors, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "test/calendar-engine-api.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/calendar-engine/purity.test.js",
+        "line": "it(`${file} imports nothing but ccms-shared time constants and the engine's own modules`, () => {"
+      },
+      {
+        "file": "test/calendar-engine/purity.test.js",
+        "line": "for (const source of imports) assert.ok(source === 'ccms-shared' || source.startsWith('./'), `unexpected import ${source}`);"
+      },
+      {
+        "file": "test/calendar-engine/working-time.test.js",
+        "line": "import { manilaParts } from 'ccms-shared';"
+      },
+      {
+        "file": "test/calendar-exceptions.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/calendar-helpers.js",
+        "line": "import { ROLES, setDataSource, setDefaultVerifier } from 'ccms-shared';"
+      },
+      {
+        "file": "test/calendar-helpers.js",
+        "line": "import { createTestDatabase, createTestKeys } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/calendar-schedule.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/calendar-terms.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/critical-migrations.test.js",
+        "line": "import { createTestDatabase } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/development-bootstrap.test.js",
+        "line": "import { createTestDatabase } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/offices.test.js",
+        "line": "import { ROLES, setDataSource, setDefaultVerifier } from 'ccms-shared';"
+      },
+      {
+        "file": "test/offices.test.js",
+        "line": "import { createTestDatabase, createTestKeys, runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/recode-pup-offices.test.js",
+        "line": "import { createTestDatabase } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/services.test.js",
+        "line": "import { ROLES, setDataSource, setDefaultVerifier } from 'ccms-shared';"
+      },
+      {
+        "file": "test/services.test.js",
+        "line": "import { createTestDatabase, createTestKeys, runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/services.test.js",
+        "line": "const { createDbStore, createRateLimiter } = await import('ccms-shared');"
+      }
+    ],
+    "exampleEnvironmentVariables": [
+      "AUDIT_URL",
+      "CAL_EFFECT_ENABLED",
+      "CAL_WINDOW_FROM",
+      "CAL_WINDOW_TO",
+      "CCMS_CALENDAR_URL",
+      "CCMS_SEED_ACTOR_ID",
+      "CRON_SECRET",
+      "DATABASE_URL",
+      "DB_SYNCHRONIZE",
+      "FMS_URL",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "LOGS_SERVICE_URL",
+      "MOCK_AUDIT_PORT",
+      "MOCK_FMS_PORT",
+      "PUBLIC_RATE_LIMIT",
+      "PUBLIC_RATE_WINDOW_SECONDS",
+      "SERVICE_KEY",
+      "SMS_SYNC_ENABLED",
+      "SMS_URL",
+      "SYNC_MAX_ATTEMPTS",
+      "SYNC_RETRY_INTERVAL_SECONDS"
+    ],
+    "migratedDirectDependencies": {
+      "ccms-shared": "0.1.0",
+      "jose": "6.2.12",
+      "next": "16.4.5",
+      "pg": "8.23.1",
+      "react": "19.3.0",
+      "react-dom": "19.3.0",
+      "typeorm": "0.3.31"
+    },
+    "migratedDevDependencies": {
+      "eslint": "9.39.5",
+      "eslint-config-next": "16.4.5"
+    },
+    "additionalSharedEnvironmentVariables": [
+      "CRON_SECRET",
+      "DATABASE_SSL",
+      "DATABASE_SSL_INSECURE",
+      "DATABASE_URL",
+      "DB_POOL_MAX",
+      "DB_SYNCHRONIZE",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "PUBLIC_RATE_LIMIT",
+      "PUBLIC_RATE_WINDOW_SECONDS",
+      "SERVICE_KEY",
+      "TEST_PG_URL",
+      "TZ"
+    ]
+  },
+  "operations-service": {
+    "archive": "ccms-operation-service-develop.zip",
+    "sha256": "39dfd7c0507762c240e761b8aaaabafa47a0a5d1dd09a28397a90c7a77ef0bcf",
+    "archivePackageRoot": "ccms-operation-service-develop/",
+    "originalPackage": {
+      "name": "ccms-operations-service",
+      "version": "0.1.0",
+      "private": true,
+      "type": "module",
+      "ccms": {
+        "service": "operations",
+        "port": 3004
+      },
+      "scripts": {
+        "migrate:sprint4": "node --env-file-if-exists=.env.local scripts/migrate-sprint4-critical.js",
+        "dev": "next dev -p 3004",
+        "build": "next build",
+        "start": "next start -p 3004",
+        "lint": "eslint .",
+        "check:time": "ccms-check-time src scripts",
+        "test": "node --test \"test/**/*.test.js\"",
+        "db:sync": "node --env-file-if-exists=.env.local scripts/sync-db.js",
+        "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js",
+        "ci": "npm run lint && npm run check:time && npm test && npm run build"
+      },
+      "dependencies": {
+        "ccms-shared": "file:./vendor/ccms-shared",
+        "jose": "^6.2.0",
+        "next": "^16.3.0",
+        "pg": "^8.13.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "typeorm": "^0.3.20"
+      },
+      "devDependencies": {
+        "eslint": "^9.0.0",
+        "eslint-config-next": "^16.3.0"
+      }
+    },
+    "environmentVariables": [
+      "CORE_URL",
+      "CRON_SECRET",
+      "DATABASE_URL",
+      "DB_SYNCHRONIZE",
+      "EMAIL_FROM",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "LOGS_SERVICE_URL",
+      "SERVICE_KEY",
+      "SMTP_HOST",
+      "SMTP_PASS",
+      "SMTP_PORT",
+      "SMTP_USER"
+    ],
+    "schemaAndMigrationFiles": [
+      "scripts/migrate-sprint4-critical.js",
+      "scripts/migrate.js",
+      "scripts/sync-db.js",
+      "src/lib/after-sync.js",
+      "src/lib/entities/index.js",
+      "src/lib/migrations/sprint4-critical.js",
+      "test/critical-migrations.test.js"
+    ],
+    "crossPackageImports": [
+      {
+        "file": "scripts/migrate-sprint4-critical.js",
+        "line": "import { createDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/sync-db.js",
+        "line": "import { getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/counters/[id]/deactivate/route.js",
+        "line": "import { ROLES, clientIp, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/counters/[id]/reactivate/route.js",
+        "line": "import { ROLES, clientIp, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/counters/[id]/route.js",
+        "line": "import { ROLES, clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/counters/route.js",
+        "line": "import { ROLES, clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/health/route.js",
+        "line": "import { Errors, json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/jobs/auto-close/route.js",
+        "line": "import { cronRoute } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/jobs/compute-pending/route.js",
+        "line": "import { cronRoute } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/jobs/outbox/route.js",
+        "line": "import { cronRoute } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/jobs/receipt-emails/route.js",
+        "line": "import { cronRoute } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/settings/route.js",
+        "line": "import { ROLES, ROLE_LIST, clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/transactions/[id]/cancel/route.js",
+        "line": "import { ROLES, clientIp, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/transactions/[id]/complete/route.js",
+        "line": "import { clientIp, isUuid, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/transactions/[id]/hold/route.js",
+        "line": "import { clientIp, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/transactions/[id]/resume/route.js",
+        "line": "import { clientIp, isUuid, json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/transactions/[id]/route.js",
+        "line": "import { json, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/transactions/route.js",
+        "line": "import { clientIp, json, readJson, requirePermission, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/jobs/outbox-dispatch.js",
+        "line": "import { dispatchOutbox } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/data-source.js",
+        "line": "import { getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/entities/index.js",
+        "line": "import { OutboxEvent, RateLimitHit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/mailer.js",
+        "line": "export function createMailer({ host, port = 587, user = '', pass = '', from, secure = port === 465, timeoutMs = 10_000, requireTls = Boolean(user), hostname = 'ccms-operations', connect = null } = {}) {"
+      },
+      {
+        "file": "src/modules/transaction/access.js",
+        "line": "import { Errors, ROLES } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/auto-close.js",
+        "line": "import { recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/cancel.js",
+        "line": "import { Errors, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/complete.js",
+        "line": "import { Errors, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/compute-pending.js",
+        "line": "import { Errors } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/counters.js",
+        "line": "import { ROLES, Errors, isUniqueViolation, isUuid, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/db.js",
+        "line": "import { Errors, isUniqueViolation } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/hold.js",
+        "line": "import { Errors, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/http.js",
+        "line": "import { Errors, readJson } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/list.js",
+        "line": "import { ROLES, Errors, endOfManilaDay, fromManila, isUuid, isValidManilaDate } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/receipt.js",
+        "line": "import { manilaParts, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/settings.js",
+        "line": "import { Errors, recordAudit } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/start.js",
+        "line": "import { Errors, assertOfficeAccess, isUniqueViolation, isUuid, recordAudit, toManilaDate } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/transaction/time.js",
+        "line": "import { Errors } from 'ccms-shared';"
+      },
+      {
+        "file": "test/cancel.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/complete.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/counters.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/critical-migrations.test.js",
+        "line": "import { createTestDatabase } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/health.test.js",
+        "line": "import { setDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "test/helpers.js",
+        "line": "import { ROLES, setDataSource, setDefaultVerifier } from 'ccms-shared';"
+      },
+      {
+        "file": "test/helpers.js",
+        "line": "import { createTestDatabase, createTestKeys } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/list.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/settings.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      },
+      {
+        "file": "test/start.test.js",
+        "line": "import { ROLES } from 'ccms-shared';"
+      },
+      {
+        "file": "test/start.test.js",
+        "line": "import { runBoundarySuite } from 'ccms-shared/testing';"
+      }
+    ],
+    "exampleEnvironmentVariables": [
+      "CORE_URL",
+      "CRON_SECRET",
+      "DATABASE_URL",
+      "DB_SYNCHRONIZE",
+      "EMAIL_FROM",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "LOGS_SERVICE_URL",
+      "SERVICE_KEY",
+      "SMTP_HOST",
+      "SMTP_PASS",
+      "SMTP_PORT",
+      "SMTP_USER"
+    ],
+    "migratedDirectDependencies": {
+      "ccms-shared": "0.1.0",
+      "jose": "6.2.12",
+      "next": "16.4.5",
+      "pg": "8.23.1",
+      "react": "19.3.0",
+      "react-dom": "19.3.0",
+      "typeorm": "0.3.31"
+    },
+    "migratedDevDependencies": {
+      "eslint": "9.39.5",
+      "eslint-config-next": "16.4.5"
+    },
+    "additionalSharedEnvironmentVariables": [
+      "CRON_SECRET",
+      "DATABASE_SSL",
+      "DATABASE_SSL_INSECURE",
+      "DATABASE_URL",
+      "DB_POOL_MAX",
+      "DB_SYNCHRONIZE",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "PUBLIC_RATE_LIMIT",
+      "PUBLIC_RATE_WINDOW_SECONDS",
+      "SERVICE_KEY",
+      "TEST_PG_URL",
+      "TZ"
+    ]
+  },
+  "oversight-service": {
+    "archive": "ccms-oversight-service-development.zip",
+    "sha256": "80e89393cdf85737b5431a0bdbc64c752b057235c9987f511952111c2bf3ba1d",
+    "archivePackageRoot": "ccms-oversight-service-development/ccms-oversight-service/",
+    "originalPackage": {
+      "name": "ccms-oversight-service",
+      "version": "0.1.0",
+      "private": true,
+      "type": "module",
+      "ccms": {
+        "service": "oversight",
+        "port": 3002
+      },
+      "scripts": {
+        "migrate:sprint4": "node --env-file-if-exists=.env.local scripts/migrate-sprint4-critical.js",
+        "dev": "next dev -p 3002",
+        "build": "next build",
+        "start": "next start -p 3002",
+        "lint": "eslint .",
+        "check:time": "ccms-check-time src scripts",
+        "test": "node --test --test-concurrency=1 \"test/**/*.test.js\"",
+        "db:sync": "node --env-file-if-exists=.env.local scripts/sync-db.js",
+        "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js",
+        "ci": "npm run lint && npm run check:time && npm test && npm run build"
+      },
+      "dependencies": {
+        "ccms-shared": "file:./vendor/ccms-shared",
+        "jose": "^6.2.0",
+        "next": "^16.3.0",
+        "pg": "^8.13.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "typeorm": "^0.3.20"
+      },
+      "devDependencies": {
+        "eslint": "^9.0.0",
+        "eslint-config-next": "^16.3.0"
+      }
+    },
+    "environmentVariables": [
+      "DATABASE_ADMIN_URL",
+      "DATABASE_URL",
+      "DB_SYNCHRONIZE",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "LOGS_WRITER_PASSWORD",
+      "OVERSIGHT_APP_PASSWORD",
+      "SERVICE_KEY"
+    ],
+    "schemaAndMigrationFiles": [
+      "scripts/migrate-sprint4-critical.js",
+      "scripts/migrate.js",
+      "scripts/sync-db.js",
+      "src/lib/after-sync.js",
+      "src/lib/entities/index.js",
+      "src/lib/migrations/sprint4-critical.js"
+    ],
+    "crossPackageImports": [
+      {
+        "file": "scripts/migrate-sprint4-critical.js",
+        "line": "import { createDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "scripts/sync-db.js",
+        "line": "import { getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/audit-events/route.js",
+        "line": "import { ROLES, json, requirePermission, requireServiceKey, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/app/api/health/route.js",
+        "line": "import { Errors, json, route } from 'ccms-shared';"
+      },
+      {
+        "file": "src/lib/data-source.js",
+        "line": "import { getDataSource } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/logs/audit-events.js",
+        "line": "import { AppError, Errors, ROLES, isUuid, validIncomingAuditName } from 'ccms-shared';"
+      },
+      {
+        "file": "src/modules/logs/list.js",
+        "line": "import { Errors, ROLES, endOfManilaDay, fromManila, isUuid, isValidManilaDate } from 'ccms-shared';"
+      },
+      {
+        "file": "test/helpers.js",
+        "line": "import { ROLES, setDataSource, setDefaultVerifier } from 'ccms-shared';"
+      },
+      {
+        "file": "test/helpers.js",
+        "line": "import { createTestDatabase, createTestKeys } from 'ccms-shared/testing';"
+      }
+    ],
+    "exampleEnvironmentVariables": [
+      "DATABASE_ADMIN_URL",
+      "DATABASE_URL",
+      "DB_SYNCHRONIZE",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "LOGS_WRITER_PASSWORD",
+      "OVERSIGHT_APP_PASSWORD",
+      "SERVICE_KEY"
+    ],
+    "migratedDirectDependencies": {
+      "ccms-shared": "0.1.0",
+      "jose": "6.2.12",
+      "next": "16.4.5",
+      "pg": "8.23.1",
+      "react": "19.3.0",
+      "react-dom": "19.3.0",
+      "typeorm": "0.3.31"
+    },
+    "migratedDevDependencies": {
+      "eslint": "9.39.5",
+      "eslint-config-next": "16.4.5"
+    },
+    "additionalSharedEnvironmentVariables": [
+      "CRON_SECRET",
+      "DATABASE_SSL",
+      "DATABASE_SSL_INSECURE",
+      "DATABASE_URL",
+      "DB_POOL_MAX",
+      "DB_SYNCHRONIZE",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "PUBLIC_RATE_LIMIT",
+      "PUBLIC_RATE_WINDOW_SECONDS",
+      "SERVICE_KEY",
+      "TEST_PG_URL",
+      "TZ"
+    ]
+  },
+  "ccms-shared": {
+    "archive": "ccms-shared-develop.zip",
+    "sha256": "7dc7e02b92244f9ca46cd4e6a53fb294a086045e713bdb79902c6557392746f4",
+    "archivePackageRoot": "ccms-shared-develop/",
+    "originalPackage": {
+      "name": "ccms-shared",
+      "version": "0.1.0",
+      "private": true,
+      "type": "module",
+      "description": "CCMS shared auth/permission library, audit outbox client, standard error format and Asia/Manila time utilities",
+      "main": "./src/index.js",
+      "exports": {
+        ".": "./src/index.js",
+        "./testing": "./src/testing/index.js",
+        "./nav": "./src/nav.js",
+        "./roles": "./src/roles.js"
+      },
+      "bin": {
+        "ccms-check-time": "./scripts/check-time-usage.mjs"
+      },
+      "files": [
+        "src",
+        "scripts"
+      ],
+      "scripts": {
+        "lint": "eslint .",
+        "check:time": "node scripts/check-time-usage.mjs src",
+        "test": "node --test \"test/**/*.test.js\"",
+        "ci": "npm run lint && npm run check:time && npm test"
+      },
+      "dependencies": {
+        "jose": "^6.2.0",
+        "pg": "^8.13.0",
+        "typeorm": "^0.3.20"
+      },
+      "devDependencies": {
+        "@eslint/js": "^9.0.0",
+        "eslint": "^9.0.0",
+        "globals": "^16.0.0"
+      }
+    },
+    "environmentVariables": [
+      "CRON_SECRET",
+      "DATABASE_SSL",
+      "DATABASE_SSL_INSECURE",
+      "DATABASE_URL",
+      "DB_POOL_MAX",
+      "DB_SYNCHRONIZE",
+      "IDENTITY_JWKS_URL",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "PUBLIC_RATE_LIMIT",
+      "PUBLIC_RATE_WINDOW_SECONDS",
+      "SERVICE_KEY",
+      "TEST_PG_URL",
+      "TZ"
+    ],
+    "schemaAndMigrationFiles": [],
+    "crossPackageImports": [
+      {
+        "file": "scripts/check-time-usage.mjs",
+        "line": "// Use the Asia/Manila helpers from ccms-shared (toManilaDate, fromManila, ...) or UTC methods"
+      },
+      {
+        "file": "scripts/check-time-usage.mjs",
+        "line": "if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('ccms-check-time')) {"
+      }
+    ],
+    "exampleEnvironmentVariables": [],
+    "migratedDirectDependencies": {
+      "jose": "6.2.12",
+      "pg": "8.23.1",
+      "typeorm": "0.3.31"
+    },
+    "migratedDevDependencies": {
+      "@eslint/js": "9.39.5",
+      "eslint": "9.39.5",
+      "globals": "16.5.0"
+    }
+  }
+}

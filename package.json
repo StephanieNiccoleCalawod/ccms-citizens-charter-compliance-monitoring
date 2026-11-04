@@ -1,0 +1,59 @@
+{
+  "name": "ccms-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.14.0",
+    "npm": ">=10"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/run-apps.mjs dev",
+    "start": "node scripts/run-apps.mjs start",
+    "build": "npm run build:shared && npm run build --workspaces --if-present",
+    "build:shared": "node scripts/check-shared.mjs",
+    "lint": "npm run lint --workspaces --if-present",
+    "check:time": "npm run check:time --workspaces --if-present",
+    "test": "npm test --workspaces --if-present && npm run test:safety",
+    "ci": "npm run lint && npm run check:time && npm test && npm run build",
+    "env:init": "node scripts/init-env.mjs",
+    "db:up": "docker compose -f compose.local.yml up -d",
+    "db:down": "docker compose -f compose.local.yml down",
+    "db:sync": "node scripts/run-db.mjs db:sync",
+    "db:migrate": "node scripts/run-db.mjs migrate",
+    "db:migrate:sprint4": "node scripts/run-db.mjs migrate:sprint4",
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "start:frontend": "npm run start --workspace=apps/frontend",
+    "build:frontend": "npm run build --workspace=apps/frontend",
+    "test:frontend": "npm run test --workspace=apps/frontend",
+    "dev:api-gateway": "npm run dev --workspace=apps/api-gateway",
+    "start:api-gateway": "npm run start --workspace=apps/api-gateway",
+    "build:api-gateway": "npm run build --workspace=apps/api-gateway",
+    "test:api-gateway": "npm run test --workspace=apps/api-gateway",
+    "dev:identity-service": "npm run dev --workspace=apps/identity-service",
+    "start:identity-service": "npm run start --workspace=apps/identity-service",
+    "build:identity-service": "npm run build --workspace=apps/identity-service",
+    "test:identity-service": "npm run test --workspace=apps/identity-service",
+    "dev:core-service": "npm run dev --workspace=apps/core-service",
+    "start:core-service": "npm run start --workspace=apps/core-service",
+    "build:core-service": "npm run build --workspace=apps/core-service",
+    "test:core-service": "npm run test --workspace=apps/core-service",
+    "dev:operations-service": "npm run dev --workspace=apps/operations-service",
+    "start:operations-service": "npm run start --workspace=apps/operations-service",
+    "build:operations-service": "npm run build --workspace=apps/operations-service",
+    "test:operations-service": "npm run test --workspace=apps/operations-service",
+    "dev:oversight-service": "npm run dev --workspace=apps/oversight-service",
+    "start:oversight-service": "npm run start --workspace=apps/oversight-service",
+    "build:oversight-service": "npm run build --workspace=apps/oversight-service",
+    "test:oversight-service": "npm run test --workspace=apps/oversight-service",
+    "test:safety": "node --test scripts/runtime-db.test.mjs"
+  },
+  "devDependencies": {
+    "ccms-shared": "0.1.0",
+    "jose": "6.2.12"
+  }
+}

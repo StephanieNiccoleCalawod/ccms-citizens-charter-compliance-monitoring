@@ -1,0 +1,79 @@
+{
+  "date": "2026-11-04",
+  "analysis": "TypeScript AST reference graph covering all 458 JavaScript/module files, Next.js route entrypoints, package exports/bins/scripts, tests, relative imports, directory imports and shared-package exports; no non-literal runtime imports found. Exact-name documentation/reference search also found no consumers.",
+  "removedSourceFiles": [
+    {
+      "path": "apps/core-service/src/lib/calendar/index.js",
+      "sha256": "7d3846a6e4ca45f8001c1095cc2e5a80cdf2b9f6b637d64163a9905a32c53d62",
+      "reason": "Unreferenced export-only barrel; consumers import the implementation modules directly"
+    },
+    {
+      "path": "apps/core-service/src/lib/catalogue/index.js",
+      "sha256": "7c47dd2b3671b1c15877e21b7fa13420f7f4a713ad3be92b1d7218525c15fccf",
+      "reason": "Unreferenced export-only barrel; consumers import the implementation modules directly"
+    },
+    {
+      "path": "apps/frontend/src/components/layout/PageContainer.js",
+      "sha256": "05795f3e5aff0e7d51f9dc857699365252d553df6201d762b14cafd72936c302",
+      "reason": "Unreferenced layout component"
+    },
+    {
+      "path": "apps/frontend/src/lib/api/index.js",
+      "sha256": "b2adce0ac284d33453b2ca65668107a6a27eda27688a0051ac8fc8c1ee92335d",
+      "reason": "Unreferenced export-only barrel; consumers import the implementation modules directly"
+    },
+    {
+      "path": "apps/operations-service/src/modules/transaction/index.js",
+      "sha256": "ca2f71c2c522e109baca9b6a79e22fda2602aa779eb847fb2a085bbb9fa51103",
+      "reason": "Unreferenced export-only barrel; consumers import the implementation modules directly"
+    }
+  ],
+  "removedTemporaryFiles": [
+    ".run-audit-patched.json",
+    ".run-audit.json",
+    ".run-build-patched.log",
+    ".run-build.log",
+    ".run-core-client-retry.log",
+    ".run-lint-patched.log",
+    ".run-lint.log",
+    ".run-ops-lint.log",
+    ".run-root-start-results.json",
+    ".run-root-start.log",
+    ".run-safety-shared.log",
+    ".run-safety.log",
+    ".run-smoke-results.json",
+    ".run-smoke.log",
+    ".run-tests-clean.log",
+    ".run-tests-final.log",
+    ".run-tests.log",
+    ".run-time-patched.log",
+    ".run-time.log",
+    ".run-workspaces-final.log",
+    ".run-workspaces.log",
+    ".run-cleanup-lint.log",
+    ".run-cleanup-build.log",
+    ".run-cleanup-frontend-tests.log"
+  ],
+  "retained": "Application routes and implementations, exported shared APIs, tests, migrations, seed history, scripts, configuration, environment files and assets.",
+  "verification": {
+    "referenceAnalysis": "passed; removed files have no consumers and runtime imports are literal",
+    "lint": {
+      "command": "npm run lint",
+      "exitCode": 0
+    },
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "applications": 6
+    },
+    "frontendTests": {
+      "command": "npm test --workspace=apps/frontend",
+      "exitCode": 0,
+      "tests": 691,
+      "passed": 691,
+      "failures": 0,
+      "skipped": 0
+    },
+    "backendTests": "Not rerun for this deletion-only cleanup; the migration baseline remains documented separately."
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "ccms-operations-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "ccms": {
+    "service": "operations",
+    "port": 3004
+  },
+  "scripts": {
+    "migrate:sprint4": "node --env-file-if-exists=.env.local scripts/migrate-sprint4-critical.js",
+    "dev": "next dev -p 3004",
+    "build": "next build",
+    "start": "next start -p 3004",
+    "lint": "eslint .",
+    "check:time": "ccms-check-time src scripts",
+    "test": "node --test \"test/**/*.test.js\"",
+    "db:sync": "node --env-file-if-exists=.env.local scripts/sync-db.js",
+    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js",
+    "ci": "npm run lint && npm run check:time && npm test && npm run build"
+  },
+  "dependencies": {
+    "ccms-shared": "0.1.0",
+    "jose": "6.2.12",
+    "next": "16.4.5",
+    "pg": "8.23.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typeorm": "0.3.31"
+  },
+  "devDependencies": {
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.5"
+  }
+}

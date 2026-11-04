@@ -1,0 +1,60 @@
+# Disposable local-only databases. Credentials below are development placeholders.
+name: ccms-monorepo-local
+services:
+  identity-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ccms_identity
+      POSTGRES_PASSWORD: ccms_identity_dev_pw
+      POSTGRES_DB: ccms_identity
+    ports: ["127.0.0.1:5433:5432"]
+    volumes: ["identity-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ccms_identity -d ccms_identity"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  core-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ccms_core
+      POSTGRES_PASSWORD: ccms_core_dev_pw
+      POSTGRES_DB: ccms_core
+    ports: ["127.0.0.1:5435:5432"]
+    volumes: ["core-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ccms_core -d ccms_core"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  operations-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ccms_operations
+      POSTGRES_PASSWORD: ccms_operations_dev_pw
+      POSTGRES_DB: ccms_operations
+    ports: ["127.0.0.1:5436:5432"]
+    volumes: ["operations-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ccms_operations -d ccms_operations"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  oversight-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ccms_oversight
+      POSTGRES_PASSWORD: ccms_oversight_dev_pw
+      POSTGRES_DB: ccms_oversight
+    ports: ["127.0.0.1:5437:5432"]
+    volumes: ["oversight-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ccms_oversight -d ccms_oversight"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  identity-data:
+  core-data:
+  operations-data:
+  oversight-data:
