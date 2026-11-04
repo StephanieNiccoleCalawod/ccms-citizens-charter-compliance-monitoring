@@ -31,7 +31,7 @@ const EMPTY_FORM = { office_code: '', office_name: '', currentCode: null };
 function OfficesManager() {
   const [state, setState] = useState({ loading: true, items: [], error: null });
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState(''); // '' = all, 'active', 'inactive'
+  const [status, setStatus] = useState('active'); // '' = all, 'active' (default), 'inactive'
   const [settings, setSettings] = useState({ loading: true, code: null, error: null }); // the institution code, from Core
   const [form, setForm] = useState(null); // { id?, office_code (the office part), office_name, currentCode }
   const [fieldErrors, setFieldErrors] = useState({});
@@ -163,10 +163,10 @@ function OfficesManager() {
               <option value="inactive">Inactive</option>
             </select>
           </div>
-          {search.trim() || status ? (
+          {search.trim() || status !== 'active' ? (
             <ClearFiltersButton className="w-full sm:w-auto" onClick={() => {
                 setSearch('');
-                setStatus('');
+                setStatus('active');
               }} />
           ) : null}
           <button type="button" className="btn-primary w-full sm:ml-auto sm:w-auto" onClick={() => openForm(null)} disabled={!prefix} title={prefix ? undefined : 'Set the institution code first'}>

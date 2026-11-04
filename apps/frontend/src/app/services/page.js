@@ -2,6 +2,7 @@
 
 import { fetchEveryPage, pageSlice, sortNewestFirst } from '../../lib/ui/newest-first.js';
 import RecordOption from '../../components/forms/RecordOption.js';
+import { isSelectable } from '../../lib/ui/record-status.js';
 import SubmitButton from '../../components/ui/SubmitButton.js';
 import { notify } from '../../lib/ui/notify.js';
 import { saveFailureMessage, savedMessage } from '../../lib/ui/save-feedback.js';
@@ -49,7 +50,7 @@ function ServicesManager({ user }) {
   const isAdmin = user.role === ROLES.SUPER_ADMIN;
   // Office Head and Office Staff only ever see their own office's services (the API enforces it too).
   const ownOfficeOnly = user.role === ROLES.OFFICE_HEAD || user.role === ROLES.OFFICE_STAFF;
-  const [filters, setFilters] = useState({ search: '', office_id: '', classification: '', status: 'all' });
+  const [filters, setFilters] = useState({ search: '', office_id: '', classification: '', status: 'active' });
   const [applied, setApplied] = useState(filters);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -247,7 +248,7 @@ function ServicesManager({ user }) {
               </label>
               <select id="svc-office" className="input select-chevron" value={filters.office_id} onChange={(e) => applyFilters({ ...filters, office_id: e.target.value })}>
                 <option value="">All offices</option>
-                {offices.map((o) => (
+                {offices.filter((o) => isSelectable(o) || filters.status !== 'active' || o.office_id === filters.office_id).map((o) => (
                   <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>
                 ))}
               </select>
@@ -278,8 +279,8 @@ function ServicesManager({ user }) {
               </select>
             </div>
           ) : null}
-          {applied.search.trim() || applied.office_id || applied.classification || applied.status !== 'all' ? (
-            <ClearFiltersButton className="w-full sm:w-auto" onClick={() => applyFilters({ search: '', office_id: '', classification: '', status: 'all' })} />
+          {applied.search.trim() || applied.office_id || applied.classification || applied.status !== 'active' ? (
+            <ClearFiltersButton className="w-full sm:w-auto" onClick={() => applyFilters({ search: '', office_id: '', classification: '', status: 'active' })} />
           ) : null}
           {isAdmin ? (
             <button type="button" className="btn-primary w-full sm:ml-auto sm:w-auto" onClick={() => openForm(null)}>

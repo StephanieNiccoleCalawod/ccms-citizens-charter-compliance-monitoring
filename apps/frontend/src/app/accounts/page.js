@@ -2,6 +2,7 @@
 
 import { fetchEveryPage, pageSlice, sortNewestFirst } from '../../lib/ui/newest-first.js';
 import RecordOption from '../../components/forms/RecordOption.js';
+import { isSelectable } from '../../lib/ui/record-status.js';
 import PasswordField from '../../components/forms/PasswordField.js';
 import { passwordStatus } from '../../lib/ui/password-guidance.js';
 import SubmitButton from '../../components/ui/SubmitButton.js';
@@ -31,7 +32,7 @@ const DEFAULT_PAGE_SIZE = 10;
 const EMPTY_FORM = { employee_no: '', full_name: '', email: '', role: ROLES.OFFICE_STAFF, office_id: '', password: '' };
 
 function AccountsManager() {
-  const [filters, setFilters] = useState({ q: '', role: '', office_id: '', status: '' });
+  const [filters, setFilters] = useState({ q: '', role: '', office_id: '', status: 'active' });
   const [appliedQuery, setAppliedQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -245,7 +246,7 @@ function AccountsManager() {
             <label className="label" htmlFor="filter-office">Office</label>
             <select id="filter-office" className="input select-chevron" value={filters.office_id} onChange={(e) => setFilter('office_id', e.target.value)}>
               <option value="">All offices</option>
-              {offices.map((o) => (
+              {offices.filter((o) => isSelectable(o) || filters.status !== 'active' || o.office_id === filters.office_id).map((o) => (
                 <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>
               ))}
             </select>
@@ -258,11 +259,11 @@ function AccountsManager() {
               <option value="inactive">Inactive</option>
             </select>
           </div>
-          {filters.q.trim() || filters.role || filters.office_id || filters.status ? (
+          {filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active' ? (
             <ClearFiltersButton
               className="w-full sm:w-auto"
               onClick={() => {
-                setFilters({ q: '', role: '', office_id: '', status: '' });
+                setFilters({ q: '', role: '', office_id: '', status: 'active' });
                 setAppliedQuery('');
                 setPage(1);
               }}
@@ -376,7 +377,7 @@ function AccountsManager() {
                   <label className="label" htmlFor="office_id">Office<RequiredMark /></label>
                   <select id="office_id" className="input" value={form.office_id} onChange={(e) => setForm({ ...form, office_id: e.target.value })}>
                     <option value="">Select an office</option>
-                    {offices.map((o) => (
+                    {offices.filter((o) => isSelectable(o) || o.office_id === form.office_id).map((o) => (
                       <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>
                     ))}
                   </select>

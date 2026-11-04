@@ -37,14 +37,14 @@ describe('every admin filter panel works the same way (source checks, not a brow
 
   it('Clear filters only shows while something differs from the default, and puts everything back to the default', () => {
     const offices = read('src/app/offices/page.js');
-    assert.ok(offices.includes('{search.trim() || status ? ('));
-    assert.ok(offices.includes("setSearch('');\n                setStatus('');"));
+    assert.ok(offices.includes("{search.trim() || status !== 'active' ? ("));
+    assert.ok(offices.includes("setSearch('');\n                setStatus('active');"));
     const accounts = read('src/app/accounts/page.js');
-    assert.ok(accounts.includes('{filters.q.trim() || filters.role || filters.office_id || filters.status ? ('));
-    assert.ok(accounts.includes("setFilters({ q: '', role: '', office_id: '', status: '' });\n                setAppliedQuery('');\n                setPage(1);"));
+    assert.ok(accounts.includes("{filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active' ? ("));
+    assert.ok(accounts.includes("setFilters({ q: '', role: '', office_id: '', status: 'active' });\n                setAppliedQuery('');\n                setPage(1);"));
     const services = read('src/app/services/page.js');
-    assert.ok(services.includes("applied.search.trim() || applied.office_id || applied.classification || applied.status !== 'all'"));
-    assert.ok(services.includes("applyFilters({ search: '', office_id: '', classification: '', status: 'all' })"));
+    assert.ok(services.includes("applied.search.trim() || applied.office_id || applied.classification || applied.status !== 'active'"));
+    assert.ok(services.includes("applyFilters({ search: '', office_id: '', classification: '', status: 'active' })"));
     const holidays = read('src/app/calendar/Holidays.js');
     assert.ok(holidays.includes('{filters.search.trim() || filters.type || appliesFilter ? ('));
     assert.ok(holidays.includes("setFilters({ search: '', type: '', applies_to: '' })"));
@@ -93,10 +93,10 @@ describe('every admin filter panel works the same way (source checks, not a brow
 
 describe('the Services filter row and its default status (source checks, not a browser)', () => {
   const page = read('src/app/services/page.js');
-  it('Status starts as All, listed first, and Clear filters goes back to All and is hidden while All is the only setting', () => {
-    assert.ok(page.includes("useState({ search: '', office_id: '', classification: '', status: 'all' })"));
-    assert.ok(page.includes("applied.status !== 'all'"));
-    assert.ok(page.includes("applyFilters({ search: '', office_id: '', classification: '', status: 'all' })"));
+  it('Status starts as Active, All is listed first, and Clear filters goes back to Active and is hidden while Active is the only setting', () => {
+    assert.ok(page.includes("useState({ search: '', office_id: '', classification: '', status: 'active' })"));
+    assert.ok(page.includes("applied.status !== 'active'"));
+    assert.ok(page.includes("applyFilters({ search: '', office_id: '', classification: '', status: 'active' })"));
     assert.ok(page.indexOf('<option value="all">All</option>') < page.indexOf('<option value="active">Active</option>'));
   });
   it('the fields are narrow enough that Clear filters and + Add Service fit on the same row on a laptop', () => {

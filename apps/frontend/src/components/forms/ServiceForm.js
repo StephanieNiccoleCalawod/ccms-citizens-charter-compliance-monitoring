@@ -1,6 +1,7 @@
 'use client';
 
 import RecordOption from './RecordOption.js';
+import { isSelectable } from '../../lib/ui/record-status.js';
 import { useEffect, useRef, useState } from 'react';
 import { CATALOGUE_API, CLASSIFICATIONS, SERVICE_SCOPES, TRANSACTION_TYPES, standardWarning } from '../../lib/api/catalogue.js';
 import { apiFetch } from '../../lib/auth/session.js';
@@ -150,7 +151,7 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
           aria-describedby={describe('office_id')}
         >
           <option value="">Select an office</option>
-          {offices.map((o) => (
+          {offices.filter((o) => isSelectable(o) || o.office_id === form.office_id).map((o) => (
             <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>
           ))}
         </select>
