@@ -102,6 +102,10 @@ describe('validation', () => {
     assert.deepEqual(Object.keys(durationErrors({ duration_days: '0', duration_hours: '0', duration_minutes: '0' })), ['duration']);
     assert.deepEqual(Object.keys(durationErrors({ duration_days: '1.5', duration_hours: '-1', duration_minutes: '' })), ['duration_days', 'duration_hours', 'duration_minutes']);
     assert.deepEqual(durationErrors({ duration_days: '0', duration_hours: '0', duration_minutes: '1' }), {});
+    // hours stay within a day and minutes within an hour; the parts are never converted
+    assert.deepEqual(Object.keys(durationErrors({ duration_days: '10', duration_hours: '0', duration_minutes: '1000' })), ['duration_minutes']);
+    assert.deepEqual(Object.keys(durationErrors({ duration_days: '10', duration_hours: '24', duration_minutes: '60' })), ['duration_hours', 'duration_minutes']);
+    assert.deepEqual(durationErrors({ duration_days: '10', duration_hours: '23', duration_minutes: '59' }), {});
   });
 });
 

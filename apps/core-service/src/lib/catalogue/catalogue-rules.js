@@ -129,11 +129,15 @@ export function parseServiceFields(body, details = {}, { mode = 'create' } = {})
  * `prefix` names nested fields in the error details (e.g. "standard.").
  */
 export function parseStandardFields(body, details = {}, prefix = '') {
+  // Days may be large; hours stay within a day (0 to 23) and minutes within an hour (0 to 59). The parts are never converted.
+  const PART_LIMITS = { duration_days: 1000000, duration_hours: 23, duration_minutes: 59 };
   const readPart = (name) => {
     const value = body[name];
     const numeric = typeof value === 'number' ? value : typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : NaN;
-    if (!Number.isInteger(numeric) || numeric < 0 || numeric > 1000000) {
-      details[`${prefix}${name}`] = 'Duration part must be a whole number of 0 or more';
+    if (!Number.isInteger(numeric) || numeric < 0 || numeric > PART_LIMITS[name]) {
+      details[`${prefix}${name}`] = name === 'duration_days'
+        ? 'Duration part must be a whole number of 0 or more'
+        : `${name === 'duration_hours' ? 'Hours' : 'Minutes'} must be a whole number from 0 to ${PART_LIMITS[name]}`;
     }
     return numeric;
   };

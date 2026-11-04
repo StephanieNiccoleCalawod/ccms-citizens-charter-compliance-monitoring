@@ -562,6 +562,18 @@ describe('CC009 version a standard', () => {
   });
 });
 
+describe('CC007 required documents saved together with a new service', () => {
+  it('hours stay within 0 to 23 and minutes within 0 to 59 (the parts are never converted)', async () => {
+    const tooMany = await createService({ standard: validStandard({ duration_days: 10, duration_hours: 0, duration_minutes: 1000 }) });
+    assert.equal(tooMany.response.status, 400);
+    assert.ok(tooMany.body.error.details['standard.duration_minutes']);
+    const hours = await createService({ standard: validStandard({ duration_hours: 24 }) });
+    assert.ok(hours.body.error.details['standard.duration_hours']);
+    const edge = await createService({ service_name: 'Edge Duration', standard: validStandard({ duration_days: 1, duration_hours: 23, duration_minutes: 59 }) });
+    assert.equal(edge.response.status, 201);
+  });
+});
+
 describe('CC010 required-documents checklist', () => {
   it('AC1: a mandatory document shows on the service and on the public page', async () => {
     const service = await makeService({ service_name: 'Checklist Service' });

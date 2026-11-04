@@ -15,6 +15,7 @@ export const NAME_MAX = 200;
 export const CHARTER_REFERENCE_MAX = 200;
 export const ABBR_PATTERN = /^[A-Z0-9]{2,5}$/;
 const PART_MAX = 1000000;
+const PART_LIMITS = { duration_days: PART_MAX, duration_hours: 23, duration_minutes: 59 }; // hours within a day, minutes within an hour
 
 export const EMPTY_SERVICE_FORM = {
   office_id: '',
@@ -105,7 +106,9 @@ export function durationErrors(values) {
   ];
   for (const [name, label] of parts) {
     const n = toPart(values[name]);
-    if (!isWhole(values[name]) || n > PART_MAX) errors[name] = `${label} must be a whole number of 0 or more.`;
+    if (!isWhole(values[name]) || n > PART_LIMITS[name]) {
+      errors[name] = name === 'duration_days' ? `${label} must be a whole number of 0 or more.` : `${label} must be a whole number from 0 to ${PART_LIMITS[name]}.`;
+    }
   }
   if (Object.keys(errors).length === 0 && parts.every(([name]) => toPart(values[name]) === 0)) {
     errors.duration = 'Enter at least one of working days, hours or minutes (more than 0).';
