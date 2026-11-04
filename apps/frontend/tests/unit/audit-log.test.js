@@ -262,7 +262,7 @@ describe('the Logs page is read only and keeps its filters honest (source checks
     assert.match(page, /<ClearFiltersButton/);
     for (const heading of ['Date &amp; time', 'Done by', 'Action', 'Affected entity', 'Office']) assert.ok(page.includes(heading), heading);
     assert.match(page, /<Pager[\s\S]*?pageSize=\{pageSize\}[\s\S]*?onPageSizeChange=\{changePageSize\}/);
-    assert.match(page, /A read-only record of changes made in CCMS, newest first\. Dates are Manila calendar days \(Asia\/Manila\)\./);
+    assert.match(page, /A read-only record of changes made in CCCMS, newest first\. Dates are Manila calendar days \(Asia\/Manila\)\./);
     assert.match(read('src/components/navigation/Pager.js'), /disabled=\{page <= 1 \|\| loading\}/);
     assert.match(read('src/components/navigation/Pager.js'), /disabled=\{page >= pages \|\| loading\}/);
   });

@@ -417,7 +417,7 @@ function AccountsManager() {
 
 export default function AccountsPage() {
   return (
-    <AppShell title="Accounts" subtitle="Create CCMS accounts and control who can sign in." allowedRoles={[ROLES.SUPER_ADMIN]}>
+    <AppShell title="Accounts" subtitle="Create CCCMS accounts and control who can sign in." allowedRoles={[ROLES.SUPER_ADMIN]}>
       <AccountsManager />
     </AppShell>
   );

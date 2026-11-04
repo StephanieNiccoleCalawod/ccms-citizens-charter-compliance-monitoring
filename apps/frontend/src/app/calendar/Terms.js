@@ -72,7 +72,7 @@ export default function Terms({ canWrite = false, onChanged }) {
             <circle cx="12" cy="12" r="9" />
             <path d="M12 11v5M12 8h.01" />
           </svg>
-          <span>Academic terms are shared with Audit. They do not change how CCMS computes deadlines.</span>
+          <span>Academic terms are shared with the Syllabus Management System (SMS). They do not change how CCCMS computes deadlines.</span>
         </p>
         {canWrite && !state.loading && state.items.length > 0 ? (
           <button type="button" className="btn-primary" onClick={() => open(null)}>
@@ -102,7 +102,7 @@ export default function Terms({ canWrite = false, onChanged }) {
                       <path d="M3 10h18M8 3v4M16 3v4" />
                     </svg>
                     <p className="mt-3 font-bold text-maroon-950">No academic terms yet</p>
-                    <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">Add the school year and semester dates so Audit can match transactions to a term.</p>
+                    <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">Add the school year and semester dates so the Syllabus Management System (SMS) can match transactions to a term.</p>
                     {canWrite ? (
                       <button type="button" className="btn-primary mt-5" onClick={() => open(null)}>
                         + Add academic term

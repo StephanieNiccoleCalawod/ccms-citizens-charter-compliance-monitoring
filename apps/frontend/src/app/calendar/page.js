@@ -10,9 +10,9 @@ import WorkingHours from './WorkingHours.js';
 
 // The page title and description follow the selected tab.
 const TABS = [
-  { id: 'hours', label: 'Working hours', subtitle: 'The weekly schedule of the campus. CCMS uses it to compute deadlines (Asia/Manila).' },
+  { id: 'hours', label: 'Working hours', subtitle: 'The weekly schedule of the campus. CCCMS uses it to compute deadlines (Asia/Manila).' },
   { id: 'holidays', label: 'Holidays & suspensions', subtitle: 'Holidays and suspensions on the campus calendar (Asia/Manila).' },
-  { id: 'terms', label: 'Academic terms', subtitle: 'Academic terms are shared with Audit. They do not change how CCMS computes deadlines.' },
+  { id: 'terms', label: 'Academic terms', subtitle: 'Academic terms are shared with the Syllabus Management System (SMS). They do not change how CCCMS computes deadlines.' },
 ];
 
 function CalendarManager({ user, tab, setTab }) {

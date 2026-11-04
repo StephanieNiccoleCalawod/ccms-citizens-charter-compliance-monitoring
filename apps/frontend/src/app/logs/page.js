@@ -376,7 +376,7 @@ export default function LogsPage() {
   return (
     <AppShell
       title="Audit logs"
-      subtitle="A read-only record of changes made in CCMS, newest first. Dates are Manila calendar days (Asia/Manila)."
+      subtitle="A read-only record of changes made in CCCMS, newest first. Dates are Manila calendar days (Asia/Manila)."
       allowedRoles={[ROLES.SUPER_ADMIN]}
     >
       <AuditLog />

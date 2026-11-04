@@ -9,7 +9,7 @@
 
 export const SIGN_OUT_COPY = Object.freeze({
   title: 'Sign out?',
-  message: 'You will need to sign in again to use CCMS.',
+  message: 'You will need to sign in again to use CCCMS.',
   dirtyMessage: 'You have unsaved changes. Sign out anyway?',
   confirmLabel: 'Sign out',
 });

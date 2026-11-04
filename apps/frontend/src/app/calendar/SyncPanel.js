@@ -6,6 +6,7 @@ import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
 import { apiFetch } from '../../lib/auth/session.js';
 import { SYNC_LABELS } from '../../lib/api/calendar.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
+import { EXTERNAL_SYSTEMS, externalSystemLabel } from '../../lib/constants/brand.js';
 
 const STATUS_CLASS = {
   FAILED: 'badge bg-red-50 text-red-700',
@@ -41,42 +42,43 @@ export default function SyncPanel({ refreshKey }) {
     <section className="card p-4" aria-labelledby="sync-heading">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="sync-heading" className="text-xl">
-          Sync status
+          Connected systems
         </h2>
         <button type="button" className="btn-secondary px-3 py-1.5" onClick={load}>
           Refresh
         </button>
       </div>
+      <p className="mt-1 text-sm text-slate-500">These are separate systems. CCCMS sends them the campus calendar.</p>
       <div className="mt-3">
         <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: null }))} />
       </div>
       {state.loading ? (
-        <p className="mt-3 text-sm text-slate-500">Loading sync status…</p>
+        <p className="mt-3 text-sm text-slate-500">Loading connected systems…</p>
       ) : data ? (
         <>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <p className="text-sm text-slate-700" data-testid="audit-sync">
-              {data.audit_last_synced ? `Audit last synced: ${formatDateTime(data.audit_last_synced) || '-'} (Asia/Manila)` : 'Audit has not synced yet'}
+              {data.audit_last_synced ? `${EXTERNAL_SYSTEMS.SMS.label} last received data: ${formatDateTime(data.audit_last_synced) || '-'} (Asia/Manila)` : `${EXTERNAL_SYSTEMS.SMS.label} has not received data yet`}
             </p>
             <p className="text-sm text-slate-700" data-testid="fms-push">
               {push ? (
                 <>
-                  Last FMS push: <StatusBadge status={push.status} /> <span className="text-slate-500">{formatDateTime(push.at) || '-'} (Asia/Manila)</span>
+                  Last sent to the {EXTERNAL_SYSTEMS.FMS.label}: <StatusBadge status={push.status} /> <span className="text-slate-500">{formatDateTime(push.at) || '-'} (Asia/Manila)</span>
                 </>
               ) : (
-                'No FMS push yet'
+                `Nothing has been sent to the ${EXTERNAL_SYSTEMS.FMS.label} yet`
               )}
             </p>
           </div>
           {push?.status === 'FAILED' ? (
-            <p className="mt-2 text-sm font-semibold text-red-700">The last push to FMS failed. It will be retried automatically; your changes are saved.</p>
+            <p className="mt-2 text-sm font-semibold text-red-700">The last data sent to the Faculty Management System (FMS) failed. It will be retried automatically; your changes are saved.</p>
           ) : null}
           <TableShell className="mt-4">
             <Table
               busy={state.loading}
               head={
                 <tr>
-                  <Th>System</Th>
+                  <Th>External system</Th>
                   <Th>Event</Th>
                   <Th>Status</Th>
                   <Th>Last synced</Th>
@@ -93,7 +95,9 @@ export default function SyncPanel({ refreshKey }) {
                 ) : (
                   data.recent.map((row) => (
                     <tr key={row.sync_id} className={`tr-row ${row.status === 'FAILED' ? 'bg-red-50' : ''}`}>
-                      <td className="td font-semibold">{row.consumer_system}</td>
+                      <td className="td font-semibold">
+                        {externalSystemLabel(row.consumer_system)} <span className="badge bg-slate-100 text-slate-600">External system</span>
+                      </td>
                       <td className="td">{row.event_type}</td>
                       <td className="td">
                         <StatusBadge status={row.status} />

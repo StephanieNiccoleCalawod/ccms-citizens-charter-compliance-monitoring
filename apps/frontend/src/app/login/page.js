@@ -104,7 +104,7 @@ export default function LoginPage() {
     <div className="flex min-h-[100dvh] w-full flex-col bg-[#F7F4EF] lg:flex-row">
       {/* Campus photo panel. On phones and tablets it becomes a banner; the headline card is desktop only. */}
       <section
-        aria-label="About CCMS"
+        aria-label="About CCCMS"
         className="relative isolate flex h-64 w-full shrink-0 flex-col justify-end overflow-hidden bg-[#3D0606] p-5 sm:h-80 sm:p-8 md:h-[22rem] lg:h-auto lg:min-h-[100dvh] lg:w-1/2 lg:p-10 lg:pb-11"
       >
         {/*
@@ -192,7 +192,7 @@ export default function LoginPage() {
 
             <header className="pb-1">
               <h2 className="font-serif text-[34px] leading-tight tracking-tight text-[#3D0606] xl:text-[40px] [@media(max-height:760px)]:text-[32px]">Welcome back</h2>
-              <p className="mt-2 text-[15px] text-[#5F5950] xl:mt-2 xl:text-base">Sign in with your CCMS staff account.</p>
+              <p className="mt-2 text-[15px] text-[#5F5950] xl:mt-2 xl:text-base">Sign in with your CCCMS staff account.</p>
             </header>
 
             <div className="space-y-1.5">

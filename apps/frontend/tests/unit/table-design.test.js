@@ -18,7 +18,7 @@ const TABLE_PAGES = {
   'src/app/offices/page.js': ['Office name', 'Status', 'Actions'],
   'src/app/logs/page.js': ['Date &amp; time', 'Done by', 'Action', 'Affected entity', 'Office'],
   'src/app/calendar/Terms.js': ['Term', 'Start date', 'End date', 'Action'],
-  'src/app/calendar/SyncPanel.js': ['System', 'Event', 'Status', 'Last synced', 'Attempts'],
+  'src/app/calendar/SyncPanel.js': ['External system', 'Event', 'Status', 'Last synced', 'Attempts'],
   'src/app/settings/Counters.js': ['Counter', 'Status', 'Actions'],
 };
 
