@@ -246,10 +246,14 @@ describe('CC007 add service with first standard', () => {
     assert.ok(code.body.error.details.service_code);
     const noStandard = await createService({ standard: undefined });
     assert.ok(noStandard.body.error.details.standard);
-    const badStandard = await createService({ standard: { duration_days: -1, duration_hours: 1.5, duration_minutes: 'nope', effective_from: 'soon', charter_reference: ' ' } });
+    const badStandard = await createService({ standard: { duration_days: -1, duration_hours: 1.5, duration_minutes: 'nope', effective_from: 'soon', charter_reference: 'x'.repeat(201) } });
     for (const field of ['duration_days', 'duration_hours', 'duration_minutes', 'effective_from', 'charter_reference']) {
       assert.ok(badStandard.body.error.details[`standard.${field}`], field);
     }
+    // The Charter reference is optional: blank is saved as empty (null).
+    const blankReference = await createService({ standard: validStandard({ charter_reference: '  ' }) });
+    assert.equal(blankReference.response.status, 201);
+    assert.equal(blankReference.body.service.current_standard.charter_reference, null);
     const zero = await createService({ standard: validStandard({ duration_minutes: 0 }) });
     assert.ok(zero.body.error.details['standard.duration']);
     const badReferenceFields = await createService({ fees: 50, who_may_avail: false });
@@ -499,7 +503,7 @@ describe('CC009 version a standard', () => {
     await addStandard(service.service_id, validStandard({ effective_from: addDays(today(), 20) }));
     const older = await addStandard(service.service_id, validStandard({ effective_from: addDays(today(), 10) }));
     assert.equal(older.status, 409);
-    const invalid = await addStandard(service.service_id, { duration_days: -2, duration_hours: -1, duration_minutes: -3, effective_from: '', charter_reference: '' });
+    const invalid = await addStandard(service.service_id, { duration_days: -2, duration_hours: -1, duration_minutes: -3, effective_from: '', charter_reference: 'x'.repeat(201) });
     assert.equal(invalid.status, 400);
     for (const field of ['duration_days', 'duration_hours', 'duration_minutes', 'effective_from', 'charter_reference']) assert.ok(invalid.body.error.details[field], field);
     assert.equal((await addStandard(randomUUID(), validStandard({ effective_from: addDays(today(), 3) }))).status, 404);

@@ -48,6 +48,9 @@ export async function migrateSprint4Core(dataSource) {
       applies_to IN ('WORK','CLASSES','BOTH') AND
       ((applies_to = 'WORK' AND class_mode IS NULL) OR
        (applies_to IN ('CLASSES','BOTH') AND class_mode IS NOT NULL AND class_mode IN ('SUSPENDED','ONLINE'))))`);
+    // Charter reference is optional (only when the table already exists; a fresh sync creates it nullable).
+    const [standardsTable] = await manager.query("SELECT to_regclass('service_standards') AS t");
+    if (standardsTable?.t) await manager.query('ALTER TABLE service_standards ALTER COLUMN charter_reference DROP NOT NULL');
     await migrateCalendarCal10(manager);
     await migrateMachineKeys(manager);
     await migrateOfficeFreeze(manager);

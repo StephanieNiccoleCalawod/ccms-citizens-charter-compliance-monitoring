@@ -146,9 +146,10 @@ export function parseStandardFields(body, details = {}, prefix = '') {
   const effectiveFrom = str(body.effective_from).trim();
   if (!effectiveFrom) details[`${prefix}effective_from`] = 'Effective from date is required';
   else if (!isValidManilaDate(effectiveFrom)) details[`${prefix}effective_from`] = 'Effective from must be a date (YYYY-MM-DD)';
-  const charterReference = collapseSpaces(str(body.charter_reference));
-  if (!charterReference) details[`${prefix}charter_reference`] = 'Charter reference is required';
-  else if (charterReference.length > 200) details[`${prefix}charter_reference`] = 'Charter reference must be 200 characters or fewer';
+  // The Charter reference is optional: blank is stored as null; only a too-long one is refused.
+  const charterText = collapseSpaces(str(body.charter_reference));
+  if (charterText.length > 200) details[`${prefix}charter_reference`] = 'Charter reference must be 200 characters or fewer';
+  const charterReference = charterText || null;
   return { durationDays, durationHours, durationMinutes, effectiveFrom, charterReference };
 }
 

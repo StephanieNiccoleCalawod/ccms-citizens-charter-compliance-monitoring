@@ -74,7 +74,7 @@ export const ServiceStandard = new EntitySchema({
     durationMinutes: { name: 'duration_minutes', type: 'int', default: 0 },
     effectiveFrom: { name: 'effective_from', type: 'date' },
     effectiveTo: { name: 'effective_to', type: 'date', nullable: true },
-    charterReference: { name: 'charter_reference', type: 'text' },
+    charterReference: { name: 'charter_reference', type: 'text', nullable: true },
     createdAt: { name: 'created_at', type: 'timestamptz', createDate: true },
   },
   indices: [{ name: 'service_standards_service_idx', columns: ['serviceId'] }],
