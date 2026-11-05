@@ -33,7 +33,7 @@ const send = (reply, extra = {}) => {
     delivered.push(JSON.parse(init.body));
     return new Response(typeof reply === 'string' ? reply : JSON.stringify(reply), { status: extra.status ?? 200 });
   };
-  return { delivered, run: () => dispatchSyncLogs(env.ds, { urls: { AUDIT: 'http://sms.test/calendar' }, serviceKey: 'k', retryIntervalMs: 0, maxAttempts: 5, enabledConsumers: ['AUDIT'], fetchImpl }) };
+  return { delivered, run: () => dispatchSyncLogs(env.ds, { urls: { AUDIT: 'http://sms.test/calendar' }, receiverTokens: { AUDIT: 'sms-test' }, retryIntervalMs: 0, maxAttempts: 5, enabledConsumers: ['AUDIT'], fetchImpl }) };
 };
 
 describe('EB17 term snapshot for SMS', () => {
@@ -111,7 +111,7 @@ describe('EB17 term snapshot for SMS', () => {
     assert.equal((await snapshots()).length, 0);
     await save({ exception_date: '2026-09-21', exception_type: 'REGULAR_HOLIDAY', description: 'A' });
     const sms = send({ status: 'SUCCESS' });
-    await dispatchSyncLogs(env.ds, { urls: { AUDIT: 'http://sms.test/calendar' }, serviceKey: 'k', enabledConsumers: ['FMS'], fetchImpl: async (u, i) => { sms.delivered.push(i); return new Response('{}'); } });
+    await dispatchSyncLogs(env.ds, { urls: { AUDIT: 'http://sms.test/calendar' }, receiverTokens: { AUDIT: 'sms-test' }, enabledConsumers: ['FMS'], fetchImpl: async (u, i) => { sms.delivered.push(i); return new Response('{}'); } });
     assert.equal(sms.delivered.length, 0);
     assert.equal((await snapshots()).find((s) => s.status === 'PENDING') !== undefined, true);
   });

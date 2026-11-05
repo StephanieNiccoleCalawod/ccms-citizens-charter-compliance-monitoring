@@ -1,6 +1,6 @@
 // A small mock of FMS or Audit (TT2). Runs without the real systems:
 //   POST <any path>   receives a calendar push. Answers 200, or 503 while the mock is switched to fail,
-//                     or 401 when the shared service key is wrong.
+//                     or 401 when the receiver's Bearer token is wrong.
 //   GET  /received    every push accepted so far, plus the current mode
 //   DELETE /received  forget the recorded pushes
 //   POST /mode        { "fail": true | false } switch failing on or off
@@ -28,10 +28,11 @@ function parseJson(text) {
 
 /**
  * name         'FMS' or 'AUDIT'
- * serviceKey   the shared key the mock expects on pushes (and sends on /ack); unset = do not check
+ * calendarToken  the Bearer token expected on pushes
+ * serviceKey     the internal CCMS key sent on /ack
  * ccmsUrl      base URL of the merged Core service (Catalogue + Calendar), for /ack, for example http://127.0.0.1:3003
  */
-export function createMockServer({ name, serviceKey, ccmsUrl = 'http://127.0.0.1:3003', fetchImpl = fetch }) {
+export function createMockServer({ name, calendarToken, serviceKey, ccmsUrl = 'http://127.0.0.1:3003', fetchImpl = fetch }) {
   const state = { fail: false, received: [], rejected: 0 };
 
   const server = createServer(async (request, response) => {
@@ -80,9 +81,9 @@ export function createMockServer({ name, serviceKey, ccmsUrl = 'http://127.0.0.1
       state.rejected += 1;
       return send(503, { error: `${name} mock is switched to fail` });
     }
-    if (serviceKey && request.headers['x-service-key'] !== serviceKey) {
+    if (!calendarToken || request.headers.authorization !== `Bearer ${calendarToken}`) {
       state.rejected += 1;
-      return send(401, { error: 'Invalid service key' });
+      return send(401, { error: 'Invalid calendar Bearer token' });
     }
     const body = parseJson(text);
     if (!body) return send(400, { error: 'Body must be JSON' });

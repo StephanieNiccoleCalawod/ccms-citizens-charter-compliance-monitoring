@@ -17,6 +17,7 @@ let fms;
 let audit;
 let fmsUrl;
 let auditUrl;
+const receiverTokens = { FMS: 'fms-calendar-test', AUDIT: 'sms-calendar-test' };
 
 // The mocks reach CCMS through the real route handler instead of a network port.
 const ccmsFetch = (url, init) => {
@@ -26,8 +27,8 @@ const ccmsFetch = (url, init) => {
 
 before(async () => {
   env = await setupTestEnv();
-  fms = createMockServer({ name: 'FMS', serviceKey: SERVICE_KEY, ccmsUrl: 'http://ccms.test', fetchImpl: ccmsFetch });
-  audit = createMockServer({ name: 'AUDIT', serviceKey: SERVICE_KEY, ccmsUrl: 'http://ccms.test', fetchImpl: ccmsFetch });
+  fms = createMockServer({ name: 'FMS', calendarToken: receiverTokens.FMS });
+  audit = createMockServer({ name: 'AUDIT', calendarToken: receiverTokens.AUDIT, serviceKey: SERVICE_KEY, ccmsUrl: 'http://ccms.test', fetchImpl: ccmsFetch });
   fmsUrl = `http://127.0.0.1:${await fms.listen(0)}`;
   auditUrl = `http://127.0.0.1:${await audit.listen(0)}`;
 });
@@ -46,7 +47,7 @@ beforeEach(async () => {
   audit.state.received = [];
 });
 
-const settings = (extra = {}) => ({ urls: { FMS: `${fmsUrl}/calendar`, AUDIT: `${auditUrl}/calendar` }, serviceKey: SERVICE_KEY, retryIntervalMs: 0, maxAttempts: 5, ...extra });
+const settings = (extra = {}) => ({ urls: { FMS: `${fmsUrl}/calendar`, AUDIT: `${auditUrl}/calendar` }, receiverTokens, retryIntervalMs: 0, maxAttempts: 5, ...extra });
 const dispatch = (extra) => dispatchSyncLogs(env.ds, settings(extra));
 const rows = () => env.ds.query('SELECT sync_id, consumer_system, event_type, status, attempts, last_error, last_synced_at, next_attempt_at FROM sync_log ORDER BY consumer_system');
 const rowOf = async (consumer) => (await rows()).find((r) => r.consumer_system === consumer);
@@ -74,7 +75,7 @@ describe('CC018 pushing to FMS and Audit', () => {
     assert.equal(audit.state.received.length, 1);
   });
 
-  it('the push carries the sync_id, the event and the saved holiday, with the shared key', async () => {
+  it('the push carries the saved holiday with each receiver’s own Bearer token', async () => {
     const { exception } = await (await save()).json();
     await dispatch();
     const [push] = fms.state.received;
@@ -91,9 +92,10 @@ describe('CC018 pushing to FMS and Audit', () => {
     assert.equal(audit.state.received[0].body.messageId, (await rowOf('AUDIT')).sync_id);
     assert.notEqual(push.body.messageId, audit.state.received[0].body.messageId);
     assert.ok(push.correlation_id);
-    // A wrong key is refused by the mock, so a SENT row proves the key was sent.
-    const refused = await fetch(`${fmsUrl}/calendar`, { method: 'POST', headers: { 'x-service-key': 'wrong' }, body: '{}' });
-    assert.equal(refused.status, 401);
+    for (const headers of [{ authorization: `Bearer ${receiverTokens.AUDIT}` }, { 'x-service-key': SERVICE_KEY }]) {
+      const refused = await fetch(`${fmsUrl}/calendar`, { method: 'POST', headers, body: '{}' });
+      assert.equal(refused.status, 401);
+    }
   });
 
   it('every kind of change queues its rows: schedule (Audit only, EB1), term (Audit only)', async () => {
@@ -231,8 +233,9 @@ describe('CC018 pushing to FMS and Audit', () => {
     Object.assign(process.env, {
       FMS_URL: `${fmsUrl}/calendar`,
       AUDIT_URL: `${auditUrl}/calendar`,
+      FMS_CALENDAR_TOKEN: receiverTokens.FMS,
+      SMS_CALENDAR_TOKEN: receiverTokens.AUDIT,
       SMS_SYNC_ENABLED: 'true',
-      SERVICE_KEY,
       SYNC_RETRY_INTERVAL_SECONDS: '0.01',
       SYNC_MAX_ATTEMPTS: '50',
     });
@@ -254,12 +257,17 @@ describe('CC018 pushing to FMS and Audit', () => {
       assert.equal((await rowOf('FMS')).status, 'SENT');
       assert.equal(fms.state.received.length, 1);
     } finally {
-      for (const name of ['FMS_URL', 'AUDIT_URL', 'SMS_SYNC_ENABLED', 'SYNC_RETRY_INTERVAL_SECONDS', 'SYNC_MAX_ATTEMPTS']) delete process.env[name];
+      for (const name of ['FMS_URL', 'AUDIT_URL', 'FMS_CALENDAR_TOKEN', 'SMS_CALENDAR_TOKEN', 'SMS_SYNC_ENABLED', 'SYNC_RETRY_INTERVAL_SECONDS', 'SYNC_MAX_ATTEMPTS']) delete process.env[name];
     }
   });
 
   it('EB16: SMS (the Audit queue) is switched off by default: nothing is sent to it and its rows wait as PENDING', async () => {
-    Object.assign(process.env, { FMS_URL: `${fmsUrl}/calendar`, AUDIT_URL: `${auditUrl}/calendar`, SERVICE_KEY });
+    Object.assign(process.env, {
+      FMS_URL: `${fmsUrl}/calendar`,
+      AUDIT_URL: `${auditUrl}/calendar`,
+      FMS_CALENDAR_TOKEN: receiverTokens.FMS,
+      SMS_CALENDAR_TOKEN: receiverTokens.AUDIT,
+    });
     delete process.env.SMS_SYNC_ENABLED;
     try {
       assert.deepEqual(syncSettings().enabledConsumers, ['FMS']);
@@ -269,14 +277,19 @@ describe('CC018 pushing to FMS and Audit', () => {
       const waiting = await rowOf('AUDIT');
       assert.equal(waiting.status, 'PENDING');
       assert.equal(waiting.attempts, 0);
-      // Switched on, the waiting row goes out unchanged.
+      // Switching on without a receiver token leaves the queued row untouched.
       process.env.SMS_SYNC_ENABLED = 'true';
+      delete process.env.SMS_CALENDAR_TOKEN;
+      assert.deepEqual(syncSettings().enabledConsumers, ['FMS']);
+      assert.deepEqual(await runCalendarSync(), { skipped: false, sent: 0, failed: 0 });
+      assert.equal((await rowOf('AUDIT')).attempts, 0);
+      process.env.SMS_CALENDAR_TOKEN = receiverTokens.AUDIT;
       assert.deepEqual(syncSettings().enabledConsumers, ['FMS', 'AUDIT']);
       assert.deepEqual(await runCalendarSync(), { skipped: false, sent: 1, failed: 0 });
       assert.equal(audit.state.received.length, 1);
       assert.equal(audit.state.received[0].body.messageId, waiting.sync_id);
     } finally {
-      for (const name of ['FMS_URL', 'AUDIT_URL', 'SMS_SYNC_ENABLED']) delete process.env[name];
+      for (const name of ['FMS_URL', 'AUDIT_URL', 'FMS_CALENDAR_TOKEN', 'SMS_CALENDAR_TOKEN', 'SMS_SYNC_ENABLED']) delete process.env[name];
     }
   });
 
@@ -289,7 +302,7 @@ describe('CC018 pushing to FMS and Audit', () => {
     assert.ok((await rows()).every((r) => r.status === 'SENT' && r.attempts === 1));
   });
 
-  it('the cron route needs the cron secret; without SERVICE_KEY the job is skipped and says so', async () => {
+  it('the cron route needs its secret and skips when neither receiver is configured', async () => {
     const call = (auth) => syncJobRoute(new Request('http://x.test/api/jobs/calendar-sync', { headers: auth ? { authorization: auth } : {} }));
     delete process.env.CRON_SECRET;
     assert.equal((await call('Bearer x')).status, 401, 'no CRON_SECRET configured: the job never runs');
@@ -297,12 +310,9 @@ describe('CC018 pushing to FMS and Audit', () => {
     try {
       assert.equal((await call()).status, 401);
       assert.equal((await call('Bearer nope')).status, 401);
-      const saved = process.env.SERVICE_KEY;
-      delete process.env.SERVICE_KEY;
       const skipped = await call('Bearer cron-secret');
-      process.env.SERVICE_KEY = saved;
       assert.equal(skipped.status, 200);
-      assert.deepEqual(await skipped.json(), { job: 'calendar-sync', skipped: true, reason: 'SERVICE_KEY is required', sent: 0, failed: 0 });
+      assert.deepEqual(await skipped.json(), { job: 'calendar-sync', skipped: true, reason: 'No enabled calendar receiver has a URL and Bearer token', sent: 0, failed: 0 });
     } finally {
       delete process.env.CRON_SECRET;
     }
@@ -373,10 +383,10 @@ describe('TT2 the mock FMS and Audit services', () => {
   it('are switched to fail and back with POST /mode, and report what they turned away', async () => {
     const set = (fail) => fetch(`${fmsUrl}/mode`, { method: 'POST', body: JSON.stringify({ fail }) });
     assert.deepEqual(await (await set(true)).json(), { system: 'FMS', fail: true });
-    assert.equal((await fetch(`${fmsUrl}/calendar`, { method: 'POST', headers: { 'x-service-key': SERVICE_KEY }, body: '{}' })).status, 503);
+    assert.equal((await fetch(`${fmsUrl}/calendar`, { method: 'POST', headers: { authorization: `Bearer ${receiverTokens.FMS}` }, body: '{}' })).status, 503);
     assert.equal((await (await fetch(`${fmsUrl}/received`)).json()).rejected, 1);
     await set(false);
-    assert.equal((await fetch(`${fmsUrl}/calendar`, { method: 'POST', headers: { 'x-service-key': SERVICE_KEY }, body: '{}' })).status, 200);
+    assert.equal((await fetch(`${fmsUrl}/calendar`, { method: 'POST', headers: { authorization: `Bearer ${receiverTokens.FMS}` }, body: '{}' })).status, 200);
     assert.equal((await fetch(`${fmsUrl}/mode`, { method: 'POST', body: '{"fail":"yes"}' })).status, 400);
     assert.equal((await fetch(`${fmsUrl}/mode`, { method: 'POST', body: 'nope' })).status, 400);
   });

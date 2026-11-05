@@ -54,8 +54,14 @@ describe('TT7 class/work calendar contract', () => {
   });
   it('sends additive fields to FMS and SMS through the existing retry dispatcher', async () => {
     const deliveries = [];
-    const settings = syncSettings({ SMS_URL: 'https://sms.test/calendar', FMS_URL: 'https://fms.test/calendar', SERVICE_KEY: 'test-only', SMS_SYNC_ENABLED: 'true' });
-    await dispatchSyncLogs(env.ds, { ...settings, fetchImpl: async (url, init) => { deliveries.push({ url, payload: JSON.parse(init.body) }); return new Response('{}'); } });
+    const settings = syncSettings({ SMS_URL: 'https://sms.test/calendar', FMS_URL: 'https://fms.test/calendar', FMS_CALENDAR_TOKEN: 'fms-test', SMS_CALENDAR_TOKEN: 'sms-test', SERVICE_KEY: 'internal-only', SMS_SYNC_ENABLED: 'true' });
+    await dispatchSyncLogs(env.ds, { ...settings, fetchImpl: async (url, init) => {
+      const headers = new Headers(init.headers);
+      assert.equal(headers.get('authorization'), url.startsWith('https://sms.test/') ? 'Bearer sms-test' : 'Bearer fms-test');
+      assert.equal(headers.has('x-service-key'), false);
+      deliveries.push({ url, payload: JSON.parse(init.body) });
+      return new Response('{}');
+    } });
     // EB16: SMS receives the cal-1.0 message with the explicit appliesTo and the class effect.
     const toSms = deliveries.filter((d) => d.url === 'https://sms.test/calendar' && d.payload.schemaVersion === 'cal-1.0');
     assert.ok(toSms.some((d) => d.payload.entityRevision === 2 && JSON.stringify(d.payload.appliesTo) === '["CLASSES","WORK"]' && d.payload.effect === 'ONLINE'));

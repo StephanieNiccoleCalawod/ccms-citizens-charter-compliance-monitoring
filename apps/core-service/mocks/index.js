@@ -6,8 +6,8 @@ const ccmsUrl = process.env.CCMS_CALENDAR_URL || 'http://127.0.0.1:3003';
 const fmsPort = Number(process.env.MOCK_FMS_PORT) || 4101;
 const auditPort = Number(process.env.MOCK_AUDIT_PORT) || 4102;
 
-const fms = createMockServer({ name: 'FMS', serviceKey, ccmsUrl });
-const audit = createMockServer({ name: 'AUDIT', serviceKey, ccmsUrl });
+const fms = createMockServer({ name: 'FMS', calendarToken: process.env.FMS_CALENDAR_TOKEN || 'change-me-dev-fms-calendar-token' });
+const audit = createMockServer({ name: 'AUDIT', calendarToken: process.env.SMS_CALENDAR_TOKEN || 'change-me-dev-sms-calendar-token', serviceKey, ccmsUrl });
 
 await fms.listen(fmsPort);
 await audit.listen(auditPort);

@@ -19,7 +19,7 @@ describe('mocks/index.js', () => {
     const [fmsPort, auditPort] = [await freePort(), await freePort()];
     let timer;
     const child = spawn(process.execPath, ['mocks/index.js'], {
-      env: { ...process.env, MOCK_FMS_PORT: String(fmsPort), MOCK_AUDIT_PORT: String(auditPort), SERVICE_KEY: 'k', CCMS_CALENDAR_URL: 'http://127.0.0.1:1' },
+      env: { ...process.env, MOCK_FMS_PORT: String(fmsPort), MOCK_AUDIT_PORT: String(auditPort), SMS_CALENDAR_TOKEN: 'sms-test', SERVICE_KEY: 'k', CCMS_CALENDAR_URL: 'http://127.0.0.1:1' },
       stdio: ['ignore', 'pipe', 'inherit'],
     });
     try {
@@ -36,7 +36,7 @@ describe('mocks/index.js', () => {
       const audit = await (await fetch(`http://127.0.0.1:${auditPort}/received`)).json();
       assert.equal(fms.system, 'FMS');
       assert.equal(audit.system, 'AUDIT');
-      const push = await fetch(`http://127.0.0.1:${auditPort}/anything`, { method: 'POST', headers: { 'x-service-key': 'k' }, body: '{"sync_id":"abc"}' });
+      const push = await fetch(`http://127.0.0.1:${auditPort}/anything`, { method: 'POST', headers: { authorization: 'Bearer sms-test' }, body: '{"sync_id":"abc"}' });
       assert.equal(push.status, 200);
       assert.equal((await (await fetch(`http://127.0.0.1:${auditPort}/received`)).json()).count, 1);
     } finally {

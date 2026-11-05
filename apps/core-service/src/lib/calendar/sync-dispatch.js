@@ -4,14 +4,14 @@ import { SNAPSHOT_ENTITY_TYPE, interpretReply } from './sms-snapshot.js';
 
 /**
  * Sends due SyncLog rows (PENDING or FAILED, with attempts left) to FMS_URL / AUDIT_URL with the
- * shared service key. Success marks the row SENT; a failure marks it FAILED and schedules the next
+ * receiver's Bearer token. Success marks the row SENT; a failure marks it FAILED and schedules the next
  * try after retryIntervalMs, until maxAttempts. A failed push never touches the saved change.
  * Re-sending is safe: the payload is stored once and sent again unchanged (a calendar message keeps its messageId).
  * enabledConsumers (EB16): rows of a receiver that is switched off are not touched and not sent; they wait as PENDING.
  */
 export async function dispatchSyncLogs(
   dataSource,
-  { urls, serviceKey, fetchImpl = fetch, retryIntervalMs = 60_000, maxAttempts = 20, batchSize = 50, timeoutMs = 5000, leaseMs = 60_000, now = () => new Date(), enabledConsumers = ['FMS', 'AUDIT'] },
+  { urls, receiverTokens, fetchImpl = fetch, retryIntervalMs = 60_000, maxAttempts = 20, batchSize = 50, timeoutMs = 5000, leaseMs = 60_000, now = () => new Date(), enabledConsumers = ['FMS', 'AUDIT'] },
 ) {
   const repo = dataSource.getRepository(SyncLog);
   // Claim the due rows atomically (SKIP LOCKED) and push their next attempt forward by a lease, so two
@@ -37,14 +37,16 @@ export async function dispatchSyncLogs(
   let failed = 0;
   for (const row of due) {
     const url = urls?.[row.consumerSystem];
+    const token = receiverTokens?.[row.consumerSystem];
     const attemptAt = now();
     try {
       if (!url) throw new Error(`${row.consumerSystem}_URL is not configured`);
+      if (!token) throw new Error(`${row.consumerSystem} Bearer token is not configured`);
       const response = await fetchImpl(url, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'x-service-key': serviceKey ?? '',
+          authorization: `Bearer ${token}`,
           'x-correlation-id': randomUUID(),
         },
         body: JSON.stringify(row.payload),

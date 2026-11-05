@@ -7,16 +7,19 @@ export function syncSettings(env = process.env) {
     const value = Number(env[name]);
     return Number.isFinite(value) && value > 0 ? value : fallback;
   };
+  // AUDIT is the legacy queue name for SMS, including already queued messages.
+  const urls = { FMS: env.FMS_URL?.trim(), AUDIT: env.SMS_URL?.trim() || env.AUDIT_URL?.trim() };
+  const receiverTokens = { FMS: env.FMS_CALENDAR_TOKEN?.trim(), AUDIT: env.SMS_CALENDAR_TOKEN?.trim() };
+  const candidates = String(env.SMS_SYNC_ENABLED ?? '').toLowerCase() === 'true' ? ['FMS', 'AUDIT'] : ['FMS'];
   return {
-    // AUDIT is the legacy wire/queue name for SMS. Keep existing queued messages and acknowledgements valid.
-    urls: { FMS: env.FMS_URL || null, AUDIT: env.SMS_URL || env.AUDIT_URL || null },
-    serviceKey: env.SERVICE_KEY,
+    urls,
+    receiverTokens,
     retryIntervalMs: number('SYNC_RETRY_INTERVAL_SECONDS', 60) * 1000,
     maxAttempts: Math.floor(number('SYNC_MAX_ATTEMPTS', 20)),
     timeoutMs: number('SYNC_TIMEOUT_SECONDS', 5) * 1000,
     // EB16: SMS (the AUDIT queue) is a receiver with its own switch, OFF by default: nothing leaves CCMS for SMS until
-    // SMS_SYNC_ENABLED=true. Its rows wait as PENDING meanwhile.
-    enabledConsumers: String(env.SMS_SYNC_ENABLED ?? '').toLowerCase() === 'true' ? ['FMS', 'AUDIT'] : ['FMS'],
+    // SMS_SYNC_ENABLED=true. Unconfigured receivers also leave their rows waiting.
+    enabledConsumers: candidates.filter((consumer) => urls[consumer] && receiverTokens[consumer]),
   };
 }
 
@@ -26,6 +29,8 @@ export function syncSettings(env = process.env) {
  */
 export async function runCalendarSync({ env = process.env, ...overrides } = {}) {
   const settings = syncSettings(env);
-  if (!settings.serviceKey) return { skipped: true, reason: 'SERVICE_KEY is required', sent: 0, failed: 0 };
+  if (!settings.enabledConsumers.length) {
+    return { skipped: true, reason: 'No enabled calendar receiver has a URL and Bearer token', sent: 0, failed: 0 };
+  }
   return { skipped: false, ...(await dispatchSyncLogs(await getDb(), { ...settings, ...overrides })) };
 }
