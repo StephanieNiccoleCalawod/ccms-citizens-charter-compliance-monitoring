@@ -1,6 +1,5 @@
-import { Errors, ROLE_LIST, json, requirePermission, route } from 'ccms-shared';
+import { Errors, ROLE_LIST, isValidManilaDate, json, requirePermission, route } from 'ccms-shared';
 import { fetchNagerHolidays, isHolidayYear } from '../../../../lib/calendar/holiday-import.js';
-import { PHILIPPINE_HOLIDAYS } from '../../../../lib/calendar/philippine-holidays.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,21 +14,24 @@ export const GET = route(async (request) => {
     throw Errors.validation('Choose a year from 1900 to 2200', { year: 'Enter a year from 1900 to 2200' });
   }
 
-  const verified = PHILIPPINE_HOLIDAYS[year];
-  if (!verified) return json({ year, verified: false, items: [] }, 200, live);
-
   let holidays;
   try {
     holidays = await fetchNagerHolidays(year);
-  } catch {
+  } catch (error) {
+    // The fixed PH endpoint responds with 400 when the year is outside its coverage.
+    if (error?.status === 400) return json({ year, available: false, items: [] }, 200, live);
     throw Errors.unavailable('Nager.Date is unavailable right now. Please try again.', 'HOLIDAY_SOURCE_UNAVAILABLE');
   }
 
-  const dates = new Set(holidays.filter((holiday) =>
-    holiday?.countryCode === 'PH' && holiday.nationalHoliday === true &&
-    Array.isArray(holiday.holidayTypes) && holiday.holidayTypes.includes('Public')).map(({ date }) => date));
-  const items = verified
-    .map(([day, type, name]) => ({ date: `${year}-${day}`, type, name }))
-    .filter(({ date }) => dates.has(date));
-  return json({ year, verified: true, items }, 200, live);
+  const items = new Map();
+  for (const holiday of holidays) {
+    if (holiday?.countryCode !== 'PH' || holiday.nationalHoliday !== true ||
+        !Array.isArray(holiday.holidayTypes) || !holiday.holidayTypes.includes('Public')) continue;
+    const { date, name } = holiday;
+    if (typeof date !== 'string' || !date.startsWith(`${year}-`) || !isValidManilaDate(date)) continue;
+    if (typeof name !== 'string' || !name.trim()) continue;
+    const label = name.trim().slice(0, 200);
+    items.set(`${date}:${label}`, { date, name: label });
+  }
+  return json({ year, available: true, items: [...items.values()] }, 200, live);
 });

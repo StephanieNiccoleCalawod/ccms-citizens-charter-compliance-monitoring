@@ -24,6 +24,7 @@ import {
   DAY_NAMES,
   EXCEPTION_TYPES,
   MONTH_NAMES,
+  NAGER_REFERENCE,
   TYPE_CATEGORIES,
   appliesToBody,
   appliesToErrors,
@@ -104,7 +105,9 @@ export default function Holidays({ canWrite = false, onChanged }) {
     let current = true;
     apiFetch(`${NAGER_API}?year=${year}`)
       .then((data) => {
-        if (typeof data?.verified !== 'boolean') throw new Error('Expected verified Nager.Date response');
+        if (data?.year !== year || typeof data.available !== 'boolean' || !Array.isArray(data.items)) {
+          throw new Error('Expected live Nager.Date response');
+        }
         if (current) setNager(data);
       })
       .catch(() => {
@@ -140,9 +143,9 @@ export default function Holidays({ canWrite = false, onChanged }) {
     const campusDates = new Set(saved.filter(({ entry }) => !entry.office_id).map(({ date }) => date));
     const references = (liveHolidays?.items ?? [])
       .filter(({ date }) => date >= from && date <= to && !campusDates.has(date))
-      .map(({ date, name, type }) => ({
+      .map(({ date, name }) => ({
         date,
-        entry: { exception_id: `nager-${date}`, exception_type: type, description: name, nager: true },
+        entry: { exception_id: `nager-${date}-${name}`, exception_type: NAGER_REFERENCE, description: name, nager: true },
       }));
     return [...saved, ...references].sort((a, b) => a.date.localeCompare(b.date) || a.entry.exception_type.localeCompare(b.entry.exception_type));
   }, [state.items, month, liveHolidays, from, to]);
@@ -302,6 +305,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
           </label>
           <select id="holiday-type" className="input select-chevron" value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}>
             <option value="">All types</option>
+            <option value={NAGER_REFERENCE}>Nager.Date reference</option>
             {EXCEPTION_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
@@ -430,7 +434,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
             </p>
             <p role="status" className="mt-2 text-xs text-slate-600">
               {liveHolidays?.unavailable ? 'Nager.Date is temporarily unavailable.' :
-                liveHolidays?.verified === false ? 'Verified Nager.Date holidays are unavailable for this year.' :
+                liveHolidays && !liveHolidays.items.length ? 'No Nager.Date holidays are available for this year.' :
                   liveHolidays ? 'Nager.Date references are shown for planning. Saved CCMS entries determine working days.' :
                     'Loading holidays from Nager.Date…'}
             </p>

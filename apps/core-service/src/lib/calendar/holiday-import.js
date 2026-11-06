@@ -9,7 +9,9 @@ export const isHolidayYear = (year) => Number.isInteger(year) && year >= 1900 &&
 export async function fetchNagerHolidays(year, fetchImpl = fetch) {
   if (!isHolidayYear(year)) throw new Error('year must be a four-digit year, for example 2026');
   const response = await fetchImpl(NAGER_URL(year), { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error(`Nager.Date responded ${response.status}`);
+  if (!response.ok) {
+    throw Object.assign(new Error(`Nager.Date responded ${response.status}`), { status: response.status });
+  }
   const holidays = await response.json();
   if (!Array.isArray(holidays)) throw new Error('Nager.Date returned an unexpected response (expected a list)');
   return holidays;

@@ -33,18 +33,22 @@ export const EXCEPTION_TYPES = [
   { value: 'SUSPENSION', label: 'Suspension of work' },
 ];
 
+export const NAGER_REFERENCE = 'NAGER_REFERENCE';
+
 export function typeLabel(value) {
+  if (value === NAGER_REFERENCE) return 'Public holiday';
   return EXCEPTION_TYPES.find((t) => t.value === value)?.label ?? value;
 }
 
-// How the Holidays tab groups the four real types: National (red), Local (amber), Campus (blue).
+// Saved entries and live Nager.Date references have distinct markers in the Holidays tab.
 // Full class names are spelled out so Tailwind picks them up.
 export const TYPE_CATEGORIES = [
   { id: 'national', label: 'National', dot: 'bg-red-600', badge: 'bg-red-50 text-red-700' },
   { id: 'local', label: 'Local', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700' },
   { id: 'campus', label: 'Campus', dot: 'bg-blue-600', badge: 'bg-blue-50 text-blue-700' },
+  { id: 'nager', label: 'Nager.Date', dot: 'bg-violet-600', badge: 'bg-violet-50 text-violet-700' },
 ];
-const CATEGORY_BY_TYPE = { REGULAR_HOLIDAY: 'national', SPECIAL_NON_WORKING: 'national', LOCAL_HOLIDAY: 'local', SUSPENSION: 'campus' };
+const CATEGORY_BY_TYPE = { REGULAR_HOLIDAY: 'national', SPECIAL_NON_WORKING: 'national', LOCAL_HOLIDAY: 'local', SUSPENSION: 'campus', [NAGER_REFERENCE]: 'nager' };
 
 export function typeCategory(value) {
   const id = CATEGORY_BY_TYPE[value] ?? 'local';
