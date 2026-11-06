@@ -3,7 +3,17 @@ import { CalendarException } from '../entities/index.js';
 import { createException, toEngineEntry } from './exceptions.js';
 import { entriesConflict } from './engine/recurrence.js';
 
-export const NAGER_URL = (year) => `https://date.nager.at/api/v3/PublicHolidays/${year}/PH`;
+export const NAGER_URL = (year) => `https://nagerholidays.com/api/v4/Holidays/PH/${year}`;
+export const isHolidayYear = (year) => Number.isInteger(year) && year >= 1900 && year <= 2200;
+
+export async function fetchNagerHolidays(year, fetchImpl = fetch) {
+  if (!isHolidayYear(year)) throw new Error('year must be a four-digit year, for example 2026');
+  const response = await fetchImpl(NAGER_URL(year), { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`Nager.Date responded ${response.status}`);
+  const holidays = await response.json();
+  if (!Array.isArray(holidays)) throw new Error('Nager.Date returned an unexpected response (expected a list)');
+  return holidays;
+}
 
 /** Audit actor used when no Super Admin is named: a fixed system identity with the Super Admin role. */
 export const SYSTEM_ACTOR = Object.freeze({ id: '00000000-0000-0000-0000-000000000000', role: 'super_admin' });
@@ -21,18 +31,14 @@ export function mapNagerHoliday(holiday) {
 }
 
 /**
- * Imports the Philippine public holidays of one year from date.nager.at.
+ * Imports the Philippine public holidays of one year from Nager.Date.
  *   - each holiday becomes an ordinary campus-wide REGULAR_HOLIDAY (is_recurring false), editable by the Super Admin;
  *   - dates that already have a campus-wide entry (one-time or recurring) are skipped, so a re-run adds nothing;
  *   - dryRun reads and reports but writes nothing.
  * `fetchImpl` is injected so tests never reach the network.
  */
 export async function importHolidays(dataSource, { year, dryRun = false, fetchImpl = fetch, actor = SYSTEM_ACTOR, log = () => {} }) {
-  if (!Number.isInteger(year) || year < 1900 || year > 2200) throw new Error('year must be a four-digit year, for example 2026');
-  const response = await fetchImpl(NAGER_URL(year), { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error(`date.nager.at responded ${response.status}`);
-  const holidays = await response.json();
-  if (!Array.isArray(holidays)) throw new Error('date.nager.at returned an unexpected response (expected a list)');
+  const holidays = await fetchNagerHolidays(year, fetchImpl);
 
   const campusEntries = (await dataSource.getRepository(CalendarException).find()).filter((row) => !row.officeId).map(toEngineEntry);
   const result = { year, dry_run: dryRun, fetched: holidays.length, added: [], skipped: [], invalid: [] };

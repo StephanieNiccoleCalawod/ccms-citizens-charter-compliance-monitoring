@@ -18,6 +18,7 @@ import { CATALOGUE_SETTINGS_API, OFFICES_API } from '../../lib/api/catalogue.js'
 import { apiFetch } from '../../lib/auth/session.js';
 import { suspensionTimes, timeInputValue, unmatchedErrorMessages } from '../../lib/ui/time-input.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
+import NagerHolidays from './NagerHolidays.js';
 import {
   APPLIES_TO,
   CLASS_MODES,
@@ -50,6 +51,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
   const [state, setState] = useState({ loading: true, items: [], error: null });
   const [offices, setOffices] = useState({ items: [], error: null });
   const [form, setForm] = useState(null);
+  const [nagerOpen, setNagerOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null);
@@ -159,6 +161,13 @@ export default function Holidays({ canWrite = false, onChanged }) {
   function openForm(date) {
     setFieldErrors({});
     setForm({ ...EMPTY_FORM, exception_date: date ?? selected ?? from });
+  }
+
+  function reviewNagerHoliday(holiday) {
+    setNagerOpen(false);
+    pickDay(holiday.date, false);
+    setFieldErrors({});
+    setForm({ ...EMPTY_FORM, exception_date: holiday.date, exception_type: '', description: holiday.name });
   }
 
   // Edit: the form starts from what Core returned for the entry (its anchor date, every field, applies_to and class_mode as saved).
@@ -318,9 +327,14 @@ export default function Holidays({ canWrite = false, onChanged }) {
           <ClearFiltersButton className="w-full sm:w-auto" onClick={() => setFilters({ search: '', type: '', applies_to: '' })} />
         ) : null}
         {canWrite ? (
-          <button type="button" className="btn-primary ml-auto bg-maroon-900 px-5 py-2.5" onClick={() => openForm(null)}>
-            + Add Holiday
-          </button>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <button type="button" className="btn-secondary" onClick={() => setNagerOpen(true)}>
+              Find Nager.Date Holidays
+            </button>
+            <button type="button" className="btn-primary bg-maroon-900 px-5 py-2.5" onClick={() => openForm(null)}>
+              + Add Holiday
+            </button>
+          </div>
         ) : null}
       </div>
       </div>
@@ -529,6 +543,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
 
       {canWrite ? (
         <>
+          {nagerOpen ? <NagerHolidays initialYear={month.year} onClose={() => setNagerOpen(false)} onReview={reviewNagerHoliday} /> : null}
           <Modal
             open={form !== null}
             title={form?.id ? 'Edit holiday or suspension' : 'Add holiday or suspension'}
@@ -559,7 +574,8 @@ export default function Holidays({ canWrite = false, onChanged }) {
                     <label className="label" htmlFor="exception_type">
                       Type
                     </label>
-                    <select id="exception_type" className="input" value={form.exception_type} onChange={(e) => setType(e.target.value)}>
+                    <select id="exception_type" className="input" value={form.exception_type} onChange={(e) => setType(e.target.value)} required>
+                      <option value="" disabled>Choose holiday type</option>
                       {EXCEPTION_TYPES.map((t) => (
                         <option key={t.value} value={t.value}>
                           {t.label}

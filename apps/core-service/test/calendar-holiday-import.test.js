@@ -1,5 +1,4 @@
-// The date.nager.at importer (a deployment aid). The sandbox cannot reach the real API, so every test
-// injects a fetch that answers with the documented Nager.Date fields.
+// The holiday importer tests inject a fetch that answers with the documented Nager.Date fields.
 import { strict as assert } from 'node:assert';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { NAGER_URL, SYSTEM_ACTOR, importHolidays, mapNagerHoliday, parseArgs } from '../src/lib/calendar/holiday-import.js';
@@ -17,7 +16,7 @@ beforeEach(async () => {
   await env.ds.query('DELETE FROM audit_outbox');
 });
 
-const nager = (date, name, extra = {}) => ({ date, localName: `${name} (local)`, name, countryCode: 'PH', fixed: true, global: true, counties: null, launchYear: null, types: ['Public'], ...extra });
+const nager = (date, name, extra = {}) => ({ date, name, countryCode: 'PH', nationalHoliday: true, subdivisionCodes: null, holidayTypes: ['Public'], ...extra });
 const PH_2026 = [
   nager('2026-01-01', "New Year's Day"),
   nager('2026-04-09', 'Day of Valor'),
@@ -38,8 +37,8 @@ describe('holiday import', () => {
   it('asks Nager.Date for the Philippine holidays of the year', async () => {
     const fetchImpl = fakeFetch(PH_2026);
     await importHolidays(env.ds, { year: 2026, fetchImpl });
-    assert.equal(fetchImpl.calls[0].url, 'https://date.nager.at/api/v3/PublicHolidays/2026/PH');
-    assert.equal(NAGER_URL(2027), 'https://date.nager.at/api/v3/PublicHolidays/2027/PH');
+    assert.equal(fetchImpl.calls[0].url, 'https://nagerholidays.com/api/v4/Holidays/PH/2026');
+    assert.equal(NAGER_URL(2027), 'https://nagerholidays.com/api/v4/Holidays/PH/2027');
   });
 
   it('maps each holiday to an ordinary campus-wide REGULAR_HOLIDAY (not recurring)', async () => {
@@ -117,7 +116,7 @@ describe('holiday import', () => {
     await assert.rejects(importHolidays(env.ds, { year: 2026, fetchImpl: fakeFetch({}, { status: 500 }) }), /500/);
     await assert.rejects(importHolidays(env.ds, { year: 2026, fetchImpl: fakeFetch({ not: 'a list' }) }), /unexpected response/);
     await assert.rejects(importHolidays(env.ds, { year: 26, fetchImpl: fakeFetch([]) }), /four-digit year/);
-    await assert.rejects(importHolidays(env.ds, { year: 2026, fetchImpl: async () => { throw new Error('getaddrinfo ENOTFOUND date.nager.at'); } }), /ENOTFOUND/);
+    await assert.rejects(importHolidays(env.ds, { year: 2026, fetchImpl: async () => { throw new Error('getaddrinfo ENOTFOUND nagerholidays.com'); } }), /ENOTFOUND/);
   });
 
   it('parses the command line', () => {

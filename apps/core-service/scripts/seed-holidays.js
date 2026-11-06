@@ -1,5 +1,5 @@
 // Deployment aid, not a feature: imports the Philippine public holidays of one year from
-// https://date.nager.at/api/v3/PublicHolidays/{year}/PH as ordinary campus-wide REGULAR_HOLIDAY
+// https://nagerholidays.com/api/v4/Holidays/PH/{year} as ordinary campus-wide REGULAR_HOLIDAY
 // entries (not recurring; the Super Admin can edit, delete or mark them recurring afterwards).
 //
 //   npm run seed:holidays -- --year 2026 [--years 5] [--dry-run] [--actor <super admin user id>]
