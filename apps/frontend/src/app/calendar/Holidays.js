@@ -104,6 +104,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
     let current = true;
     apiFetch(`${NAGER_API}?year=${year}`)
       .then((data) => {
+        if (typeof data?.verified !== 'boolean') throw new Error('Expected verified Nager.Date response');
         if (current) setNager(data);
       })
       .catch(() => {
