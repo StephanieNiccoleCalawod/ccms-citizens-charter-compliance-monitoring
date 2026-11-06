@@ -53,6 +53,15 @@ signed-in SCMS user's token, so a machine key gets 401 until SMS adds a machine-
 
 `SMS_SYNC_ENABLED`, `SMS_TERMS_ENABLED`, `SMS_SEND_ALL_MESSAGES`. FMS behaviour is unchanged.
 
+### Terms copied from SMS (`SMS_TERMS_ENABLED=true`)
+
+SMS owns the academic terms and the Academic terms tab is read-only. The daily `calendar-sync` job first copies SMS's terms into
+the CCMS term list (the snapshot sent to SMS and the calendar SMS pulls are both built per term from that list). A new term is added
+with its SMS code as the name; a term CCMS already has gets SMS's dates; entries inside a new or changed term are queued for SMS as
+a fresh snapshot. A term that would overlap another stored term is skipped and reported (`conflicts`), a stored term SMS does not
+list is left alone (`not_in_sms`), and nothing is deleted. The job's answer has a `terms` section with these lists; a refused key
+shows as `state: KEY_REJECTED`. The terms run before the holiday import and before the push.
+
 ### Holidays from Nager.Date (`HOLIDAY_AUTO_IMPORT=true`, off by default)
 
 The daily `calendar-sync` job can first add the national public holidays of the current and next year (Manila year) as ordinary

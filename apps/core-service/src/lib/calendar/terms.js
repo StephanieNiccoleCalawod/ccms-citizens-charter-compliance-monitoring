@@ -75,8 +75,10 @@ export async function listTerms(dataSource) {
   return rows.map(toTermDto);
 }
 
-export async function createTerm(dataSource, actor, body, { ipAddress, env = process.env } = {}) {
-  assertTermsEditable(env);
+// fromSms: the import of the terms SMS owns (sms-terms-import.js) is the only caller allowed past the ownership check.
+// inTransaction(manager, term) runs inside the same transaction, so what it queues is saved or lost together with the term.
+export async function createTerm(dataSource, actor, body, { ipAddress, env = process.env, fromSms = false, inTransaction = null } = {}) {
+  if (!fromSms) assertTermsEditable(env);
   const input = parseTermInput(body);
   try {
     const dto = await dataSource.transaction(async (manager) => {
@@ -93,6 +95,7 @@ export async function createTerm(dataSource, actor, body, { ipAddress, env = pro
         data: { term: created },
         consumers: ['AUDIT'], // FMS receives calendar data only; terms go to Audit
       });
+      if (inTransaction) await inTransaction(manager, created);
       return created;
     });
     kickOutbox();
@@ -104,8 +107,8 @@ export async function createTerm(dataSource, actor, body, { ipAddress, env = pro
   }
 }
 
-export async function updateTerm(dataSource, actor, id, body, { ipAddress, env = process.env } = {}) {
-  assertTermsEditable(env);
+export async function updateTerm(dataSource, actor, id, body, { ipAddress, env = process.env, fromSms = false, inTransaction = null } = {}) {
+  if (!fromSms) assertTermsEditable(env);
   const input = parseTermInput(body);
   try {
     const dto = await dataSource.transaction(async (manager) => {
@@ -125,6 +128,7 @@ export async function updateTerm(dataSource, actor, id, body, { ipAddress, env =
         data: { term: after, previous: before },
         consumers: ['AUDIT'],
       });
+      if (inTransaction) await inTransaction(manager, after);
       return after;
     });
     kickOutbox();
