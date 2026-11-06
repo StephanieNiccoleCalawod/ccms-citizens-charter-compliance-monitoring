@@ -18,7 +18,6 @@ import { CATALOGUE_SETTINGS_API, OFFICES_API } from '../../lib/api/catalogue.js'
 import { apiFetch } from '../../lib/auth/session.js';
 import { suspensionTimes, timeInputValue, unmatchedErrorMessages } from '../../lib/ui/time-input.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
-import NagerHolidays from './NagerHolidays.js';
 import {
   APPLIES_TO,
   CLASS_MODES,
@@ -43,15 +42,16 @@ import {
 } from '../../lib/api/calendar.js';
 
 const EXCEPTIONS_API = '/api/calendar/exceptions';
+const NAGER_API = '/api/calendar/holidays/nager';
 const EMPTY_FORM = { exception_date: '', exception_type: 'REGULAR_HOLIDAY', description: '', office_id: '', suspended_from: '', suspended_until: '', is_recurring: false, applies_to: 'BOTH', class_mode: 'SUSPENDED' };
 
 export default function Holidays({ canWrite = false, onChanged }) {
   const today = todayManila();
   const [month, setMonth] = useState({ year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) });
   const [state, setState] = useState({ loading: true, items: [], error: null });
+  const [nager, setNager] = useState(null);
   const [offices, setOffices] = useState({ items: [], error: null });
   const [form, setForm] = useState(null);
-  const [nagerOpen, setNagerOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null);
@@ -64,6 +64,8 @@ export default function Holidays({ canWrite = false, onChanged }) {
 
   const from = dateString(month.year, month.month, 1);
   const to = dateString(month.year, month.month, daysInMonth(month.year, month.month));
+  const year = month.year;
+  const liveHolidays = nager?.year === year ? nager : null;
 
   const latestLoad = useRef(0); // only the newest answer may update the page
   const appliesFilter = enabled ? filters.applies_to : ''; // the filter only exists while the setting is on
@@ -99,6 +101,18 @@ export default function Holidays({ canWrite = false, onChanged }) {
   }, [load]);
 
   useEffect(() => {
+    let current = true;
+    apiFetch(`${NAGER_API}?year=${year}`)
+      .then((data) => {
+        if (current) setNager(data);
+      })
+      .catch(() => {
+        if (current) setNager({ year, items: [], unavailable: true });
+      });
+    return () => { current = false; };
+  }, [year]);
+
+  useEffect(() => {
     let cancelled = false;
     apiFetch(OFFICES_API)
       .then((data) => {
@@ -118,21 +132,26 @@ export default function Holidays({ canWrite = false, onChanged }) {
   }, [offices.items]);
 
   // Entries placed on the day they fall on in the shown month (recurring ones in the shown year).
-  const rows = useMemo(
-    () =>
-      state.items
-        .map((entry) => ({ entry, date: occurrenceInMonth(entry, month.year, month.month) }))
-        .filter((r) => r.date)
-        .sort((a, b) => a.date.localeCompare(b.date) || a.entry.exception_type.localeCompare(b.entry.exception_type)),
-    [state.items, month],
-  );
+  const rows = useMemo(() => {
+    const saved = state.items
+      .map((entry) => ({ entry, date: occurrenceInMonth(entry, month.year, month.month) }))
+      .filter(({ date }) => date);
+    const campusDates = new Set(saved.filter(({ entry }) => !entry.office_id).map(({ date }) => date));
+    const references = (liveHolidays?.items ?? [])
+      .filter(({ date }) => date >= from && date <= to && !campusDates.has(date))
+      .map(({ date, name, type }) => ({
+        date,
+        entry: { exception_id: `nager-${date}`, exception_type: type, description: name, nager: true },
+      }));
+    return [...saved, ...references].sort((a, b) => a.date.localeCompare(b.date) || a.entry.exception_type.localeCompare(b.entry.exception_type));
+  }, [state.items, month, liveHolidays, from, to]);
 
   // The search and type filters apply to the registry, the day markers and the selected-day card alike.
   const visibleRows = useMemo(() => {
     const term = filters.search.trim().toLowerCase();
     return rows.filter(({ entry, date }) => {
       if (filters.type && entry.exception_type !== filters.type) return false;
-      if (!matchesAppliesTo(entry, appliesFilter)) return false;
+      if (appliesFilter && (entry.nager || !matchesAppliesTo(entry, appliesFilter))) return false;
       if (!term) return true;
       return [entry.description ?? '', typeLabel(entry.exception_type), date].some((text) => text.toLowerCase().includes(term));
     });
@@ -161,13 +180,6 @@ export default function Holidays({ canWrite = false, onChanged }) {
   function openForm(date) {
     setFieldErrors({});
     setForm({ ...EMPTY_FORM, exception_date: date ?? selected ?? from });
-  }
-
-  function reviewNagerHoliday(holiday) {
-    setNagerOpen(false);
-    pickDay(holiday.date, false);
-    setFieldErrors({});
-    setForm({ ...EMPTY_FORM, exception_date: holiday.date, exception_type: '', description: holiday.name });
   }
 
   // Edit: the form starts from what Core returned for the entry (its anchor date, every field, applies_to and class_mode as saved).
@@ -327,10 +339,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
           <ClearFiltersButton className="w-full sm:w-auto" onClick={() => setFilters({ search: '', type: '', applies_to: '' })} />
         ) : null}
         {canWrite ? (
-          <div className="ml-auto flex flex-wrap gap-2">
-            <button type="button" className="btn-secondary" onClick={() => setNagerOpen(true)}>
-              Find Nager.Date Holidays
-            </button>
+          <div className="ml-auto">
             <button type="button" className="btn-primary bg-maroon-900 px-5 py-2.5" onClick={() => openForm(null)}>
               + Add Holiday
             </button>
@@ -359,15 +368,21 @@ export default function Holidays({ canWrite = false, onChanged }) {
                             <p className="font-semibold text-slate-900">{entry.description || typeLabel(entry.exception_type)}</p>
                             <span className={`badge shrink-0 ${category.badge}`}>{category.label}</span>
                           </div>
-                          {enabled ? <p className="mt-1 text-xs font-semibold text-maroon-800" data-testid="entry-effect">{describeEffect(entry)}</p> : null}
-                          <dl className="mt-2 space-y-0.5 text-xs text-slate-600">
-                            <div>Type: {typeLabel(entry.exception_type)}</div>
-                            <div>Scope: {officeName(entry.office_id)}</div>
-                            <div>Suspended from: {entry.suspended_from ? formatTime(entry.suspended_from) || entry.suspended_from : 'Whole day'}</div>
-                            {entry.suspended_until ? <div>Suspended until: {formatTime(entry.suspended_until) || entry.suspended_until}</div> : null}
-                            <div>Repeats: {entry.is_recurring ? `Every year (from ${entry.exception_date.slice(0, 4)})` : 'No'}</div>
-                          </dl>
-                          {canWrite ? (
+                          {entry.nager ? (
+                            <p className="mt-2 text-xs text-slate-600">{typeLabel(entry.exception_type)} · Nager.Date reference</p>
+                          ) : (
+                            <>
+                              {enabled ? <p className="mt-1 text-xs font-semibold text-maroon-800" data-testid="entry-effect">{describeEffect(entry)}</p> : null}
+                              <dl className="mt-2 space-y-0.5 text-xs text-slate-600">
+                                <div>Type: {typeLabel(entry.exception_type)}</div>
+                                <div>Scope: {officeName(entry.office_id)}</div>
+                                <div>Suspended from: {entry.suspended_from ? formatTime(entry.suspended_from) || entry.suspended_from : 'Whole day'}</div>
+                                {entry.suspended_until ? <div>Suspended until: {formatTime(entry.suspended_until) || entry.suspended_until}</div> : null}
+                                <div>Repeats: {entry.is_recurring ? `Every year (from ${entry.exception_date.slice(0, 4)})` : 'No'}</div>
+                              </dl>
+                            </>
+                          )}
+                          {canWrite && !entry.nager ? (
                             <div className="mt-2 flex justify-end gap-4">
                               <button type="button" className="btn-link" onClick={() => openEdit(entry)}>
                                 Edit
@@ -406,11 +421,17 @@ export default function Holidays({ canWrite = false, onChanged }) {
               Holiday Registry
             </h3>
             <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              {visibleRows.length} {visibleRows.length === 1 ? 'holiday' : 'holidays'} defined
+              {visibleRows.length} {visibleRows.length === 1 ? 'holiday' : 'holidays'} shown
               <span className="font-normal">
                 {' '}
                 · {MONTH_NAMES[month.month - 1]} {month.year}
               </span>
+            </p>
+            <p role="status" className="mt-2 text-xs text-slate-600">
+              {liveHolidays?.unavailable ? 'Nager.Date is temporarily unavailable.' :
+                liveHolidays?.verified === false ? 'Verified Nager.Date holidays are unavailable for this year.' :
+                  liveHolidays ? 'Nager.Date references are shown for planning. Saved CCMS entries determine working days.' :
+                    'Loading holidays from Nager.Date…'}
             </p>
             {state.loading ? (
               <p className="py-8 text-center text-sm text-slate-500">Loading entries…</p>
@@ -426,11 +447,11 @@ export default function Holidays({ canWrite = false, onChanged }) {
                       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => pickDay(date, true)}>
                         <span className="block truncate text-sm font-semibold text-slate-900">{entry.description || typeLabel(entry.exception_type)}</span>
                         <span className="block text-xs text-slate-500">
-                          {formatDate(date)} · {typeLabel(entry.exception_type)} · {officeName(entry.office_id)}
+                          {formatDate(date)} · {typeLabel(entry.exception_type)} · {entry.nager ? 'Nager.Date reference' : officeName(entry.office_id)}
                         </span>
-                        {enabled ? <span className="mt-0.5 block text-xs font-semibold text-maroon-800" data-testid="entry-effect">{describeEffect(entry)}</span> : null}
+                        {enabled && !entry.nager ? <span className="mt-0.5 block text-xs font-semibold text-maroon-800" data-testid="entry-effect">{describeEffect(entry)}</span> : null}
                       </button>
-                      {canWrite ? (
+                      {canWrite && !entry.nager ? (
                         <div className="flex shrink-0 gap-3">
                           <button type="button" className="btn-link" onClick={() => openEdit(entry)}>
                             Edit
@@ -501,7 +522,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
             {cells.map((cell, index) => {
               const entries = cell.inMonth ? (byDate.get(cell.date) ?? []) : [];
               const categories = TYPE_CATEGORIES.filter((c) => entries.some((e) => typeCategory(e.exception_type).id === c.id));
-              const kinds = enabled ? APPLIES_TO.filter((a) => entries.some((e) => (e.applies_to ?? 'BOTH') === a.value)) : [];
+              const kinds = enabled ? APPLIES_TO.filter((a) => entries.some((e) => !e.nager && (e.applies_to ?? 'BOTH') === a.value)) : [];
               const isSelected = cell.date === selected;
               const tone = isSelected ? 'bg-maroon-50 ring-2 ring-inset ring-maroon-800' : cell.inMonth ? 'bg-white hover:bg-slate-50' : 'bg-slate-50 hover:bg-slate-100';
               const numberTone = !cell.inMonth ? 'text-slate-400' : index % 7 === 0 ? 'text-red-600' : 'text-slate-900';
@@ -512,7 +533,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
                   onClick={() => pickDay(cell.date, cell.inMonth)}
                   aria-pressed={isSelected}
                   className={`flex min-h-14 flex-col items-start border-b border-r border-slate-100 p-1.5 text-left text-xs sm:min-h-20 sm:p-2 ${tone}`}
-                  aria-label={`${formatDate(cell.date)}${entries.length ? `: ${entries.map((e) => `${e.description || typeLabel(e.exception_type)}${enabled ? ` (${describeEffect(e)})` : ''}`).join(', ')}` : ''}`}
+                  aria-label={`${formatDate(cell.date)}${entries.length ? `: ${entries.map((e) => `${e.description || typeLabel(e.exception_type)}${e.nager ? ' (Nager.Date reference)' : enabled ? ` (${describeEffect(e)})` : ''}`).join(', ')}` : ''}`}
                 >
                   <span className={`font-semibold ${numberTone} ${cell.date === today ? 'rounded-full bg-gold-400/40 px-1.5' : ''}`}>{cell.day}</span>
                   {categories.length > 0 ? (
@@ -543,7 +564,6 @@ export default function Holidays({ canWrite = false, onChanged }) {
 
       {canWrite ? (
         <>
-          {nagerOpen ? <NagerHolidays initialYear={month.year} onClose={() => setNagerOpen(false)} onReview={reviewNagerHoliday} /> : null}
           <Modal
             open={form !== null}
             title={form?.id ? 'Edit holiday or suspension' : 'Add holiday or suspension'}

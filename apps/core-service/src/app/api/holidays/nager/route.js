@@ -1,17 +1,22 @@
-import { Errors, ROLES, isValidManilaDate, json, requirePermission, route } from 'ccms-shared';
+import { Errors, ROLE_LIST, json, requirePermission, route } from 'ccms-shared';
 import { fetchNagerHolidays, isHolidayYear } from '../../../../lib/calendar/holiday-import.js';
+import { PHILIPPINE_HOLIDAYS } from '../../../../lib/calendar/philippine-holidays.js';
 
 export const dynamic = 'force-dynamic';
 
-const superAdmin = requirePermission([ROLES.SUPER_ADMIN], 'campus');
+const canRead = requirePermission(ROLE_LIST, 'campus');
+const live = { 'cache-control': 'no-store' };
 
-// The provider is a reference feed. Adding a date uses the normal calendar exception route.
+// Calendar reference dates are read live. Only saved exceptions affect the working-time engine.
 export const GET = route(async (request) => {
-  await superAdmin(request);
+  await canRead(request);
   const year = Number(new URL(request.url).searchParams.get('year'));
   if (!isHolidayYear(year)) {
     throw Errors.validation('Choose a year from 1900 to 2200', { year: 'Enter a year from 1900 to 2200' });
   }
+
+  const verified = PHILIPPINE_HOLIDAYS[year];
+  if (!verified) return json({ year, verified: false, items: [] }, 200, live);
 
   let holidays;
   try {
@@ -20,11 +25,11 @@ export const GET = route(async (request) => {
     throw Errors.unavailable('Nager.Date is unavailable right now. Please try again.', 'HOLIDAY_SOURCE_UNAVAILABLE');
   }
 
-  const items = holidays
-    .filter((holiday) => holiday?.countryCode === 'PH' && holiday.nationalHoliday === true &&
-      Array.isArray(holiday.holidayTypes) && holiday.holidayTypes.includes('Public') &&
-      isValidManilaDate(holiday.date) && holiday.date.startsWith(`${year}-`) &&
-      typeof holiday.name === 'string' && holiday.name.trim())
-    .map(({ date, name }) => ({ date, name: name.trim().slice(0, 200) }));
-  return json({ year, items }, 200, { 'cache-control': 'no-store' });
+  const dates = new Set(holidays.filter((holiday) =>
+    holiday?.countryCode === 'PH' && holiday.nationalHoliday === true &&
+    Array.isArray(holiday.holidayTypes) && holiday.holidayTypes.includes('Public')).map(({ date }) => date));
+  const items = verified
+    .map(([day, type, name]) => ({ date: `${year}-${day}`, type, name }))
+    .filter(({ date }) => dates.has(date));
+  return json({ year, verified: true, items }, 200, live);
 });
