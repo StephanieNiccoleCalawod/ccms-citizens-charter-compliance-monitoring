@@ -1,0 +1,95 @@
+[
+  {
+    "workspace": "frontend",
+    "unchangedFiles": 160,
+    "modifiedFiles": [
+      ".env.example",
+      ".npmrc",
+      "next.config.js",
+      "package.json"
+    ],
+    "missingFiles": [],
+    "removedAsUnused": [
+      "src/components/layout/PageContainer.js",
+      "src/lib/api/index.js"
+    ]
+  },
+  {
+    "workspace": "api-gateway",
+    "unchangedFiles": 20,
+    "modifiedFiles": [
+      ".env.example",
+      "next.config.js",
+      "package.json"
+    ],
+    "missingFiles": []
+  },
+  {
+    "workspace": "identity-service",
+    "unchangedFiles": 44,
+    "modifiedFiles": [
+      ".env.example",
+      "next.config.js",
+      "package.json",
+      "src/lib/data-source.js",
+      "test/jobs.test.js"
+    ],
+    "missingFiles": []
+  },
+  {
+    "workspace": "core-service",
+    "unchangedFiles": 137,
+    "modifiedFiles": [
+      ".env.example",
+      "next.config.js",
+      "package.json",
+      "scripts/bootstrap.js",
+      "src/lib/data-source.js",
+      "test/jobs.test.js"
+    ],
+    "missingFiles": [],
+    "removedAsUnused": [
+      "src/lib/calendar/index.js",
+      "src/lib/catalogue/index.js"
+    ]
+  },
+  {
+    "workspace": "operations-service",
+    "unchangedFiles": 67,
+    "modifiedFiles": [
+      ".env.example",
+      "next.config.js",
+      "package.json",
+      "src/lib/data-source.js",
+      "test/core-client.test.js",
+      "test/fake-core.js",
+      "test/jobs.test.js",
+      "test/naming.test.js"
+    ],
+    "missingFiles": [],
+    "removedAsUnused": [
+      "src/modules/transaction/index.js"
+    ]
+  },
+  {
+    "workspace": "oversight-service",
+    "unchangedFiles": 22,
+    "modifiedFiles": [
+      ".env.example",
+      "next.config.js",
+      "package.json",
+      "src/lib/data-source.js"
+    ],
+    "missingFiles": []
+  },
+  {
+    "workspace": "ccms-shared",
+    "unchangedFiles": 27,
+    "modifiedFiles": [
+      "package.json",
+      "src/db.js",
+      "src/rate-limit.js"
+    ],
+    "missingFiles": []
+  }
+]

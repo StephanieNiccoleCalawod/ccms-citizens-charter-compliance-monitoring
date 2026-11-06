@@ -1,0 +1,60 @@
+{
+  "command": "npm test",
+  "exitCode": 0,
+  "postgres": "dedicated disposable PostgreSQL 16 server at 127.0.0.1:55439",
+  "executions": 1746,
+  "failures": 0,
+  "skipped": 0,
+  "blocks": [
+    {
+      "workspace": "ccms-shared",
+      "phase": "test",
+      "tests": 48
+    },
+    {
+      "workspace": "ccms-api-gateway",
+      "phase": "test",
+      "tests": 43
+    },
+    {
+      "workspace": "ccms-core-service",
+      "phase": "test",
+      "tests": 453
+    },
+    {
+      "workspace": "ccms-core-service",
+      "phase": "=== engine suite with TZ=UTC ===",
+      "tests": 103
+    },
+    {
+      "workspace": "ccms-core-service",
+      "phase": "=== engine suite with TZ=America/Los_Angeles ===",
+      "tests": 103
+    },
+    {
+      "workspace": "ccms-frontend",
+      "phase": "test",
+      "tests": 691
+    },
+    {
+      "workspace": "ccms-identity-service",
+      "phase": "test",
+      "tests": 83
+    },
+    {
+      "workspace": "ccms-operations-service",
+      "phase": "test",
+      "tests": 192
+    },
+    {
+      "workspace": "ccms-oversight-service",
+      "phase": "test",
+      "tests": 26
+    },
+    {
+      "workspace": "ccms-monorepo",
+      "phase": "test:safety",
+      "tests": 4
+    }
+  ]
+}

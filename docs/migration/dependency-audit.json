@@ -1,0 +1,170 @@
+{
+  "date": "2026-11-04",
+  "command": "npm audit --omit=dev --json",
+  "exitCode": 1,
+  "counts": {
+    "info": 0,
+    "low": 0,
+    "moderate": 3,
+    "high": 1,
+    "critical": 0,
+    "total": 4
+  },
+  "entries": [
+    {
+      "name": "glob",
+      "severity": "moderate",
+      "instances": [
+        {
+          "path": "node_modules/glob",
+          "version": "10.5.0"
+        }
+      ],
+      "fix": {
+        "name": "typeorm",
+        "version": "1.1.2",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "title": "Glob: AbortSignal cancellation bypass allows post-timeout filesystem traversal",
+          "url": "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4"
+        }
+      ]
+    },
+    {
+      "name": "minimatch",
+      "severity": "moderate",
+      "instances": [
+        {
+          "path": "node_modules/glob/node_modules/minimatch",
+          "version": "9.0.9"
+        }
+      ],
+      "fix": {
+        "name": "typeorm",
+        "version": "1.1.2",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "title": "minimatch has potential denial of service via globparts amplification",
+          "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249"
+        }
+      ]
+    },
+    {
+      "name": "nodemailer",
+      "severity": "high",
+      "instances": [
+        {
+          "path": "node_modules/nodemailer",
+          "version": "7.0.13"
+        }
+      ],
+      "fix": {
+        "name": "nodemailer",
+        "version": "10.3.1",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "title": "Nodemailer has SMTP command injection due to unsanitized `envelope.size` parameter",
+          "url": "https://github.com/advisories/GHSA-c7w3-x93f-qmm8"
+        },
+        {
+          "title": "Nodemailer Vulnerable to SMTP Command Injection via CRLF in Transport name Option (EHLO/HELO) ",
+          "url": "https://github.com/advisories/GHSA-vvjj-xcjg-gr5g"
+        },
+        {
+          "title": "Nodemailer: CRLF injection in Nodemailer List-* header comments allows arbitrary message header injection",
+          "url": "https://github.com/advisories/GHSA-268h-hp4c-crq3"
+        },
+        {
+          "title": "Nodemailer jsonTransport bypasses disableFileAccess and disableUrlAccess during message normalization",
+          "url": "https://github.com/advisories/GHSA-wqvq-jvpq-h66f"
+        },
+        {
+          "title": "Nodemailer: Message-level raw option bypasses disableFileAccess/disableUrlAccess, enabling arbitrary file read and full-response SSRF in the delivered message",
+          "url": "https://github.com/advisories/GHSA-p6gq-j5cr-w38f"
+        },
+        {
+          "title": "Nodemailer: resolveContent() on a MailMessage bypasses disableFileAccess/disableUrlAccess when called with the legacy signature",
+          "url": "https://github.com/advisories/GHSA-8m3c-c648-2xjj"
+        },
+        {
+          "title": "Nodemailer: IDN/Punycode domain allow-list bypass leads to email delivery to an attacker-controlled domain",
+          "url": "https://github.com/advisories/GHSA-wmmp-3585-3rmp"
+        },
+        {
+          "title": "Nodemailer: Quadratic (O(n²)) time complexity in addressparser allows remote denial of service via a crafted address list",
+          "url": "https://github.com/advisories/GHSA-2x7j-588g-ccc2"
+        },
+        {
+          "title": "Nodemailer: Recipient-domain validation bypass via RFC 5322 comment mis-parsing leads to email delivery to an attacker-controlled domain",
+          "url": "https://github.com/advisories/GHSA-cc9r-2j5m-2m83"
+        },
+        {
+          "title": "Nodemailer: Process-global DNS cache reuses TLS `servername` across transports, enabling cross-tenant SMTP credential disclosure",
+          "url": "https://github.com/advisories/GHSA-6vj9-mwq6-2f5v"
+        },
+        {
+          "title": "Nodemailer: Nested structured recipient arrays bypass the parser depth limit and cause stack exhaustion DoS",
+          "url": "https://github.com/advisories/GHSA-8vvx-rff5-p5rq"
+        },
+        {
+          "title": "Nodemailer: Quadratic backtracking in the addressparser free-text fallback allows remote denial of service",
+          "url": "https://github.com/advisories/GHSA-v53p-9fqp-m79j"
+        },
+        {
+          "title": "Nodemailer: Improper TLS Certificate Validation in OAuth2 Token Fetch Enables Credential Interception",
+          "url": "https://github.com/advisories/GHSA-r7g4-qg5f-qqm2"
+        },
+        {
+          "title": "Nodemailer: Quadratic (O(n^2)) DKIM header unfolding lets a large folded header cause remote denial of service during signing",
+          "url": "https://github.com/advisories/GHSA-39m8-27wv-hr27"
+        },
+        {
+          "title": "Nodemailer: A nested comment ends early in addressparser, releasing the rest of the comment as a recipient",
+          "url": "https://github.com/advisories/GHSA-8c8m-p3m8-cjg8"
+        },
+        {
+          "title": "Nodemailer: A \";\" inside a quoted string or comment ends an address group early in addressparser, turning display text into a recipient",
+          "url": "https://github.com/advisories/GHSA-m943-m63m-w62w"
+        },
+        {
+          "title": "Nodemailer: A \">\" inside a quoted local part ends an angle-addr early in addressparser, delivering to a domain the header does not name",
+          "url": "https://github.com/advisories/GHSA-85x2-q946-cp5h"
+        },
+        {
+          "title": "Nodemailer: Quadratic backtracking in SMTP AUTH mechanism detection regexes allows pre-auth remote denial of service",
+          "url": "https://github.com/advisories/GHSA-4ffr-jq9g-5ffx"
+        },
+        {
+          "title": "Nodemailer: RFC 5322 comment inside an angle-bracket address is never stripped",
+          "url": "https://github.com/advisories/GHSA-g73g-hqqh-jr95"
+        },
+        {
+          "title": "Nodemailer: Quadratic (O(n^2)) SMTP client reply parsing lets a malicious server or MITM cause a pre-auth remote denial of service",
+          "url": "https://github.com/advisories/GHSA-4g23-2xm8-66gc"
+        }
+      ]
+    },
+    {
+      "name": "typeorm",
+      "severity": "moderate",
+      "instances": [
+        {
+          "path": "node_modules/typeorm",
+          "version": "0.3.31"
+        }
+      ],
+      "fix": {
+        "name": "typeorm",
+        "version": "1.1.2",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    }
+  ]
+}

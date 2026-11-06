@@ -1,0 +1,56 @@
+{
+  "automaticScheduling": false,
+  "description": "Local HTTP job endpoints are invoked manually with Authorization: Bearer <local CRON_SECRET>. The Identity, Core, and Operations vercel.json files schedule these endpoints on their respective Vercel projects.",
+  "services": {
+    "identity-service": {
+      "port": 3001,
+      "jobs": [
+        {
+          "path": "/api/jobs/outbox",
+          "method": "GET",
+          "historicalSchedule": "0 1 * * *"
+        }
+      ]
+    },
+    "core-service": {
+      "port": 3003,
+      "jobs": [
+        {
+          "path": "/api/jobs/outbox",
+          "method": "GET",
+          "historicalSchedule": "0 1 * * *"
+        },
+        {
+          "path": "/api/jobs/calendar-sync",
+          "method": "GET",
+          "historicalSchedule": "5 1 * * *"
+        }
+      ]
+    },
+    "operations-service": {
+      "port": 3004,
+      "jobs": [
+        {
+          "path": "/api/jobs/outbox",
+          "method": "GET",
+          "historicalSchedule": "0 1 * * *"
+        },
+        {
+          "path": "/api/jobs/compute-pending",
+          "method": "GET",
+          "historicalSchedule": "10 1 * * *"
+        },
+        {
+          "path": "/api/jobs/auto-close",
+          "method": "GET",
+          "historicalSchedule": "20 1 * * *"
+        },
+        {
+          "path": "/api/jobs/receipt-emails",
+          "method": "GET",
+          "historicalSchedule": "30 1 * * *"
+        }
+      ]
+    }
+  }
+}

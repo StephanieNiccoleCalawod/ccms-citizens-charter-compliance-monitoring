@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+@theme {
+  --color-maroon-950: #3d0606;
+  --color-maroon-900: #520909;
+  --color-maroon-800: #6b0f0f;
+  --color-maroon-700: #861616;
+  --color-maroon-100: #f6e4e4;
+  --color-maroon-50: #fbf2f2;
+  --color-gold-400: #e5b53a;
+  --color-gold-500: #d4a017;
+  /* PUP sidebar palette */
+  --color-pup-maroon: #800000;
+  --color-pup-maroon-dark: #650000;
+  --color-pup-maroon-active: #8f2020;
+  --color-pup-maroon-divider: #962020;
+  --color-pup-gold: #ffdf00;
+  --color-pup-gray: #e5e5e5;
+  --color-table-divider: #F1EBE4;
+  /* Content area and tables (the Audit Logs design is the reference) */
+  --color-page: #F7F3EE;
+  --color-line: #E7DFD7;
+  --color-table-head: #400909;
+  --color-table-hover: #FAF8F6;
+}
+
+/* inline: the font variable is set by next/font on <html> (see layout.js). */
+@theme inline {
+  --font-serif: var(--font-dm-serif), Georgia, "Times New Roman", serif;
+  --font-sidebar: var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-serif text-slate-900;
+  }
+}
+
+/* Shared component classes (Tailwind v4 @utility so they can be reused with @apply). */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-maroon-800 text-white hover:bg-maroon-700;
+}
+@utility btn-secondary {
+  @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+}
+@utility btn-danger {
+  @apply btn bg-red-700 text-white hover:bg-red-600;
+}
+@utility btn-link {
+  @apply text-sm font-semibold text-maroon-800 hover:underline disabled:opacity-50;
+}
+@utility label {
+  @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500;
+}
+@utility input {
+  @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-maroon-800 focus:outline-none focus:ring-1 focus:ring-maroon-800 disabled:bg-slate-100 aria-invalid:border-red-600 aria-invalid:focus:border-red-700 aria-invalid:focus:ring-red-700;
+}
+@utility card {
+  @apply rounded-xl border border-line bg-white shadow-sm;
+}
+@utility badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+}
+@utility badge-active {
+  @apply badge bg-emerald-50 text-emerald-700;
+}
+@utility badge-inactive {
+  @apply badge bg-slate-100 text-slate-500;
+}
+@utility badge-role {
+  @apply badge bg-maroon-50 text-maroon-800;
+}
+/* Tables: one container, one header, one row. Use <TableShell> and <Table> (components/ui/TableShell.js). */
+@utility table-shell {
+  @apply overflow-hidden rounded-xl border border-line bg-white;
+}
+@utility table-head {
+  @apply bg-table-head;
+}
+@utility th {
+  @apply px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-white;
+}
+@utility td {
+  @apply px-4 py-2.5 align-middle text-xs leading-snug text-slate-800;
+}
+/* A data row: about 52px tall, the same hover everywhere. */
+@utility tr-row {
+  @apply h-[52px] transition-colors hover:bg-table-hover;
+}
+/* Small square icon button inside a row (expand arrow, row menu): same size, border and radius everywhere. */
+@utility row-icon-button {
+  @apply inline-flex h-7 w-7 items-center justify-center rounded-lg border border-line bg-white text-slate-500 hover:bg-table-hover hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility table-pager {
+  @apply flex flex-wrap items-center justify-between gap-3 border-t border-table-divider px-4 py-3;
+}
+@utility page-size-select {
+  @apply rounded-full border border-line bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000];
+}
+@utility page-arrow {
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-table-hover hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent;
+}
+@utility page-current {
+  @apply inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-[#800000] px-2 text-xs font-semibold text-white;
+}
+
+/* Heading scale: page title, section title inside a page, card title. Serif is for headings only. */
+@utility title-page {
+  @apply font-serif text-3xl text-slate-900;
+}
+@utility title-section {
+  @apply font-serif text-xl text-slate-900;
+}
+@utility title-card {
+  @apply font-serif text-lg text-slate-900;
+}
+
+/* Text-style action inside a table row or list: at least 24px tall so it is easy to hit. */
+@utility row-action {
+  @apply inline-flex min-h-6 items-center rounded px-1.5 text-sm font-semibold text-maroon-800 hover:bg-maroon-50 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 disabled:opacity-50;
+}
+
+/* Public home hero: layered maroon and gold glow, CSS only (no image files). */
+@utility hero-bg {
+  /* The campus photo under a dark maroon overlay, so the white text stays readable. */
+  background-color: var(--color-maroon-950);
+  background-image:
+    linear-gradient(180deg, rgb(64 9 9 / 0.82) 0%, rgb(64 9 9 / 0.9) 100%),
+    url('/Background.png');
+  background-size: cover;
+  background-position: center;
+}
+
+/* Form feedback: a field with aria-invalid gets the red border (see input above); a read-only value looks like text, not an input. */
+@utility input-readonly {
+  @apply block w-full rounded-md border border-dashed border-slate-300 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700;
+}
+
+/* A <select> drawn like .input, with its arrow placed inside the field (the browser's own arrow hugs the edge and differs between systems). */
+@utility select-chevron {
+  @apply appearance-none bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat pr-9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2364748b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 8 5 5 5-5'/%3E%3C/svg%3E");
+}
+
+/* The office list in the public directory sidebar: a slim, rounded scrollbar in a soft light tone that sits beside the list, not on it. */
+.office-scroll {
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+}
+.office-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.office-scroll::-webkit-scrollbar-track {
+  background: rgb(255 255 255 / 0.1);
+  border-radius: 9999px;
+}
+.office-scroll::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.38);
+  border-radius: 9999px;
+}
+.office-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 0.6);
+}
+/* Firefox has no ::-webkit-scrollbar; it gets the same colours with its own thin bar. */
+@supports not selector(::-webkit-scrollbar) {
+  .office-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.38) rgb(255 255 255 / 0.1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .office-scroll {
+    scroll-behavior: auto;
+  }
+}
