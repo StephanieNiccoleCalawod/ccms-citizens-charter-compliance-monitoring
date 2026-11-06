@@ -59,8 +59,9 @@ describe('EB17 term snapshot for SMS', () => {
     assert.deepEqual(before.map((s) => s.status), ['SUPERSEDED', 'PENDING']);
     const sms = send({ status: 'SUCCESS', termId: 'T-1', applied: { entries: 2 } });
     await sms.run();
-    assert.equal(sms.delivered.filter((m) => m.kind === 'term_snapshot').length, 1);
-    assert.equal(sms.delivered.find((m) => m.kind === 'term_snapshot').items.length, 2);
+    // SMS receives its own body (toSmsWire): sync_id, term_code and entries.
+    assert.equal(sms.delivered.filter((m) => m.snapshot === true).length, 1);
+    assert.equal(sms.delivered.find((m) => m.snapshot === true).entries.length, 2);
   });
 
   it('AC2: a success reply (term ID and counts) is stored', async () => {
@@ -100,9 +101,9 @@ describe('EB17 term snapshot for SMS', () => {
     await first.run();
     const second = send({ status: 'SUCCESS', termId: 'T-1' });
     await second.run();
-    const a = first.delivered.find((m) => m.kind === 'term_snapshot');
-    const b = second.delivered.find((m) => m.kind === 'term_snapshot');
-    assert.equal(a.syncId, b.syncId);
+    const a = first.delivered.find((m) => m.snapshot === true);
+    const b = second.delivered.find((m) => m.snapshot === true);
+    assert.equal(a.sync_id, b.sync_id);
     assert.deepEqual(a, b);
   });
 

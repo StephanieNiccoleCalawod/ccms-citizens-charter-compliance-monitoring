@@ -162,8 +162,8 @@ const unauthorized = () => Errors.unauthorized('A valid machine key is required'
 /**
  * Checks `Authorization: Bearer ccms_mk_...` for a key that is not expired, not revoked and has the scope. Every failure
  * returns the same 401, so a caller cannot tell a wrong key from an expired one. A signed-in user's token does not have
- * the key shape and is refused. When `caller` is given (FMS or SMS), a key issued to the other caller is refused with the
- * same 401.
+ * the key shape and is refused. When `caller` is given (one of FMS or SMS, or a list of them), a key issued to any other
+ * caller is refused with the same 401. The result carries the caller the key was issued to.
  */
 export async function requireMachineKey(request, dataSource, scope, caller) {
   const header = request.headers.get('authorization') ?? '';
@@ -177,6 +177,7 @@ export async function requireMachineKey(request, dataSource, scope, caller) {
   );
   const stored = Buffer.from(row?.keyHash ?? '0'.repeat(64), 'hex');
   const matches = timingSafeEqual(sha256(secret), stored.length === 32 ? stored : Buffer.alloc(32));
-  if (!row || !matches || row.scope !== scope || (caller !== undefined && row.caller !== caller)) throw unauthorized();
-  return { keyId: row.keyId };
+  const allowed = caller === undefined ? null : [].concat(caller);
+  if (!row || !matches || row.scope !== scope || (allowed && !allowed.includes(row.caller))) throw unauthorized();
+  return { keyId: row.keyId, caller: row.caller };
 }

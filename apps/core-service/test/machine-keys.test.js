@@ -113,12 +113,13 @@ describe('EB7 machine keys', () => {
     assert.equal((await revoke(body.machine_key.key_id)).status, 409);
   });
 
-  it('the pull route accepts an FMS key and refuses a key issued to SMS with the same 401', async () => {
+  it('the pull route accepts a key issued to FMS or to SMS, and refuses anything else with the same 401', async () => {
     await reset();
     const fms = await issue({ caller: 'FMS', environment: 'test' });
     const sms = await issue({ caller: 'SMS', environment: 'test' });
     assert.equal(await pullWith(fms.body.key), 200);
-    const response = await declarationsRoute(req('GET', RANGE, { token: sms.body.key }));
+    assert.equal(await pullWith(sms.body.key), 200);
+    const response = await declarationsRoute(req('GET', RANGE, { token: 'ccms_mk_000000000000.' + 'x'.repeat(30) }));
     assert.equal(response.status, 401);
     assert.equal((await response.json()).error.code, 'INVALID_MACHINE_KEY');
   });

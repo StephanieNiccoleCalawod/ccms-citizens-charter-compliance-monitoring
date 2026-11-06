@@ -1,5 +1,6 @@
 import { Errors, isValidManilaDate } from 'ccms-shared';
 import { CalendarException } from '../entities/index.js';
+import { smsTermCode } from './sms-snapshot.js';
 import { toExceptionDto } from './exceptions.js';
 import { dayIndexOfDate, MAX_SPAN_DAYS } from './engine/working-time.js';
 import { occurrencesInRange } from './engine/recurrence.js';
@@ -90,4 +91,17 @@ export async function listDeclarations(dataSource, query, env = process.env) {
   const page = after.slice(0, limit);
   const last = page.length ? page[page.length - 1] : null;
   return { schemaVersion: SCHEMA_VERSION, from, to, items: page, nextCursor: after.length > limit && last ? encodeCursor(last) : null };
+}
+
+/**
+ * `?term=2026-1S` (SMS pulls by term): the date range of that term, from our term list (a term name that is an SMS term code).
+ * 2026-MY is understood as 2026-MIDYEAR. An unknown term is a 404.
+ */
+export async function termRange(dataSource, term) {
+  const wanted = smsTermCode(term);
+  if (!wanted) throw Errors.validation('term is not a term code', { term: 'term must look like 2026-1S' });
+  const rows = await dataSource.query('SELECT term_name, start_date::text AS start_date, end_date::text AS end_date FROM term_dates');
+  const found = rows.find((row) => smsTermCode(row.term_name) === wanted);
+  if (!found) throw Errors.notFound(`Term ${wanted} was not found`, 'TERM_NOT_FOUND');
+  return { from: found.start_date, to: found.end_date };
 }

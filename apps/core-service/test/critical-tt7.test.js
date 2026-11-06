@@ -54,7 +54,7 @@ describe('TT7 class/work calendar contract', () => {
   });
   it('sends additive fields to FMS and SMS through the existing retry dispatcher', async () => {
     const deliveries = [];
-    const settings = syncSettings({ SMS_URL: 'https://sms.test/calendar', FMS_URL: 'https://fms.test/calendar', FMS_CALENDAR_TOKEN: 'fms-test', SMS_CALENDAR_TOKEN: 'sms-test', SERVICE_KEY: 'internal-only', SMS_SYNC_ENABLED: 'true' });
+    const settings = syncSettings({ SMS_URL: 'https://sms.test/calendar', FMS_URL: 'https://fms.test/calendar', FMS_CALENDAR_TOKEN: 'fms-test', SMS_CALENDAR_TOKEN: 'sms-test', SERVICE_KEY: 'internal-only', SMS_SYNC_ENABLED: 'true', SMS_SEND_ALL_MESSAGES: 'true' });
     await dispatchSyncLogs(env.ds, { ...settings, fetchImpl: async (url, init) => {
       const headers = new Headers(init.headers);
       assert.equal(headers.get('authorization'), url.startsWith('https://sms.test/') ? 'Bearer sms-test' : 'Bearer fms-test');

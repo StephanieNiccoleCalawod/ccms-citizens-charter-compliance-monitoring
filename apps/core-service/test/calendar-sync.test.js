@@ -235,6 +235,7 @@ describe('CC018 pushing to FMS and Audit', () => {
       AUDIT_URL: `${auditUrl}/calendar`,
       FMS_CALENDAR_TOKEN: receiverTokens.FMS,
       SMS_CALENDAR_TOKEN: receiverTokens.AUDIT,
+      SMS_SEND_ALL_MESSAGES: 'true', // the mock Audit accepts every message; the real SMS route takes term snapshots only
       SMS_SYNC_ENABLED: 'true',
       SYNC_RETRY_INTERVAL_SECONDS: '0.01',
       SYNC_MAX_ATTEMPTS: '50',
@@ -257,7 +258,7 @@ describe('CC018 pushing to FMS and Audit', () => {
       assert.equal((await rowOf('FMS')).status, 'SENT');
       assert.equal(fms.state.received.length, 1);
     } finally {
-      for (const name of ['FMS_URL', 'AUDIT_URL', 'FMS_CALENDAR_TOKEN', 'SMS_CALENDAR_TOKEN', 'SMS_SYNC_ENABLED', 'SYNC_RETRY_INTERVAL_SECONDS', 'SYNC_MAX_ATTEMPTS']) delete process.env[name];
+      for (const name of ['FMS_URL', 'AUDIT_URL', 'FMS_CALENDAR_TOKEN', 'SMS_CALENDAR_TOKEN', 'SMS_SEND_ALL_MESSAGES', 'SMS_SYNC_ENABLED', 'SYNC_RETRY_INTERVAL_SECONDS', 'SYNC_MAX_ATTEMPTS']) delete process.env[name];
     }
   });
 
@@ -279,6 +280,7 @@ describe('CC018 pushing to FMS and Audit', () => {
       assert.equal(waiting.attempts, 0);
       // Switching on without a receiver token leaves the queued row untouched.
       process.env.SMS_SYNC_ENABLED = 'true';
+      process.env.SMS_SEND_ALL_MESSAGES = 'true'; // the mock Audit accepts every message
       delete process.env.SMS_CALENDAR_TOKEN;
       assert.deepEqual(syncSettings().enabledConsumers, ['FMS']);
       assert.deepEqual(await runCalendarSync(), { skipped: false, sent: 0, failed: 0 });
@@ -289,7 +291,7 @@ describe('CC018 pushing to FMS and Audit', () => {
       assert.equal(audit.state.received.length, 1);
       assert.equal(audit.state.received[0].body.messageId, waiting.sync_id);
     } finally {
-      for (const name of ['FMS_URL', 'AUDIT_URL', 'FMS_CALENDAR_TOKEN', 'SMS_CALENDAR_TOKEN', 'SMS_SYNC_ENABLED']) delete process.env[name];
+      for (const name of ['FMS_URL', 'AUDIT_URL', 'FMS_CALENDAR_TOKEN', 'SMS_CALENDAR_TOKEN', 'SMS_SEND_ALL_MESSAGES', 'SMS_SYNC_ENABLED']) delete process.env[name];
     }
   });
 
