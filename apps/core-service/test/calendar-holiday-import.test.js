@@ -1,7 +1,7 @@
 // The holiday importer tests inject a fetch that answers with the documented Nager.Date fields.
 import { strict as assert } from 'node:assert';
 import { after, before, beforeEach, describe, it } from 'node:test';
-import { NAGER_URL, SYSTEM_ACTOR, importHolidays, mapNagerHoliday, parseArgs } from '../src/lib/calendar/holiday-import.js';
+import { NAGER_URL, SYSTEM_ACTOR, importHolidays, mapNagerHoliday, parseArgs, runHolidayAutoImport } from '../src/lib/calendar/holiday-import.js';
 import { createException, deleteException, updateException } from '../src/lib/calendar/exceptions.js';
 import { OFFICE_A, setupTestEnv } from './calendar-helpers.js';
 
@@ -126,5 +126,84 @@ describe('holiday import', () => {
     assert.throws(() => parseArgs([]), /Usage/);
     assert.throws(() => parseArgs(['--year', 'abc']), /Usage/);
     assert.throws(() => parseArgs(['--year', '2026', '--bogus']), /Unknown option/);
+  });
+});
+
+describe('import rules: public holidays only, deleted holidays stay deleted', () => {
+  it('imports national public holidays only; observances and other types are ignored', async () => {
+    const payload = [
+      PH_2026[0],
+      nager('2026-02-14', 'Valentine\'s Day', { holidayTypes: ['Observance'] }),
+      nager('2026-03-01', 'Not national', { nationalHoliday: false }),
+      nager('2026-03-02', 'Other country', { countryCode: 'US' }),
+    ];
+    const result = await importHolidays(env.ds, { year: 2026, fetchImpl: fakeFetch(payload) });
+    assert.equal(result.added.length, 1);
+    assert.equal(result.ignored, 3);
+    assert.equal((await entries()).length, 1);
+  });
+
+  it('a date from another year in the answer is not imported', async () => {
+    const result = await importHolidays(env.ds, { year: 2027, fetchImpl: fakeFetch(PH_2026) });
+    assert.equal(result.added.length, 0);
+    assert.equal(result.invalid.length, 4);
+  });
+
+  it('a holiday the Super Admin deleted is not added back; adding it by hand still works', async () => {
+    await importHolidays(env.ds, { year: 2026, fetchImpl: fakeFetch(PH_2026) });
+    const [row] = await env.ds.query(`SELECT exception_id FROM calendar_exceptions WHERE exception_date = '2026-06-12'`);
+    await deleteException(env.ds, SYSTEM_ACTOR, row.exception_id);
+    const again = await importHolidays(env.ds, { year: 2026, fetchImpl: fakeFetch(PH_2026) });
+    assert.equal(again.added.length, 0);
+    assert.ok(again.skipped.some((s) => s.date === '2026-06-12'));
+    assert.equal((await entries()).some((e) => e.d === '2026-06-12'), false);
+    await createException(env.ds, SYSTEM_ACTOR, { exception_date: '2026-06-12', exception_type: 'REGULAR_HOLIDAY', description: 'Independence Day' });
+    assert.equal((await entries()).some((e) => e.d === '2026-06-12'), true);
+  });
+});
+
+describe('automatic import (HOLIDAY_AUTO_IMPORT)', () => {
+  const now = new Date('2026-11-06T14:00:00Z');
+  const byYear = (calls) => async (url) => {
+    calls.push(url);
+    const year = Number(url.split('/').pop());
+    const body = year === 2026 ? PH_2026 : year === 2027 ? [nager('2027-01-01', "New Year's Day")] : [];
+    return new Response(JSON.stringify(body), { status: 200 });
+  };
+
+  it('does nothing unless HOLIDAY_AUTO_IMPORT=true', async () => {
+    const calls = [];
+    const off = await runHolidayAutoImport(env.ds, { env: {}, now, fetchImpl: byYear(calls) });
+    assert.equal(off.skipped, true);
+    assert.equal(calls.length, 0);
+    assert.equal((await entries()).length, 0);
+  });
+
+  it('adds this year and the next (Manila year), and a second run adds nothing', async () => {
+    const calls = [];
+    const first = await runHolidayAutoImport(env.ds, { env: { HOLIDAY_AUTO_IMPORT: 'true' }, now, fetchImpl: byYear(calls) });
+    assert.deepEqual(calls.map((u) => u.split('/').pop()), ['2026', '2027']);
+    assert.deepEqual(first.years.map((y) => [y.year, y.added]), [[2026, 4], [2027, 1]]);
+    assert.equal((await entries()).length, 5);
+    assert.equal((await env.ds.query('SELECT 1 FROM sync_log')).length, 10);
+    const second = await runHolidayAutoImport(env.ds, { env: { HOLIDAY_AUTO_IMPORT: 'true' }, now, fetchImpl: byYear([]) });
+    assert.deepEqual(second.years.map((y) => y.added), [0, 0]);
+    assert.equal((await entries()).length, 5);
+  });
+
+  it('uses the Manila year at the turn of the year', async () => {
+    const calls = [];
+    await runHolidayAutoImport(env.ds, { env: { HOLIDAY_AUTO_IMPORT: 'true' }, now: new Date('2026-12-31T17:00:00Z'), fetchImpl: byYear(calls) });
+    assert.deepEqual(calls.map((u) => u.split('/').pop()), ['2027', '2028']);
+  });
+
+  it('an unavailable source or a year without data is reported with a fixed note and never throws', async () => {
+    const result = await runHolidayAutoImport(env.ds, {
+      env: { HOLIDAY_AUTO_IMPORT: 'true' },
+      now,
+      fetchImpl: async (url) => (url.endsWith('/2026') ? new Response('', { status: 400 }) : (() => { throw new Error('getaddrinfo ENOTFOUND secret-host'); })()),
+    });
+    assert.deepEqual(result.years.map((y) => y.error), ['NO_DATA_FOR_YEAR', 'SOURCE_UNAVAILABLE']);
+    assert.equal(JSON.stringify(result).includes('secret-host'), false);
   });
 });

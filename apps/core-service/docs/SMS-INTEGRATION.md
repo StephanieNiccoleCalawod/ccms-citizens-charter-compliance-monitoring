@@ -53,6 +53,15 @@ signed-in SCMS user's token, so a machine key gets 401 until SMS adds a machine-
 
 `SMS_SYNC_ENABLED`, `SMS_TERMS_ENABLED`, `SMS_SEND_ALL_MESSAGES`. FMS behaviour is unchanged.
 
+### Holidays from Nager.Date (`HOLIDAY_AUTO_IMPORT=true`, off by default)
+
+The daily `calendar-sync` job can first add the national public holidays of the current and next year (Manila year) as ordinary
+campus-wide `REGULAR_HOLIDAY` entries. They are queued and reach SMS like any entry. A date that already has an entry is skipped,
+and so is a date whose entry the Super Admin deleted (the removed entry is kept as a tombstone), so a deleted holiday does not come back;
+the Super Admin can add it by hand. Observances and non-national holidays are ignored. If Nager.Date is unreachable or has no data for
+a year, the job reports it and still pushes the calendar. Nager.Date cannot tell regular holidays from special non-working days, so all
+imported entries are `REGULAR_HOLIDAY`; the Super Admin can edit them.
+
 ## 5. Differences found between the 11/05/2026 guide and the SCMS code supplied (to confirm with the SMS team)
 
 | # | Guide says | SCMS code does | What CCMS does now |
