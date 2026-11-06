@@ -9,7 +9,8 @@ import { POST as issueRoute } from '../src/app/api/machine-keys/route.js';
 import { dispatchSyncLogs } from '../src/lib/calendar/sync-dispatch.js';
 import { SMS_TYPE_MAP, smsTermCode, toSmsWire } from '../src/lib/calendar/sms-snapshot.js';
 import { smsPushUrl, syncSettings } from '../src/jobs/calendar-sync.js';
-import { fetchSmsTerms } from '../src/lib/calendar/sms-terms-client.js';
+import { fetchSmsTerms, readTermsForScreen } from '../src/lib/calendar/sms-terms-client.js';
+import { assertTermsEditable, createTerm, updateTerm } from '../src/lib/calendar/terms.js';
 import { getSyncStatus } from '../src/lib/calendar/sync.js';
 import { ctx, req, setupTestEnv, tokens } from './calendar-helpers.js';
 
@@ -247,5 +248,43 @@ describe('sync status for the Calendar page (SMS)', () => {
     const status = await getSyncStatus(env.ds);
     assert.equal(status.sms_issue, null);
     assert.ok(status.sms_last_received);
+  });
+});
+
+describe('Academic terms tab: SMS owns the terms (SMS_TERMS_ENABLED)', () => {
+  const on = { SMS_TERMS_ENABLED: 'true', SMS_URL: 'https://sms.example/api/v1/calendar/sync', SMS_SERVICE_TOKEN: 'scms-test-key' };
+  const reply = (body, status = 200) => async () => new Response(JSON.stringify(body), { status });
+  const term = (code, start) => ({ term_code: code, academic_year: '2026-2027', semester_number: 1, semester_label: '1st Semester', display_label: `AY ${code}`, start_date: start, end_date: '2026-12-12', status: 'ACTIVE' });
+
+  it('off: the tab keeps its own list and Core still adds terms', async () => {
+    assert.deepEqual(await readTermsForScreen({ env: {} }), { enabled: false, state: 'OFF', items: [] });
+    assert.doesNotThrow(() => assertTermsEditable({}));
+  });
+
+  it('on: shows the terms from SMS, sorted by start date, with the display label as the name', async () => {
+    const result = await readTermsForScreen({ env: on, fetchImpl: reply({ data: [term('2026-2S', '2027-01-05'), term('2026-1S', '2026-08-17')] }) });
+    assert.equal(result.enabled, true);
+    assert.equal(result.state, 'OK');
+    assert.deepEqual(result.items.map((t) => [t.term_code, t.term_name, t.start_date]), [['2026-1S', 'AY 2026-1S', '2026-08-17'], ['2026-2S', 'AY 2026-2S', '2027-01-05']]);
+  });
+
+  it('on: a refused key is KEY_REJECTED and another failure is UNAVAILABLE, with no text or key from the service', async () => {
+    const rejected = await readTermsForScreen({ env: on, fetchImpl: reply({ message: 'secret detail' }, 401) });
+    assert.deepEqual(rejected, { enabled: true, state: 'KEY_REJECTED', items: [] });
+    const down = await readTermsForScreen({ env: on, fetchImpl: async () => { throw new Error('getaddrinfo ENOTFOUND secret-host'); } });
+    assert.deepEqual(down, { enabled: true, state: 'UNAVAILABLE', items: [] });
+    assert.equal(JSON.stringify([rejected, down]).includes('secret'), false);
+  });
+
+  it('on: not configured says so', async () => {
+    assert.equal((await readTermsForScreen({ env: { SMS_TERMS_ENABLED: 'true' } })).state, 'NOT_CONFIGURED');
+  });
+
+  it('on: Core refuses to add or edit its own terms (TERMS_OWNED_BY_SMS)', async () => {
+    assert.throws(() => assertTermsEditable(on), (error) => error.code === 'TERMS_OWNED_BY_SMS' || error.status === 409);
+    const body = { term_name: 'AY 2026-2027 1st Semester', start_date: '2026-08-17', end_date: '2026-12-12' };
+    await assert.rejects(createTerm(env.ds, { id: '00000000-0000-0000-0000-000000000000', role: 'super_admin' }, body, { env: on }), /Syllabus Management System/);
+    await assert.rejects(updateTerm(env.ds, { id: '00000000-0000-0000-0000-000000000000', role: 'super_admin' }, '11111111-1111-4111-8111-111111111111', body, { env: on }), /Syllabus Management System/);
+    assert.equal((await env.ds.query('SELECT 1 FROM term_dates')).length, 1, 'only the term the test started with: nothing was added');
   });
 });

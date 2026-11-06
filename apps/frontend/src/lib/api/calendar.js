@@ -125,6 +125,18 @@ export function smsSyncNotice(status) {
   return null;
 }
 
+/**
+ * The Academic terms tab. While Core reports enabled (SMS_TERMS_ENABLED), the terms come from the Syllabus Management System
+ * (SMS) and the tab is read-only. state: OK, NOT_CONFIGURED, KEY_REJECTED, UNAVAILABLE. The text is fixed here.
+ */
+export function smsTermsNotice(smsTerms) {
+  if (!smsTerms?.enabled) return null;
+  if (smsTerms.state === 'KEY_REJECTED') return 'The Syllabus Management System (SMS) refused the key CCCMS uses to read the terms. Ask the system administrator to update the key.';
+  if (smsTerms.state === 'NOT_CONFIGURED') return 'The connection to the Syllabus Management System (SMS) is not set up yet, so its terms cannot be shown.';
+  if (smsTerms.state === 'UNAVAILABLE') return 'The terms could not be read from the Syllabus Management System (SMS) right now. Try again later.';
+  return null;
+}
+
 // ---- Class suspensions (CC015): which part of the campus a calendar entry affects ----
 // Core fields: applies_to (BOTH | CLASSES | WORK, default BOTH) and class_mode (SUSPENDED | ONLINE, or null for WORK only).
 // They are only accepted while the setting applies_to_enabled is on; while it is off Core refuses any class_mode and any applies_to

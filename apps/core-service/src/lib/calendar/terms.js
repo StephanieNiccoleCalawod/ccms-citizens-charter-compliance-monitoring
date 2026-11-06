@@ -4,6 +4,12 @@ import { TermDate } from '../entities/index.js';
 import { kickOutbox } from '../outbox.js';
 import { kickSync } from '../outbox.js';
 import { enqueueSync } from './sync.js';
+import { termsEnabled } from './sms-terms-client.js';
+
+/** While SMS_TERMS_ENABLED=true the Syllabus Management System owns the terms: Core does not add or edit its own. */
+export function assertTermsEditable(env = process.env) {
+  if (termsEnabled(env)) throw Errors.conflict('Academic terms come from the Syllabus Management System (SMS) and cannot be changed here', 'TERMS_OWNED_BY_SMS');
+}
 
 export function toTermDto(row) {
   return {
@@ -69,7 +75,8 @@ export async function listTerms(dataSource) {
   return rows.map(toTermDto);
 }
 
-export async function createTerm(dataSource, actor, body, { ipAddress } = {}) {
+export async function createTerm(dataSource, actor, body, { ipAddress, env = process.env } = {}) {
+  assertTermsEditable(env);
   const input = parseTermInput(body);
   try {
     const dto = await dataSource.transaction(async (manager) => {
@@ -97,7 +104,8 @@ export async function createTerm(dataSource, actor, body, { ipAddress } = {}) {
   }
 }
 
-export async function updateTerm(dataSource, actor, id, body, { ipAddress } = {}) {
+export async function updateTerm(dataSource, actor, id, body, { ipAddress, env = process.env } = {}) {
+  assertTermsEditable(env);
   const input = parseTermInput(body);
   try {
     const dto = await dataSource.transaction(async (manager) => {
