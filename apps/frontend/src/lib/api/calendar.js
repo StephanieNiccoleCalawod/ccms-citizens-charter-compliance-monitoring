@@ -109,6 +109,22 @@ export function normalizeTime(text) {
 
 export const SYNC_LABELS = { PENDING: 'Pending', SENT: 'Sent', ACKNOWLEDGED: 'Acknowledged', FAILED: 'Failed' };
 
+/**
+ * The notice the Calendar page shows about the Syllabus Management System (SMS), from GET /sync/status (sms_issue).
+ * KEY_REJECTED: SMS refused CCCMS's key; sending stops until the key is fixed. FAILED: the last push failed and is retried.
+ * Returns null when there is nothing to report. The text is fixed here; nothing from the service is printed.
+ */
+export function smsSyncNotice(status) {
+  const state = status?.sms_issue?.state;
+  if (state === 'KEY_REJECTED') {
+    return { state, text: 'The Syllabus Management System (SMS) refused the key CCCMS uses to send the calendar. Nothing is sent to SMS until the key is fixed. Your changes are saved. Ask the system administrator to update the key.' };
+  }
+  if (state === 'FAILED') {
+    return { state, text: 'The last data sent to the Syllabus Management System (SMS) failed. It will be retried automatically; your changes are saved.' };
+  }
+  return null;
+}
+
 // ---- Class suspensions (CC015): which part of the campus a calendar entry affects ----
 // Core fields: applies_to (BOTH | CLASSES | WORK, default BOTH) and class_mode (SUSPENDED | ONLINE, or null for WORK only).
 // They are only accepted while the setting applies_to_enabled is on; while it is off Core refuses any class_mode and any applies_to

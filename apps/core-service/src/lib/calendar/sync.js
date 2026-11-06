@@ -124,9 +124,27 @@ export async function getSyncStatus(dataSource, { limit = 20 } = {}) {
     .addOrderBy('s.consumerSystem', 'ASC')
     .limit(limit)
     .getMany();
+  // The Syllabus Management System (SMS, queue AUDIT) answers in the push reply, so a success leaves the row SENT (it is never
+  // ACKNOWLEDGED by a separate call). sms_last_received is the last time SMS accepted data; sms_issue is set while the newest
+  // failed push is more recent than that. Only a fixed state is exposed, never the stored error text.
+  const lastSms = await repo
+    .createQueryBuilder('s')
+    .where("s.consumerSystem = 'AUDIT' AND s.status IN ('SENT', 'ACKNOWLEDGED') AND s.lastSyncedAt IS NOT NULL")
+    .orderBy('s.lastSyncedAt', 'DESC')
+    .getOne();
+  const failedSms = await repo
+    .createQueryBuilder('s')
+    .where("s.consumerSystem = 'AUDIT' AND s.status = 'FAILED'")
+    .orderBy('s.createdAt', 'DESC')
+    .getOne();
+  const failedStillOpen = failedSms && (!lastSms?.lastSyncedAt || (failedSms.lastAttemptAt ?? failedSms.createdAt) > lastSms.lastSyncedAt);
   return {
     audit_last_synced: iso(lastAudit?.lastSyncedAt),
     fms_last_push: lastFms ? { status: lastFms.status, at: iso(lastFms.lastAttemptAt ?? lastFms.createdAt) } : null,
+    sms_last_received: iso(lastSms?.lastSyncedAt),
+    sms_issue: failedStillOpen
+      ? { state: String(failedSms.lastError ?? '').startsWith('KEY_REJECTED') ? 'KEY_REJECTED' : 'FAILED', at: iso(failedSms.lastAttemptAt ?? failedSms.createdAt) }
+      : null,
     recent: recent.map(toSyncItem),
   };
 }

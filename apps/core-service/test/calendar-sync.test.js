@@ -350,7 +350,7 @@ describe('CC018 pushing to FMS and Audit', () => {
 
   it('GET /sync/status: empty, then with rows; Super Admin only', async () => {
     const empty = await status();
-    assert.deepEqual(empty, { audit_last_synced: null, fms_last_push: null, recent: [] });
+    assert.deepEqual(empty, { audit_last_synced: null, fms_last_push: null, sms_last_received: null, sms_issue: null, recent: [] });
     await save();
     const pending = await status(tokens.superAdmin);
     assert.equal(pending.recent.length, 2);

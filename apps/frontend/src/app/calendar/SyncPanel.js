@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
 import { apiFetch } from '../../lib/auth/session.js';
-import { SYNC_LABELS } from '../../lib/api/calendar.js';
+import { SYNC_LABELS, smsSyncNotice } from '../../lib/api/calendar.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 import { EXTERNAL_SYSTEMS, externalSystemLabel } from '../../lib/constants/brand.js';
 
@@ -37,6 +37,8 @@ export default function SyncPanel({ refreshKey }) {
 
   const { data } = state;
   const push = data?.fms_last_push ?? null;
+  const smsReceivedAt = data?.sms_last_received ?? data?.audit_last_synced ?? null;
+  const smsNotice = smsSyncNotice(data);
 
   return (
     <section className="card p-4" aria-labelledby="sync-heading">
@@ -58,7 +60,7 @@ export default function SyncPanel({ refreshKey }) {
         <>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <p className="text-sm text-slate-700" data-testid="audit-sync">
-              {data.audit_last_synced ? `${EXTERNAL_SYSTEMS.SMS.label} last received data: ${formatDateTime(data.audit_last_synced) || '-'} (Asia/Manila)` : `${EXTERNAL_SYSTEMS.SMS.label} has not received data yet`}
+              {smsReceivedAt ? `${EXTERNAL_SYSTEMS.SMS.label} last received data: ${formatDateTime(smsReceivedAt) || '-'} (Asia/Manila)` : `${EXTERNAL_SYSTEMS.SMS.label} has not received data yet`}
             </p>
             <p className="text-sm text-slate-700" data-testid="fms-push">
               {push ? (
@@ -70,6 +72,11 @@ export default function SyncPanel({ refreshKey }) {
               )}
             </p>
           </div>
+          {smsNotice ? (
+            <p className="mt-2 text-sm font-semibold text-red-700" role="alert" data-testid="sms-notice" data-state={smsNotice.state}>
+              {smsNotice.text}
+            </p>
+          ) : null}
           {push?.status === 'FAILED' ? (
             <p className="mt-2 text-sm font-semibold text-red-700">The last data sent to the Faculty Management System (FMS) failed. It will be retried automatically; your changes are saved.</p>
           ) : null}

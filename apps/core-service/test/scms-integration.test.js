@@ -10,6 +10,7 @@ import { dispatchSyncLogs } from '../src/lib/calendar/sync-dispatch.js';
 import { SMS_TYPE_MAP, smsTermCode, toSmsWire } from '../src/lib/calendar/sms-snapshot.js';
 import { smsPushUrl, syncSettings } from '../src/jobs/calendar-sync.js';
 import { fetchSmsTerms } from '../src/lib/calendar/sms-terms-client.js';
+import { getSyncStatus } from '../src/lib/calendar/sync.js';
 import { ctx, req, setupTestEnv, tokens } from './calendar-helpers.js';
 
 let env;
@@ -215,5 +216,36 @@ describe('terms reader (SMS_TERMS_ENABLED)', () => {
   it('a 401 is reported as KEY_REJECTED, another failure as an error', async () => {
     await assert.rejects(fetchSmsTerms({ env: env0, fetchImpl: async () => new Response('', { status: 401 }) }), { code: 'KEY_REJECTED' });
     await assert.rejects(fetchSmsTerms({ env: env0, fetchImpl: async () => new Response('', { status: 500 }) }), /500/);
+  });
+});
+
+describe('sync status for the Calendar page (SMS)', () => {
+  it('a successful push shows when SMS last received data; nothing is flagged', async () => {
+    await save({ exception_date: '2026-09-21', exception_type: 'REGULAR_HOLIDAY', description: 'A' });
+    assert.equal((await getSyncStatus(env.ds)).sms_last_received, null);
+    await scms(ACCEPTED).run();
+    const status = await getSyncStatus(env.ds);
+    assert.ok(status.sms_last_received);
+    assert.equal(status.sms_issue, null);
+  });
+
+  it('a refused key (401) shows KEY_REJECTED, with no error text or key in the answer', async () => {
+    await save({ exception_date: '2026-09-21', exception_type: 'REGULAR_HOLIDAY', description: 'A' });
+    await scms('', 401).run();
+    const status = await getSyncStatus(env.ds);
+    assert.equal(status.sms_issue.state, 'KEY_REJECTED');
+    assert.deepEqual(Object.keys(status.sms_issue).sort(), ['at', 'state']);
+    assert.equal(JSON.stringify(status).includes('scms-test-key'), false);
+    assert.equal(status.sms_last_received, null);
+  });
+
+  it('another failure shows FAILED, and a later success clears it', async () => {
+    await save({ exception_date: '2026-09-21', exception_type: 'REGULAR_HOLIDAY', description: 'A' });
+    await scms({ result: 'REJECTED', reason: 'bad entry' }).run();
+    assert.equal((await getSyncStatus(env.ds)).sms_issue.state, 'FAILED');
+    await scms(ACCEPTED).run();
+    const status = await getSyncStatus(env.ds);
+    assert.equal(status.sms_issue, null);
+    assert.ok(status.sms_last_received);
   });
 });
