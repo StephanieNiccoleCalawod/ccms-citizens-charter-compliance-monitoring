@@ -6,11 +6,11 @@ import AppShell from '../../components/layout/AppShell.js';
 import Holidays from './Holidays.js';
 import SyncPanel from './SyncPanel.js';
 import Terms from './Terms.js';
-import WorkingHours from './WorkingHours.js';
+import WorkingHoursScope from './WorkingHoursScope.js';
 
 // The page title and description follow the selected tab.
 const TABS = [
-  { id: 'hours', label: 'Working hours', subtitle: 'The weekly schedule of the campus. CCCMS uses it to compute deadlines (Asia/Manila).' },
+  { id: 'hours', label: 'Working hours', subtitle: 'The weekly schedule of the campus, and of any office that has its own. CCCMS uses it to compute deadlines (Asia/Manila).' },
   { id: 'holidays', label: 'Holidays & suspensions', subtitle: 'Holidays and suspensions on the campus calendar (Asia/Manila).' },
   { id: 'terms', label: 'Academic terms', subtitle: 'Academic terms are managed in the Syllabus Management System (SMS) and cannot be changed here. They do not change how CCCMS computes deadlines.' },
 ];
@@ -39,7 +39,7 @@ function CalendarManager({ user, tab, setTab }) {
         ))}
       </div>
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        {tab === 'hours' ? <WorkingHours canWrite={canWrite} onChanged={changed} /> : null}
+        {tab === 'hours' ? <WorkingHoursScope user={user} canWrite={canWrite} onChanged={changed} /> : null}
         {tab === 'holidays' ? <Holidays canWrite={canWrite} onChanged={changed} /> : null}
         {tab === 'terms' ? <Terms /> : null}
       </div>

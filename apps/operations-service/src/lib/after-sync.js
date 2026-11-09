@@ -1,5 +1,6 @@
 import { migrateSprint4Operations } from './migrations/sprint4-critical.js';
 import { migrateSprint5Operations } from './migrations/sprint5.js';
+import { migrateSprint6Operations } from './migrations/sprint6.js';
 // Runs after TypeORM has created the tables. Everything here is idempotent.
 // TypeORM cannot declare expression indexes, partial unique indexes, foreign keys with our names or CHECK
 // constraints, so the Transaction data rules live here as well as in the service code.
@@ -18,6 +19,7 @@ export const OPEN_STATUSES = "('IN_PROGRESS', 'ON_HOLD')";
 export async function afterSync(dataSource) {
   await migrateSprint4Operations(dataSource);
   await migrateSprint5Operations(dataSource);
+  await migrateSprint6Operations(dataSource);
   await settingsRules(dataSource);
   await counterRules(dataSource);
   await transactionRules(dataSource);

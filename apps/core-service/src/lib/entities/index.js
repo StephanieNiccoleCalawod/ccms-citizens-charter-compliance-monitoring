@@ -114,6 +114,36 @@ export const WorkingHours = new EntitySchema({
   },
 });
 
+// CC048: an office's own weekly schedule (see lib/migrations/sprint5.js). Seven rows per office, or none: no rows = the office uses
+// the campus schedule. weekday 0 = Sunday ... 6 = Saturday; times are 24-hour 'HH:MM' text like working_hours.
+export const OfficeSchedule = new EntitySchema({
+  name: 'OfficeSchedule',
+  tableName: 'office_schedules',
+  columns: {
+    officeId: { name: 'office_id', type: 'uuid', primary: true },
+    weekday: { name: 'weekday', type: 'smallint', primary: true },
+    isWorking: { name: 'is_working', type: 'boolean', default: false },
+    opensAt: { name: 'opens_at', type: 'text', nullable: true },
+    closesAt: { name: 'closes_at', type: 'text', nullable: true },
+    closesForLunch: { name: 'closes_for_lunch', type: 'boolean', default: false },
+    lunchStart: { name: 'lunch_start', type: 'text', nullable: true },
+    lunchEnd: { name: 'lunch_end', type: 'text', nullable: true },
+    version: { name: 'version', type: 'int', default: 1 },
+    updatedAt: { name: 'updated_at', type: 'timestamptz', updateDate: true },
+  },
+});
+
+// CC048: the version counter of an office's schedule. It outlives the rows (a reset deletes them) so a version number is never reused.
+export const OfficeScheduleVersion = new EntitySchema({
+  name: 'OfficeScheduleVersion',
+  tableName: 'office_schedule_versions',
+  columns: {
+    officeId: { name: 'office_id', type: 'uuid', primary: true },
+    version: { name: 'version', type: 'int', default: 0 },
+    updatedAt: { name: 'updated_at', type: 'timestamptz', updateDate: true },
+  },
+});
+
 // A holiday or suspension. office_id null = campus-wide; suspended_from null = the whole day.
 // exception_date is a Manila calendar date. One entry per date per scope (unique index in after-sync).
 export const CalendarException = new EntitySchema({
@@ -212,6 +242,8 @@ export const entities = [
   ServiceStandard,
   RequiredDocument,
   WorkingHours,
+  OfficeSchedule,
+  OfficeScheduleVersion,
   CalendarException,
   TermDate,
   SyncLog,

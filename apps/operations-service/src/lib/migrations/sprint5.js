@@ -22,8 +22,9 @@ async function outcomeColumns(manager) {
        AND disapproval_notice_given IS TRUE))`);
 }
 
-// CC046: the starter's position, copied at Start so editing the account later never changes an old transaction.
-// Empty on old rows and whenever Identity could not be reached at Start.
+// CC046: the starter's position and display name, copied at Start so editing or renaming the account later never changes an
+// old transaction. Empty on old rows and whenever Identity could not be reached at Start.
 async function positionColumn(manager) {
   await manager.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS started_by_position varchar(100)');
+  await manager.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS started_by_name varchar(200)');
 }

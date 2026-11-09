@@ -55,7 +55,7 @@ describe('who gets the Logs page', () => {
       assert.equal(nav.some((item) => item.href === '/settings'), role === ROLES.EXECUTIVE, role);
       assert.ok(nav.some((item) => item.href === '/services') && nav.some((item) => item.href === '/calendar'), role);
     }
-    assert.deepEqual(appNavForRole(ROLES.SUPER_ADMIN).filter((i) => i.section === 'Administration').map((i) => i.label), ['Accounts', 'Offices', 'Logs']);
+    assert.deepEqual(appNavForRole(ROLES.SUPER_ADMIN).filter((i) => i.section === 'Administration').map((i) => i.label), ['Accounts', 'Offices', 'Registry', 'Logs']);
   });
 
   it('the page is limited to Super Admin by the app shell, and the menu item is not a plain link in the shared nav', () => {

@@ -10,7 +10,7 @@ import {
   formatManilaIso,
 } from './engine/working-time.js';
 import { loadEngineEntries } from './exceptions.js';
-import { readSchedule } from './schedule.js';
+import { readEffectiveSchedule } from './office-schedule.js';
 
 // An ISO-8601 timestamp must carry its own offset: without one the parser would read it in the
 // server's local time zone, and results would change with the server clock.
@@ -34,9 +34,12 @@ export function parseEngineOfficeId(value) {
   return text;
 }
 
-/** Loads the schedule and the office's entries, and builds the pure engine's calendar. */
+/**
+ * Loads the schedule that applies to the office (its own, CC048; the campus schedule when it has none or when no office is
+ * asked for) and the office's entries, and builds the pure engine's calendar.
+ */
 export async function loadCalendar(dataSource, officeId) {
-  const schedule = await readSchedule(dataSource);
+  const schedule = await readEffectiveSchedule(dataSource, officeId);
   const exceptions = await loadEngineEntries(dataSource, officeId);
   return createCalendar({ schedule, exceptions, officeId });
 }

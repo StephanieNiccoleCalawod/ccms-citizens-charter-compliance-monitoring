@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AppShell from '../components/layout/AppShell.js';
+import DashboardAnalytics from '../components/dashboard/DashboardAnalytics.js';
 import LandingHero from '../components/public/LandingHero.js';
 import ErrorBanner from '../components/feedback/ErrorBanner.js';
 import Pager from '../components/navigation/Pager.js';
@@ -273,28 +274,37 @@ function ServiceResults({ catalogue }) {
   );
 }
 
-// Signed in: the same page, shown as the Dashboard inside the app shell (sidebar and top bar), without the hero.
+// Signed in: the same page, shown as the Dashboard inside the app shell (sidebar and top bar), without the hero. The analytics
+// (compliance, forecast, late risk, heatmap) come first; the service finder that was always here follows, unchanged.
 function SignedInHome() {
   const catalogue = useCatalogue();
   const { input, setInput, onSubmit } = catalogue;
   return (
-    <AppShell title="Dashboard" subtitle="Find a service, see what to bring and how long it takes.">
-      {/* No Search button: pressing Enter in the box searches. */}
-      <form onSubmit={onSubmit} className="card mb-6 flex overflow-hidden" role="search">
-        <label className="sr-only" htmlFor="home-search">
-          Search services or offices
-        </label>
-        <SearchIcon />
-        <input
-          id="home-search"
-          type="search"
-          className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none"
-          placeholder="Search by service or office name, then press Enter"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-        />
-      </form>
-      <ServiceResults catalogue={catalogue} />
+    <AppShell title="Dashboard" subtitle="Compliance at a glance, then find a service and see what to bring and how long it takes.">
+      {(user) => (
+        <div className="space-y-8">
+          <DashboardAnalytics user={user} />
+          <div>
+            <h2 className="title-section mb-4">Find a service</h2>
+            {/* No Search button: pressing Enter in the box searches. */}
+            <form onSubmit={onSubmit} className="card mb-6 flex overflow-hidden" role="search">
+              <label className="sr-only" htmlFor="home-search">
+                Search services or offices
+              </label>
+              <SearchIcon />
+              <input
+                id="home-search"
+                type="search"
+                className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none"
+                placeholder="Search by service or office name, then press Enter"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+            </form>
+            <ServiceResults catalogue={catalogue} />
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

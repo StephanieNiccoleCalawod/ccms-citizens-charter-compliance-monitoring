@@ -5,7 +5,6 @@ import {
   GLANCE_EMPTY,
   GLANCE_LABEL,
   GLANCE_VALUE,
-  HEADER_CHIP,
   NOT_SET,
   ProcedureStepList,
 } from './ServiceDetailParts.js';
@@ -17,22 +16,32 @@ import { parseDocumentNotes, parseProcedureSteps } from '../../lib/ui/parseProce
  * public page (/public/[id]) and by the "View requirements" modal on the home page, so both always show the same thing.
  * `embedded` draws the name as a level-2 heading (the modal already has the page's level-1 title).
  */
-export default function PublicServiceView({ service, embedded = false }) {
+export default function PublicServiceView({ service, embedded = false, onClose }) {
   const Title = embedded ? 'h2' : 'h1';
   const steps = parseProcedureSteps(service.processing_steps);
+  const hasNoFee = !service.fees || /^(none|no fee)$/i.test(service.fees.trim());
+  const headerChip = 'rounded-full bg-slate-100 px-3.5 py-1.5 text-sm font-medium text-slate-700';
   return (
     <div className="space-y-6">
-    <header className="rounded-2xl bg-[#3D0606] p-6 text-white sm:p-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 basis-80">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#E5B53A]">{service.office_name}</p>
-          <Title className="mt-2 break-words font-sans text-2xl font-bold leading-tight text-white sm:text-3xl">{service.service_name}</Title>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <span className={HEADER_CHIP}>{classificationLabel(service.classification)}</span>
-          {service.fees ? <span className={HEADER_CHIP}>{service.fees}</span> : null}
+    <header className="relative border-y-2 border-[#971121] bg-white px-6 py-6 sm:px-8">
+      {onClose ? (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close service requirements"
+          className="absolute right-5 top-5 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-2xl font-semibold leading-none text-[#971121] transition hover:border-[#971121]/30 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#971121]"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      ) : null}
+      <div className={onClose ? 'pr-12' : ''}>
+        <p className="text-base font-medium text-slate-600">{service.office_name}</p>
+        <Title className="mt-1 break-words font-serif text-2xl font-bold leading-tight text-[#86111C] sm:text-3xl">{service.service_name}</Title>
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          <span className={headerChip}>{classificationLabel(service.classification)} transaction</span>
+          <span className={hasNoFee ? 'rounded-full bg-emerald-50 px-3.5 py-1.5 text-sm font-medium text-emerald-800' : headerChip}>{hasNoFee ? 'No fee' : service.fees}</span>
           {steps ? (
-            <span className={HEADER_CHIP}>
+            <span className={headerChip}>
               {steps.length} {steps.length === 1 ? 'step' : 'steps'}
             </span>
           ) : null}

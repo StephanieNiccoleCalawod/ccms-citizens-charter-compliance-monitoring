@@ -60,7 +60,7 @@ describe('cron routes (TT1-T2, TC4-OPS-003)', () => {
     const inventory = JSON.parse(readFileSync(new URL('../../../docs/local-jobs.json', import.meta.url), 'utf8'));
     assert.equal(inventory.automaticScheduling, false);
     const jobs = inventory.services['operations-service'].jobs;
-    assert.deepEqual(jobs.map((c) => c.path).sort(), ['/api/jobs/auto-close', '/api/jobs/compute-pending', '/api/jobs/outbox', '/api/jobs/receipt-emails']);
+    assert.deepEqual(jobs.map((c) => c.path).sort(), ['/api/jobs/auto-close', '/api/jobs/compute-pending', '/api/jobs/forecast', '/api/jobs/outbox', '/api/jobs/receipt-emails']);
     for (const job of jobs) {
       const handler = await import(new URL(`../src/app${job.path}/route.js`, import.meta.url));
       assert.equal(typeof handler[job.method], 'function');

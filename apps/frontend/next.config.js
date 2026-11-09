@@ -15,6 +15,10 @@ const nextConfig = {
   // Hides the dev-only route badge. Compile and runtime errors are still shown by Next.js.
   devIndicators: false,
   allowedDevOrigins: ['localhost', '127.0.0.1'],
+  // Analytics moved into the Dashboard; an old /insights link or bookmark lands there.
+  async redirects() {
+    return [{ source: '/insights', destination: '/', permanent: false }];
+  },
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${gatewayUrl}/api/:path*` }];
   },

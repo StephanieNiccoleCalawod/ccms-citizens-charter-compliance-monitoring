@@ -14,7 +14,7 @@ const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 const css = read('src/app/globals.css');
 
 const TABLE_PAGES = {
-  'src/app/accounts/page.js': ['Name', 'Email', 'Role', 'Office', 'Status', 'Actions'],
+  'src/app/accounts/page.js': ['Name', 'Position', 'Email', 'Role', 'Office', 'Status', 'Actions'],
   'src/app/offices/page.js': ['Office name', 'Status', 'Actions'],
   'src/app/logs/page.js': ['Date &amp; time', 'Done by', 'Action', 'Affected entity', 'Office'],
   'src/app/calendar/Terms.js': ['Term', 'Start date', 'End date', 'Action'],
@@ -151,7 +151,9 @@ describe('pagination is the one shared Pager', () => {
       if (file === 'src/app/logs/page.js') assert.doesNotMatch(text, /\.slice\(\s*\(page - 1\)/, `${file} must not page on the client`);
       else assert.ok(text.includes('pageSlice('), `${file} pages its newest-first list here`);
     }
-    assert.match(read('src/app/accounts/page.js'), /page_size: String\(size\)/);
+    // CC046 moved the accounts query into accountsParams (lib/ui/account-position.js): the chosen size still goes out as page_size.
+    assert.match(read('src/app/accounts/page.js'), /accountsParams\(\{ page: pageNo, pageSize: size,/);
+    assert.match(read('src/lib/ui/account-position.js'), /page_size: String\(pageSize\)/);
     assert.match(read('src/app/services/page.js'), /page_size: size/);
     assert.match(read('src/app/accounts/page.js'), /setPageSize\(size\);\s*setPage\(1\);/);
     assert.match(read('src/app/services/page.js'), /setPageSize\(size\);\s*setPage\(1\);/);

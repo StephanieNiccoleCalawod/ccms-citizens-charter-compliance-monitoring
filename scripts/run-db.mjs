@@ -6,7 +6,7 @@ const commands = {
   'db:sync': ['oversight-service', 'identity-service', 'core-service', 'operations-service'],
   migrate: ['oversight-service', 'identity-service', 'core-service', 'operations-service'],
   'migrate:sprint4': ['oversight-service', 'core-service', 'operations-service'],
-  'migrate:sprint5': ['identity-service', 'operations-service'],
+  'migrate:sprint5': ['identity-service', 'operations-service', 'core-service'],
 };
 const command = process.argv[2];
 if (!commands[command]) throw new Error('Unknown database command');

@@ -7,7 +7,7 @@ const RUNS = [
   { TZ: 'UTC', expectOffset: '0' },
   { TZ: 'America/Los_Angeles', expectOffset: '480' }, // January: UTC-08:00
 ];
-const FILES = ['test/calendar-engine/*.test.js', 'test/calendar-engine-api.test.js'];
+const FILES = ['test/calendar-engine/*.test.js', 'test/calendar-engine-api.test.js', 'test/office-schedule-engine-api.test.js'];
 
 let failed = false;
 for (const { TZ, expectOffset } of RUNS) {

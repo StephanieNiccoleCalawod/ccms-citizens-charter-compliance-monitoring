@@ -17,6 +17,7 @@ import { HOLD_REASON_MAX, canHold, canResume, formatHeldMinutes, holdActionError
 import { clientTypeLabel, formatStandardDuration, statusLabel } from '../../lib/ui/start-transaction.js';
 import ElapsedTime from '../ui/ElapsedTime.js';
 import { officeName } from '../../lib/ui/names.js';
+import { starterLabels } from '../../lib/ui/account-position.js';
 
 const LABEL = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 const VALUE = 'text-sm text-slate-800';
@@ -317,6 +318,7 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
 
   const onHold = canResume(tx);
   const compliance = complianceState(tx);
+  const starter = starterLabels(tx);
   return (
     <div className="space-y-4">
       {embedded ? null : <Link href={backHref} className="inline-block text-sm font-semibold text-maroon-800 underline-offset-2 hover:underline">&larr; Back to transactions</Link>}
@@ -331,6 +333,11 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
         <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <Item label="Service">{tx.service_name}</Item>
           <Item label="Office">{officeName(tx)}</Item>
+          {/* CC046: the name and position copied when the transaction was started (not the account's current ones). */}
+          <Item label="Started by" testId="started-by">
+            <span className={starter.hasName ? 'block font-semibold text-slate-900' : 'block text-slate-500'} data-testid="started-by-name">{starter.name}</span>
+            <span className="block text-xs text-slate-600" data-testid="started-by-position">{starter.position}</span>
+          </Item>
           <Item label="Standard saved with it">{formatStandardDuration({ duration_days: tx.standard_duration_days, duration_hours: tx.standard_duration_hours, duration_minutes: tx.standard_duration_minutes })}</Item>
           <Item label="Started">{formatDateTime(tx.started_at) || '-'} (Asia/Manila)</Item>
           <Item label="Elapsed time"><ElapsedTime transaction={tx} /></Item>
@@ -464,7 +471,7 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
         footer={
           <>
             <button type="button" className="btn-secondary" onClick={() => setDialog(false)} disabled={busy !== null}>Cancel</button>
-            <button type="submit" form="hold-form" className="btn-primary" disabled={busy !== null || Boolean(reasonCheck.error)} aria-busy={busy === 'hold' || undefined}>
+            <button type="submit" form="hold-form" className="btn-save" disabled={busy !== null || Boolean(reasonCheck.error)} aria-busy={busy === 'hold' || undefined}>
               {busy === 'hold' ? 'Putting on hold…' : 'Put on hold'}
             </button>
           </>

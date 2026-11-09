@@ -5,7 +5,7 @@ import { CalendarException } from '../entities/index.js';
 import { entriesConflict, occurrencesInRange } from './engine/recurrence.js';
 import { timeToMinutes, weekdayOfDayIndex, dayIndexOfDate } from './engine/working-time.js';
 import { kickOutbox } from '../outbox.js';
-import { readSchedule } from './schedule.js';
+import { readEffectiveSchedule } from './office-schedule.js';
 import { kickSync } from '../outbox.js';
 import { enqueueCalendarChange } from './sync.js';
 import { getCatalogueSettings } from '../catalogue/settings.js';
@@ -91,7 +91,7 @@ export function parseExceptionInput(body, { enabled = false } = {}) {
   return { exceptionDate, exceptionType, description, officeId, suspendedFrom, suspendedUntil, isRecurring, appliesTo, classMode };
 }
 
-/** A suspended_from time must fall inside the working hours of that day (opening <= time < closing). */
+/** A suspended_from time must fall inside the working hours of that day (opening <= time < closing), in the office's own schedule if it has one. */
 function assertWithinWorkingHours(schedule, input) {
   if (input.appliesTo === 'CLASSES') return;
   if (!input.suspendedFrom) return;
@@ -156,7 +156,7 @@ export async function createException(dataSource, actor, body, { ipAddress } = {
       await manager.query('SELECT id FROM catalogue_settings WHERE id = 1 FOR SHARE');
       const settings = await getCatalogueSettings(manager);
       const input = parseExceptionInput(body, { enabled: settings.applies_to_enabled });
-      assertWithinWorkingHours(await readSchedule(manager), input);
+      assertWithinWorkingHours(await readEffectiveSchedule(manager, input.officeId), input);
       await assertNoConflict(manager, input);
       const exceptionId = newId();
       await manager.getRepository(CalendarException).insert({ exceptionId, ...toValues(input) });
@@ -182,7 +182,7 @@ export async function updateException(dataSource, actor, id, body, { ipAddress }
       const settings = await getCatalogueSettings(manager);
       const input = parseExceptionInput(body, { enabled: settings.applies_to_enabled });
       const before = toExceptionDto(await findOrFail(manager, id));
-      assertWithinWorkingHours(await readSchedule(manager), input);
+      assertWithinWorkingHours(await readEffectiveSchedule(manager, input.officeId), input);
       await assertNoConflict(manager, input, id);
       const unchanged =
         before.exception_date === input.exceptionDate &&
