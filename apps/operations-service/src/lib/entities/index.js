@@ -92,6 +92,8 @@ export const Transaction = new EntitySchema({
     receiptEmailClaimUntil: { name: 'receipt_email_claim_until', type: 'timestamptz', nullable: true },
     // CC046: the starter's position at the time of Start (a copy; empty when unknown).
     startedByPosition: { name: 'started_by_position', type: 'varchar', length: 100, nullable: true },
+    // CC051: confirmed Start outside working time (server-set).
+    startedOutsideHours: { name: 'started_outside_hours', type: 'boolean', default: false },
     // CC050: how it ended. Both stay empty on old rows ("Not recorded").
     outcome: { type: 'varchar', length: 12, nullable: true },
     disapprovalReason: { name: 'disapproval_reason', type: 'text', nullable: true },

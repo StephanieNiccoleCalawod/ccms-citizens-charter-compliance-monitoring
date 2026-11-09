@@ -101,6 +101,16 @@ export function createCoreClient({ baseUrl = coreBaseUrl(), serviceKey = process
       return data;
     },
 
+    /** GET /is-working-day?date=&officeId= -> { is_working_day, window: { opening_time, closing_time } | null } (CC051). */
+    async isWorkingDay(date, officeId) {
+      const data = await call('GET', `/is-working-day?date=${encodeURIComponent(date)}&officeId=${encodeURIComponent(officeId)}`);
+      const w = data.window;
+      const time = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+      const ok = typeof data.is_working_day === 'boolean' && (data.is_working_day ? isObject(w) && time(w.opening_time) && time(w.closing_time) : w === null || w === undefined);
+      if (!ok) throw invalid('working day');
+      return data;
+    },
+
     /** GET /offices/:id -> { office_id, office_code, office_name, is_active } (the service key also sees inactive offices). */
     async office(officeId) {
       const data = await call('GET', `/offices/${encodeURIComponent(officeId)}`);

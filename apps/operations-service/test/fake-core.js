@@ -61,7 +61,7 @@ export function engine(schedule = SCHEDULE_W) {
     }
     throw new Error('no working day');
   }
-  return { workingMinutes, advance, deadline };
+  return { workingMinutes, advance, deadline, windowOf, dayIndex };
 }
 
 const errorBody = (code, message, details = null) => ({ error: { code, message, details, correlation_id: 'fake-core', timestamp: new Date().toISOString() } });
@@ -75,6 +75,7 @@ export async function startFakeCore({ serviceKey = 'test-service-key-0123456789'
     mode: 'up', // up | down (503) | drop (connection closed) | hang
     failures: 0, // fail this many requests (503) and then recover
     overrides: new Map(), // 'POST /working-minutes' -> (body) => { status, body }
+    campusHours: false, // /is-working-day: false = always open (existing tests start "now"); true = fixture W hours
   };
 
   const respond = (res, status, body) => {
@@ -127,6 +128,13 @@ export async function startFakeCore({ serviceKey = 'test-service-key-0123456789'
         classification: service.classification,
       });
     }
+    if (req.method === 'GET' && url.pathname === '/api/is-working-day') {
+      if (!state.campusHours) return respond(res, 200, { is_working_day: true, window: { opening_time: '00:00', closing_time: '23:59' } });
+      const date = url.searchParams.get('date');
+      const w = cal.windowOf(cal.dayIndex(Date.parse(`${date}T12:00:00+08:00`)));
+      const hhmm = (min) => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
+      return respond(res, 200, w ? { is_working_day: true, window: { opening_time: hhmm(w.open), closing_time: hhmm(w.close) } } : { is_working_day: false, window: null });
+    }
     m = /^\/api\/offices\/([^/]+)$/.exec(url.pathname);
     if (m && req.method === 'GET') {
       const office = state.offices.get(m[1]);
@@ -159,11 +167,13 @@ export async function startFakeCore({ serviceKey = 'test-service-key-0123456789'
     failNext(n) { state.failures = n; },
     override(route, fn) { state.overrides.set(route, fn); },
     clearOverrides() { state.overrides.clear(); },
+    useCampusHours(on = true) { state.campusHours = on; },
     reset() {
       state.calls.length = 0;
       state.mode = 'up';
       state.failures = 0;
       state.overrides.clear();
+      state.campusHours = false;
     },
     callsTo(method, pathPart) {
       return state.calls.filter((c) => c.method === method && c.path.includes(pathPart));

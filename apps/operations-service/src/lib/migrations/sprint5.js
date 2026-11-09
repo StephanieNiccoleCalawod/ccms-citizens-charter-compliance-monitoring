@@ -6,6 +6,7 @@ export async function migrateSprint5Operations(dataSource) {
     await manager.query('SELECT pg_advisory_xact_lock(43436, 501)');
     await outcomeColumns(manager); // CC050
     await positionColumn(manager); // CC046
+    await outsideHoursColumn(manager); // CC051
   });
 }
 
@@ -26,4 +27,10 @@ async function outcomeColumns(manager) {
 // Empty on old rows and whenever Identity could not be reached at Start.
 async function positionColumn(manager) {
   await manager.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS started_by_position varchar(100)');
+}
+
+// CC051: set by the server when a Start was confirmed outside working time. Never taken from the client.
+// Old rows are false (they were not flagged); backdated entries are never flagged by this rule.
+async function outsideHoursColumn(manager) {
+  await manager.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS started_outside_hours boolean NOT NULL DEFAULT false');
 }

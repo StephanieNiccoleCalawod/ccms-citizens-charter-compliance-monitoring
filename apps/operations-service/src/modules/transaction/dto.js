@@ -32,6 +32,7 @@ export function toTransactionDto(row, { detail = true } = {}) {
     is_compliant: row.is_compliant ?? null,
     variance_minutes: row.variance_minutes ?? null,
     is_backdated: row.is_backdated === true,
+    started_outside_hours: row.started_outside_hours === true,
     outcome: row.outcome ?? null,
     held_minutes: row.held_minutes ?? 0,
     hold_started_at: iso(row.hold_started_at),

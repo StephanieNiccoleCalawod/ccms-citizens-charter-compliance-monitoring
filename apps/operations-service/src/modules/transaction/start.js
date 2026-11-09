@@ -3,6 +3,7 @@ import { Errors, assertOfficeAccess, isUniqueViolation, isUuid, recordAudit, toM
 import { kickOutbox, kickReceipts } from '../../lib/outbox.js';
 import { CoreRejectedError, CoreUnavailableError } from './core-client.js';
 import { CLIENT_TYPES, MSG, STATUS } from './constants.js';
+import { assertWorkingTimeOrConfirmed } from './working-time.js';
 import { loadTransactionRow, rowsOf } from './db.js';
 import { toTransactionDto } from './dto.js';
 import { computeAndStoreResult } from './complete.js';
@@ -48,7 +49,9 @@ export function parseStartInput(body, { now }) {
     Object.assign(details, err.details ?? {});
   }
   if (Object.keys(details).length) throw Errors.validation('Please correct the highlighted fields', details);
-  return { serviceId, clientType: body.client_type, clientReference, clientEmail, counterId, ...backdate };
+  // CC051: only an explicit true counts. Accepted as confirmOutsideHours (the spec) or confirm_outside_hours.
+  const confirmOutsideHours = body.confirmOutsideHours === true || body.confirm_outside_hours === true;
+  return { serviceId, clientType: body.client_type, clientReference, clientEmail, counterId, confirmOutsideHours, ...backdate };
 }
 
 /** Looks the standard in force up in Core (one retry inside the client) and turns Core's answers into Operations errors. */
@@ -107,6 +110,9 @@ export async function startTransaction(dataSource, { core, identity = null, now 
   const standard = await lookUpStandard(core, input.serviceId, manilaDate, { backdated });
   assertOfficeAccess(user, standard.office_id);
 
+  // CC051: a Start outside working time needs a confirmation and is flagged; a backdated entry is never flagged.
+  const startedOutsideHours = backdated ? false : await assertWorkingTimeOrConfirmed(core, { officeId: standard.office_id, at: requestTime, confirmed: input.confirmOutsideHours });
+
   // CC046: the starter's position, asked before the database transaction so a slow Identity never holds a lock.
   // Identity down or slow = an empty position; the start is never blocked.
   const startedByPosition = identity ? await identity.positionOf(user.id) : null;
@@ -140,8 +146,8 @@ export async function startTransaction(dataSource, { core, identity = null, now 
            transaction_id, tracking_no, service_id, service_code, service_name, office_id, office_code, service_classification,
            standard_id, standard_duration_days, standard_duration_hours, standard_duration_minutes, counter_id, client_type,
            client_reference, client_email, started_at, started_by, ended_at, ended_by, status, is_backdated, backdate_reason,
-            receipt_email_status, office_name, started_by_position)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
+            receipt_email_status, office_name, started_by_position, started_outside_hours)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
         [
           transactionId, number, input.serviceId, standard.service_code, standard.service_name, standard.office_id, standard.office_code,
           standard.classification, standard.standard_id, standard.duration_days, standard.duration_hours, standard.duration_minutes,
@@ -149,7 +155,7 @@ export async function startTransaction(dataSource, { core, identity = null, now 
           completed ? input.endedAt : null, completed ? user.id : null,
           completed ? STATUS.COMPLETED : STATUS.IN_PROGRESS, backdated, input.backdateReason,
           completed && input.clientEmail ? 'PENDING' : 'NONE',
-          standard.office_name, startedByPosition,
+          standard.office_name, startedByPosition, startedOutsideHours,
         ],
       );
 
@@ -172,6 +178,7 @@ export async function startTransaction(dataSource, { core, identity = null, now 
           client_type: input.clientType,
           counter_id: counterId,
           requirements_confirmed: true,
+          started_outside_hours: startedOutsideHours,
         },
         ipAddress,
       });

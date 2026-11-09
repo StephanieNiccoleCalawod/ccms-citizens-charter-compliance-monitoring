@@ -42,6 +42,8 @@ export const MSG = Object.freeze({
   BACKDATE_REASON: 'Enter why this time is entered after the fact',
   FUTURE: 'Time cannot be in the future',
   END_AFTER_START: 'End must be after start',
+  CALENDAR_START_DOWN: 'Cannot reach the calendar right now. Try again, or record the transaction later as a backdated entry.',
+  OUTSIDE_HOURS: 'It is outside working hours. The time count starts at the next opening. Start anyway?',
   OUTCOME: 'Choose Granted or Disapproved',
   DISAPPROVAL_REASON: 'Enter the reason for disapproval (up to 1,000 characters)',
   DISAPPROVAL_NOTICE: 'Confirm that the client was given written notice of the disapproval',

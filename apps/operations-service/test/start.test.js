@@ -87,7 +87,7 @@ describe('CC021 start with the standard snapshot', () => {
 
   it('the sequence restarts each Manila date: 23:59:59 on one day and 00:00:00 on the next', async () => {
     const deps = (iso) => ({ core: createCoreClient(), now: () => new Date(iso) });
-    const late = await startTransaction(env.ds, deps('2026-11-10T15:59:59Z'), staffA, body()); // 23:59:59 Manila on 11/10
+    const late = await startTransaction(env.ds, deps('2026-11-10T15:59:59Z'), staffA, body({ confirmOutsideHours: true })); // 23:59:59 Manila on 11/10 (after the latest closing time Core can express, CC051)
     assert.equal(late.tracking_no, 'PUP-OSAS-20261110-0001');
     assert.equal(env.core.callsTo('GET', '/standard').at(-1).query.asOf, '2026-11-10');
     await env.ds.query(`UPDATE transactions SET status = 'CANCELLED', cancel_reason = 'next', hold_started_at = NULL`);
