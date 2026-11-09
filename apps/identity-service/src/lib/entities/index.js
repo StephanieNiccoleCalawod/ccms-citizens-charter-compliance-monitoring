@@ -15,6 +15,8 @@ export const Account = new EntitySchema({
     passwordHash: { name: 'password_hash', type: 'text' },
     roleKey: { name: 'role_key', type: 'text' },
     officeId: { name: 'office_id', type: 'uuid', nullable: true },
+    // CC046: a label only (no salary grade, no permission effect).
+    position: { type: 'varchar', length: 100, nullable: true },
     isActive: { name: 'is_active', type: 'boolean', default: true },
     createdAt: { name: 'created_at', type: 'timestamptz', createDate: true },
     updatedAt: { name: 'updated_at', type: 'timestamptz', updateDate: true },

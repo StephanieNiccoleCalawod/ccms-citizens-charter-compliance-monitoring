@@ -5,6 +5,7 @@ export async function migrateSprint5Operations(dataSource) {
   await dataSource.transaction(async (manager) => {
     await manager.query('SELECT pg_advisory_xact_lock(43436, 501)');
     await outcomeColumns(manager); // CC050
+    await positionColumn(manager); // CC046
   });
 }
 
@@ -19,4 +20,10 @@ async function outcomeColumns(manager) {
     (outcome = 'GRANTED' AND disapproval_reason IS NULL AND disapproval_notice_given IS NULL) OR
     (outcome = 'DISAPPROVED' AND disapproval_reason IS NOT NULL AND char_length(btrim(disapproval_reason)) BETWEEN 1 AND 1000
        AND disapproval_notice_given IS TRUE))`);
+}
+
+// CC046: the starter's position, copied at Start so editing the account later never changes an old transaction.
+// Empty on old rows and whenever Identity could not be reached at Start.
+async function positionColumn(manager) {
+  await manager.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS started_by_position varchar(100)');
 }

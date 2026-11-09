@@ -170,6 +170,19 @@ describe('proxy behaviour', () => {
     });
   });
 
+  it('never exposes the service-key routes under /internal (CC046), whatever the method or token', async () => {
+    await withGateway({}, async (base) => {
+      const before = seen.identity.length;
+      for (const path of ['/api/identity/internal/accounts/abc', '/api/identity/internal']) {
+        for (const method of ['GET', 'POST']) {
+          const response = await fetch(`${base}${path}`, { method, headers: { authorization: 'Bearer anything', 'x-service-key': 'anything' }, body: method === 'POST' ? '{}' : undefined });
+          assert.equal(response.status, 404, `${method} ${path}`);
+        }
+      }
+      assert.equal(seen.identity.length, before);
+    });
+  });
+
   it('never exposes the scheduled jobs of any service, with or without a cron secret', async () => {
     await withGateway({}, async (base) => {
       const before = seen.identity.length + seen.catalogue.length;

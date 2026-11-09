@@ -15,6 +15,8 @@ export const MESSAGES = {
   officeForbidden: 'Executive and Super Admin accounts cannot have an office',
   lastSuperAdmin: 'At least one active Super Admin is required',
   notFound: 'Account not found',
+  positionText: 'Position must be text',
+  positionLong: 'Position must be 100 characters or fewer',
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,6 +30,7 @@ export function toAccountDto(account) {
     email: account.email,
     role: account.roleKey,
     office_id: account.officeId ?? null,
+    position: account.position ?? null,
     is_active: account.isActive,
     created_at: account.createdAt,
     updated_at: account.updatedAt,
@@ -47,6 +50,13 @@ export function parseAccountInput(body, { withPassword }) {
   const email = text(body.email).toLowerCase();
   const role = body.role;
   const officeId = text(body.office_id) || null;
+  // CC046: optional label. Left out of the body = unchanged on edit; empty text = cleared.
+  let position;
+  if (body.position !== undefined) {
+    if (body.position !== null && typeof body.position !== 'string') details.position = MESSAGES.positionText;
+    else if (text(body.position).length > 100) details.position = MESSAGES.positionLong;
+    else position = text(body.position) || null;
+  }
 
   if (!employeeNo) details.employee_no = 'Employee number is required';
   else if (employeeNo.length > 50) details.employee_no = 'Employee number must be 50 characters or fewer';
@@ -72,7 +82,7 @@ export function parseAccountInput(body, { withPassword }) {
   if (!isOfficeBound(role) && officeId) {
     throw Errors.validation(MESSAGES.officeForbidden, { office_id: MESSAGES.officeForbidden });
   }
-  return { employeeNo, fullName, email, roleKey: role, officeId, password };
+  return { employeeNo, fullName, email, roleKey: role, officeId, password, position };
 }
 
 function conflictFor(err) {
@@ -118,7 +128,16 @@ async function assertNotLastSuperAdmin(manager, target) {
   if (others === 0) throw Errors.conflict(MESSAGES.lastSuperAdmin, 'LAST_SUPER_ADMIN');
 }
 
-function audit(manager, actor, action, before, after, ipAddress) {
+// CC046: the position is a label shown on screens; it is never written to the audit trail.
+const withoutPosition = (dto) => {
+  if (!dto) return dto;
+  const { position: _position, ...rest } = dto;
+  return rest;
+};
+
+function audit(manager, actor, action, rawBefore, rawAfter, ipAddress) {
+  const before = withoutPosition(rawBefore);
+  const after = withoutPosition(rawAfter);
   const account = after ?? before;
   return recordAudit(manager, {
     actor,
@@ -150,6 +169,7 @@ export async function createAccount(dataSource, actor, body, { ipAddress, correl
         passwordHash,
         roleKey: input.roleKey,
         officeId: input.officeId,
+        position: input.position ?? null,
         isActive: true,
       });
       const created = toAccountDto(await loadAccount(manager, saved.accountId));
@@ -182,7 +202,7 @@ export async function updateAccount(dataSource, actor, id, body, { ipAddress, co
       const before = toAccountDto(existing);
       await manager.getRepository(Account).update(
         { accountId: id },
-        { employeeNo: input.employeeNo, fullName: input.fullName, email: input.email, roleKey: input.roleKey, officeId: input.officeId },
+        { employeeNo: input.employeeNo, fullName: input.fullName, email: input.email, roleKey: input.roleKey, officeId: input.officeId, ...(input.position !== undefined ? { position: input.position } : {}) },
       );
       const after = toAccountDto(await loadAccount(manager, id));
       await audit(manager, actor, 'ACCOUNT_UPDATED', before, after, ipAddress);
@@ -222,13 +242,14 @@ export async function getAccount(dataSource, id) {
 const escapeLike = (value) => value.replace(/[%_\\]/g, '\\$&');
 
 /** Search by name (also email and employee number) and filter by role, office and status. */
-export async function listAccounts(dataSource, { q, role, officeId, status, page = 1, pageSize = 25 } = {}) {
+export async function listAccounts(dataSource, { q, role, officeId, status, position, page = 1, pageSize = 25 } = {}) {
   const size = Math.min(Math.max(Number(pageSize) || 25, 1), 100);
   const pageNo = Math.max(Number(page) || 1, 1);
   const qb = dataSource.getRepository(Account).createQueryBuilder('a');
   if (q?.trim()) {
-    qb.andWhere('(a.fullName ILIKE :q OR a.email ILIKE :q OR a.employeeNo ILIKE :q)', { q: `%${escapeLike(q.trim())}%` });
+    qb.andWhere('(a.fullName ILIKE :q OR a.email ILIKE :q OR a.employeeNo ILIKE :q OR a.position ILIKE :q)', { q: `%${escapeLike(q.trim())}%` });
   }
+  if (position?.trim()) qb.andWhere('a.position ILIKE :position', { position: `%${escapeLike(position.trim())}%` });
   if (role) {
     if (!isValidRole(role)) throw Errors.validation('Unknown role filter', { role: 'Unknown role' });
     qb.andWhere('a.roleKey = :role', { role });

@@ -18,8 +18,8 @@ export const BLOCKED_API_PATHS = ['/api/logs/audit-events'];
 const READ_METHODS = new Set(['GET', 'HEAD']);
 
 // Scheduled jobs belong to each service and are called by Vercel Cron with a secret. They are never
-// reachable through the gateway, whatever the method.
-export const BLOCKED_PREFIXES = ['/api/jobs'];
+// reachable through the gateway, whatever the method. The same goes for /api/internal (service-key routes).
+export const BLOCKED_PREFIXES = ['/api/jobs', '/api/internal'];
 
 // Browser-facing API routes that need no token (RBAC doc 4.4): sign-in, refresh, sign-out and the
 // published keys; the public service browse; and every service's health check. Everything else under

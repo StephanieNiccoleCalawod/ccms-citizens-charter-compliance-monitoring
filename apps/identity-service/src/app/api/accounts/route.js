@@ -16,6 +16,7 @@ export const GET = route(async (request) => {
     role: params.get('role') || undefined,
     officeId: params.get('office_id') || undefined,
     status: params.get('status') || undefined,
+    position: params.get('position') || undefined,
     page: params.get('page') || undefined,
     pageSize: params.get('page_size') || undefined,
   });
