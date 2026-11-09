@@ -31,6 +31,7 @@ export function toTransactionDto(row, { detail = true } = {}) {
     is_compliant: row.is_compliant ?? null,
     variance_minutes: row.variance_minutes ?? null,
     is_backdated: row.is_backdated === true,
+    outcome: row.outcome ?? null,
     held_minutes: row.held_minutes ?? 0,
     hold_started_at: iso(row.hold_started_at),
     receipt_email_status: row.receipt_email_status ?? 'NONE',
@@ -41,6 +42,8 @@ export function toTransactionDto(row, { detail = true } = {}) {
     dto.client_email = row.client_email ?? null;
     dto.hold_reason = row.hold_reason ?? null;
     dto.cancel_reason = row.cancel_reason ?? null;
+    dto.disapproval_reason = row.disapproval_reason ?? null;
+    dto.disapproval_notice_given = row.disapproval_notice_given ?? null;
     dto.backdate_reason = row.backdate_reason ?? null;
     dto.receipt_email_attempts = row.receipt_email_attempts ?? 0;
   }

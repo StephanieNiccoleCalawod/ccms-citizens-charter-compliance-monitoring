@@ -9,6 +9,7 @@
   },
   "scripts": {
     "migrate:sprint4": "node --env-file-if-exists=.env.local scripts/migrate-sprint4-critical.js",
+    "migrate:sprint5": "node --env-file-if-exists=.env.local scripts/migrate-sprint5.js",
     "dev": "next dev -p 3004",
     "build": "next build",
     "start": "next start -p 3004",

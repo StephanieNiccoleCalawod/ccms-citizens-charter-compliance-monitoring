@@ -14,6 +14,10 @@ export const CLASSIFICATIONS = Object.freeze(['SIMPLE', 'COMPLEX', 'HIGHLY_TECHN
 
 export const REASON_MAX = 500;
 
+// CC050
+export const OUTCOMES = Object.freeze(['GRANTED', 'DISAPPROVED']);
+export const DISAPPROVAL_REASON_MAX = 1000;
+
 /** The actor recorded for work done by a job rather than a person (Decision G15). */
 export const SYSTEM_ACTOR = Object.freeze({ actorUserId: null, actorRole: 'system' });
 
@@ -38,4 +42,7 @@ export const MSG = Object.freeze({
   BACKDATE_REASON: 'Enter why this time is entered after the fact',
   FUTURE: 'Time cannot be in the future',
   END_AFTER_START: 'End must be after start',
+  OUTCOME: 'Choose Granted or Disapproved',
+  DISAPPROVAL_REASON: 'Enter the reason for disapproval (up to 1,000 characters)',
+  DISAPPROVAL_NOTICE: 'Confirm that the client was given written notice of the disapproval',
 });

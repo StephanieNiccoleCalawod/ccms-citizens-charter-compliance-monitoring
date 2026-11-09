@@ -1,11 +1,31 @@
 import { Errors, recordAudit } from 'ccms-shared';
 import { kickOutbox, kickReceipts } from '../../lib/outbox.js';
-import { MSG, STATUS, SYSTEM_ACTOR } from './constants.js';
+import { DISAPPROVAL_REASON_MAX, MSG, OUTCOMES, STATUS, SYSTEM_ACTOR } from './constants.js';
 import { loadTransactionRow, notFound, rowsOf } from './db.js';
 import { toTransactionDto } from './dto.js';
 import { assertCanAccess } from './access.js';
 import { computeCompliance } from './compliance.js';
 import { parseBackdate } from './time.js';
+
+/**
+ * CC050: the outcome of a complete request. Leaving `outcome` out records no outcome (shown as "Not recorded"), so a client
+ * that does not ask for it yet keeps working. DISAPPROVED needs a reason (up to 1,000 characters) and the written-notice tick;
+ * GRANTED needs neither and ignores both.
+ */
+export function parseOutcome(body) {
+  const raw = body?.outcome;
+  if (raw === undefined || raw === null) return { outcome: null, reason: null, noticeGiven: null };
+  if (typeof raw !== 'string' || !OUTCOMES.includes(raw)) throw Errors.validation(MSG.OUTCOME, { outcome: MSG.OUTCOME });
+  if (raw === 'GRANTED') return { outcome: raw, reason: null, noticeGiven: null };
+  const reason = typeof body.disapproval_reason === 'string' ? body.disapproval_reason.trim() : '';
+  if (!reason || reason.length > DISAPPROVAL_REASON_MAX) {
+    throw Errors.validation(MSG.DISAPPROVAL_REASON, { disapproval_reason: MSG.DISAPPROVAL_REASON });
+  }
+  if (body.disapproval_notice_given !== true) {
+    throw Errors.validation(MSG.DISAPPROVAL_NOTICE, { disapproval_notice_given: MSG.DISAPPROVAL_NOTICE });
+  }
+  return { outcome: raw, reason, noticeGiven: true };
+}
 
 const statusWord = (status) => status.toLowerCase().replace('_', '-');
 
@@ -72,6 +92,7 @@ export async function completeTransaction(dataSource, { core, now = () => new Da
   if (!existing) throw notFound();
   assertCanAccess(user, existing);
 
+  const decision = parseOutcome(body);
   const requestTime = now();
   const backdate = parseBackdate(body ?? {}, { now: requestTime, storedStart: existing.started_at, allowStart: false });
   const endedAt = backdate.endedAt ?? requestTime;
@@ -84,10 +105,11 @@ export async function completeTransaction(dataSource, { core, now = () => new Da
             SET status = 'COMPLETED', ended_at = $1, ended_by = $2, version = version + 1,
                 is_backdated = is_backdated OR $3::boolean,
                 backdate_reason = CASE WHEN $3::boolean THEN COALESCE(backdate_reason || E'\\n', '') || $4::text ELSE backdate_reason END,
-                receipt_email_status = CASE WHEN client_email IS NOT NULL THEN 'PENDING' ELSE receipt_email_status END
+                receipt_email_status = CASE WHEN client_email IS NOT NULL THEN 'PENDING' ELSE receipt_email_status END,
+                outcome = $6, disapproval_reason = $7, disapproval_notice_given = $8
           WHERE transaction_id = $5 AND status = 'IN_PROGRESS' AND started_at < $1
           RETURNING *`,
-        [endedAt, user.id, backdated, backdate.backdateReason, id],
+        [endedAt, user.id, backdated, backdate.backdateReason, id, decision.outcome, decision.reason, decision.noticeGiven],
       ),
     );
     if (!rows[0]) return null;
@@ -99,7 +121,8 @@ export async function completeTransaction(dataSource, { core, now = () => new Da
       entityName: rows[0].tracking_no,
       officeId: rows[0].office_id,
       before: { status: STATUS.IN_PROGRESS },
-      after: { status: STATUS.COMPLETED, ended_at: endedAt.toISOString() },
+      // The outcome is recorded; the disapproval reason text is not (TEAM DEFAULT: reasons stay out of the audit log).
+      after: { status: STATUS.COMPLETED, ended_at: endedAt.toISOString(), ...(decision.outcome ? { outcome: decision.outcome } : {}) },
       ipAddress,
     });
     if (backdated) {

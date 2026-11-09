@@ -90,6 +90,10 @@ export const Transaction = new EntitySchema({
     receiptEmailAttempts: { name: 'receipt_email_attempts', type: 'int', default: 0 },
     receiptEmailClaimToken: { name: 'receipt_email_claim_token', type: 'uuid', nullable: true },
     receiptEmailClaimUntil: { name: 'receipt_email_claim_until', type: 'timestamptz', nullable: true },
+    // CC050: how it ended. Both stay empty on old rows ("Not recorded").
+    outcome: { type: 'varchar', length: 12, nullable: true },
+    disapprovalReason: { name: 'disapproval_reason', type: 'text', nullable: true },
+    disapprovalNoticeGiven: { name: 'disapproval_notice_given', type: 'boolean', nullable: true },
     version: { type: 'int', default: 1 },
   },
 });

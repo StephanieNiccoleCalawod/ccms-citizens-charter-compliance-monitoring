@@ -26,6 +26,7 @@
     "db:sync": "node scripts/run-db.mjs db:sync",
     "db:migrate": "node scripts/run-db.mjs migrate",
     "db:migrate:sprint4": "node scripts/run-db.mjs migrate:sprint4",
+    "db:migrate:sprint5": "node scripts/run-db.mjs migrate:sprint5",
     "dev:frontend": "npm run dev --workspace=apps/frontend",
     "start:frontend": "npm run start --workspace=apps/frontend",
     "build:frontend": "npm run build --workspace=apps/frontend",

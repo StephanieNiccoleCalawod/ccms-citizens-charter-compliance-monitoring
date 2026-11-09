@@ -6,10 +6,11 @@ const commands = {
   'db:sync': ['oversight-service', 'identity-service', 'core-service', 'operations-service'],
   migrate: ['oversight-service', 'identity-service', 'core-service', 'operations-service'],
   'migrate:sprint4': ['oversight-service', 'core-service', 'operations-service'],
+  'migrate:sprint5': ['operations-service'],
 };
 const command = process.argv[2];
 if (!commands[command]) throw new Error('Unknown database command');
-const filename = command === 'db:sync' ? 'sync-db.js' : command === 'migrate' ? 'migrate.js' : 'migrate-sprint4-critical.js';
+const filename = command === 'db:sync' ? 'sync-db.js' : command === 'migrate' ? 'migrate.js' : command === 'migrate:sprint5' ? 'migrate-sprint5.js' : 'migrate-sprint4-critical.js';
 for (const app of commands[command]) {
   console.log(`${command}: ${app}`);
   const cwd = fileURLToPath(new URL(`../apps/${app}/`, import.meta.url));
