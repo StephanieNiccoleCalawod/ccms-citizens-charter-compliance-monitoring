@@ -99,7 +99,7 @@ export default function InstitutionCodePanel({ settings, onRetry, onSaved }) {
               <p id="institution_code-hint" className="mt-1 text-xs text-slate-500">2 to 10 uppercase letters or digits.</p>
               <FieldError id="institution_code-error">{fieldError}</FieldError>
             </div>
-            <button type="submit" className="btn-primary sm:mt-[21px]" disabled={saving}>
+            <button type="submit" className="btn-save sm:mt-[21px]" disabled={saving}>
               {saving ? 'Saving…' : 'Save institution code'}
             </button>
           </div>
@@ -110,6 +110,7 @@ export default function InstitutionCodePanel({ settings, onRetry, onSaved }) {
         title="Set the institution code?"
         message={`The institution code will be ${value.trim()}. It becomes the first part of every office code (for example ${value.trim()}-OSAS) and cannot be changed afterwards.`}
         confirmLabel="Set institution code"
+        confirmClassName="btn-save"
         onConfirm={confirm}
         onCancel={() => setAsking(false)}
       />

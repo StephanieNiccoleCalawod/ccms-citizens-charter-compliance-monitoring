@@ -47,6 +47,7 @@ const ICON_BY_HREF = {
   '/calendar': 'calendar',
   '/settings': 'sliders',
   '/logs': 'list',
+  '/registry': 'users',
   '/transactions': 'receipt',
 };
 

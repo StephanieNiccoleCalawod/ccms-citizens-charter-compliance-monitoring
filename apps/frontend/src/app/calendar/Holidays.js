@@ -18,6 +18,22 @@ import { CATALOGUE_SETTINGS_API, OFFICES_API } from '../../lib/api/catalogue.js'
 import { apiFetch } from '../../lib/auth/session.js';
 import { suspensionTimes, timeInputValue, unmatchedErrorMessages } from '../../lib/ui/time-input.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
+import StatusBanner from '../../components/feedback/StatusBanner.js';
+import { FieldError } from '../../components/forms/Field.js';
+import {
+  REASON_CATEGORIES,
+  REASON_NOT_STORED_NOTICE,
+  REFERENCE_MAX,
+  hasReason,
+  reasonBody,
+  reasonDisplay,
+  reasonFormFrom,
+  reasonProblems,
+  reasonStored,
+  reasonSupportedBy,
+  referenceCounter,
+  referenceError,
+} from '../../lib/ui/suspension-reason.js';
 import {
   APPLIES_TO,
   CLASS_MODES,
@@ -44,7 +60,7 @@ import {
 
 const EXCEPTIONS_API = '/api/calendar/exceptions';
 const NAGER_API = '/api/calendar/holidays/nager';
-const EMPTY_FORM = { exception_date: '', exception_type: 'REGULAR_HOLIDAY', description: '', office_id: '', suspended_from: '', suspended_until: '', is_recurring: false, applies_to: 'BOTH', class_mode: 'SUSPENDED' };
+const EMPTY_FORM = { exception_date: '', exception_type: 'REGULAR_HOLIDAY', description: '', office_id: '', suspended_from: '', suspended_until: '', is_recurring: false, applies_to: 'BOTH', class_mode: 'SUSPENDED', reason_category: '', reference: '' };
 
 export default function Holidays({ canWrite = false, onChanged }) {
   const today = todayManila();
@@ -62,6 +78,9 @@ export default function Holidays({ canWrite = false, onChanged }) {
   const [setting, setSetting] = useState({ loading: true, enabled: false, error: null });
   const enabled = setting.enabled === true;
   const formDirty = useFormDirty(form);
+  // CC058: set when a save came back without the reason fields, i.e. the calendar service did not keep them (see lib/ui/suspension-reason.js).
+  const [reasonNotice, setReasonNotice] = useState(false);
+  const reasonKept = reasonSupportedBy(state.items);
 
   const from = dateString(month.year, month.month, 1);
   const to = dateString(month.year, month.month, daysInMonth(month.year, month.month));
@@ -178,7 +197,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
   }
 
   // Core's messages for fields this form has no input for (the class fields while the setting is off, or any other name) show in the form's banner.
-  const shownFields = ['exception_date', 'exception_type', 'description', 'office_id', 'suspended_from', 'suspended_until', 'is_recurring', ...(enabled ? ['applies_to', ...(form?.applies_to !== 'WORK' ? ['class_mode'] : [])] : [])];
+  const shownFields = ['exception_date', 'exception_type', 'description', 'office_id', 'suspended_from', 'suspended_until', 'is_recurring', ...(hasReason(form?.exception_type) ? ['reason_category', 'reference'] : []), ...(enabled ? ['applies_to', ...(form?.applies_to !== 'WORK' ? ['class_mode'] : [])] : [])];
   const formLevelErrors = unmatchedErrorMessages(fieldErrors, shownFields);
 
   function openForm(date) {
@@ -199,6 +218,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
       suspended_until: timeInputValue(entry.suspended_until),
       is_recurring: entry.is_recurring === true,
       ...formAppliesTo(entry),
+      ...reasonFormFrom(entry),
     });
   }
 
@@ -216,7 +236,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
     event.preventDefault();
     if (!canWrite || saving) return;
     const time = suspensionTimes(form.suspended_from, form.suspended_until);
-    const problems = { ...appliesToErrors(enabled, form.applies_to, form.class_mode), ...time.errors };
+    const problems = { ...appliesToErrors(enabled, form.applies_to, form.class_mode), ...time.errors, ...reasonProblems(form) };
     if (Object.keys(problems).length) {
       setFieldErrors(problems); // what was typed stays; nothing is sent
       notify.error(saveFailureMessage({ status: 400, details: problems }));
@@ -234,9 +254,10 @@ export default function Holidays({ canWrite = false, onChanged }) {
         suspended_until: time.until,
         is_recurring: form.exception_type === 'SUSPENSION' ? false : form.is_recurring,
         ...appliesToBody(enabled, form.applies_to, form.class_mode),
+        ...reasonBody(form), // CC058: only for a suspension; extra fields beside the existing ones
       };
-      if (form.id) await apiFetch(`${EXCEPTIONS_API}/${form.id}`, { method: 'PUT', body });
-      else await apiFetch(EXCEPTIONS_API, { method: 'POST', body });
+      const answer = form.id ? await apiFetch(`${EXCEPTIONS_API}/${form.id}`, { method: 'PUT', body }) : await apiFetch(EXCEPTIONS_API, { method: 'POST', body });
+      setReasonNotice(hasReason(body.exception_type) && !reasonStored(answer));
       setForm(null);
       // The saved type decides the word: a suspension is not a holiday. Said only after the server confirmed.
       notify.success(savedMessage(body.exception_type === 'SUSPENSION' ? 'Suspension' : 'Holiday', form.id ? 'updated' : 'created'));
@@ -286,6 +307,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
   return (
     <div className="space-y-6">
       <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: null }))} />
+      {reasonNotice ? <StatusBanner variant="warning" message={REASON_NOT_STORED_NOTICE} onDismiss={() => setReasonNotice(false)} /> : null}
 
      
 
@@ -383,6 +405,8 @@ export default function Holidays({ canWrite = false, onChanged }) {
                                 <div>Scope: {officeName(entry.office_id)}</div>
                                 <div>Suspended from: {entry.suspended_from ? formatTime(entry.suspended_from) || entry.suspended_from : 'Whole day'}</div>
                                 {entry.suspended_until ? <div>Suspended until: {formatTime(entry.suspended_until) || entry.suspended_until}</div> : null}
+                                {hasReason(entry.exception_type) ? <div data-testid="entry-reason">Reason: {reasonDisplay(entry).category}</div> : null}
+                                {hasReason(entry.exception_type) ? <div data-testid="entry-reference">Reference: {reasonDisplay(entry).reference}</div> : null}
                                 <div>Repeats: {entry.is_recurring ? `Every year (from ${entry.exception_date.slice(0, 4)})` : 'No'}</div>
                               </dl>
                             </>
@@ -455,6 +479,11 @@ export default function Holidays({ canWrite = false, onChanged }) {
                           {formatDate(date)} · {typeLabel(entry.exception_type)} · {entry.nager ? 'Nager.Date reference' : officeName(entry.office_id)}
                         </span>
                         {enabled && !entry.nager ? <span className="mt-0.5 block text-xs font-semibold text-maroon-800" data-testid="entry-effect">{describeEffect(entry)}</span> : null}
+                        {!entry.nager && hasReason(entry.exception_type) ? (
+                          <span className="mt-0.5 block text-xs text-slate-600" data-testid="entry-reason-line">
+                            Reason: {reasonDisplay(entry).category} · Ref: {reasonDisplay(entry).reference}
+                          </span>
+                        ) : null}
                       </button>
                       {canWrite && !entry.nager ? (
                         <div className="flex shrink-0 gap-3">
@@ -610,6 +639,64 @@ export default function Holidays({ canWrite = false, onChanged }) {
                     {fieldErrors.exception_type ? <p className="mt-1 text-xs text-red-700">{fieldErrors.exception_type}</p> : null}
                   </div>
                 </div>
+                {hasReason(form.exception_type) ? (
+                  <div className="grid gap-4 sm:grid-cols-2" data-testid="reason-fields">
+                    <div>
+                      <label className="label" htmlFor="reason_category">
+                        Reason category<RequiredMark />
+                      </label>
+                      <select
+                        id="reason_category"
+                        className="input select-chevron"
+                        value={form.reason_category}
+                        onChange={(e) => {
+                          setForm({ ...form, reason_category: e.target.value });
+                          setFieldErrors((errors) => ({ ...errors, reason_category: undefined }));
+                        }}
+                        aria-required="true"
+                        aria-invalid={fieldErrors.reason_category ? 'true' : undefined}
+                        aria-describedby="reason_category-error"
+                      >
+                        <option value="">Select a reason</option>
+                        {REASON_CATEGORIES.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                      <FieldError id="reason_category-error">{fieldErrors.reason_category}</FieldError>
+                    </div>
+                    <div>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <label className="label" htmlFor="reference">
+                          Reference / Memorandum number
+                        </label>
+                        <span className={`text-xs ${referenceError(form.reference) ? 'font-semibold text-red-700' : 'text-slate-500'}`} data-testid="reference-counter" aria-live="polite">
+                          {referenceCounter(form.reference)}
+                        </span>
+                      </div>
+                      <input
+                        id="reference"
+                        className="input"
+                        value={form.reference}
+                        onChange={(e) => {
+                          setForm({ ...form, reference: e.target.value });
+                          setFieldErrors((errors) => ({ ...errors, reference: undefined }));
+                        }}
+                        aria-invalid={fieldErrors.reference ? 'true' : undefined}
+                        aria-describedby="reference-help reference-error"
+                        autoComplete="off"
+                      />
+                      <p id="reference-help" className="mt-1 text-xs text-slate-500">Optional. For example the memorandum number. Up to {REFERENCE_MAX} characters.</p>
+                      <FieldError id="reference-error">{fieldErrors.reference}</FieldError>
+                    </div>
+                    {!reasonKept ? (
+                      <p className="text-xs text-slate-500 sm:col-span-2" data-testid="reason-support-note">
+                        The calendar service has not been updated to keep these two fields yet. They are sent with the entry, but may not be saved until it is.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div>
                   <label className="label" htmlFor="description">
                     Description

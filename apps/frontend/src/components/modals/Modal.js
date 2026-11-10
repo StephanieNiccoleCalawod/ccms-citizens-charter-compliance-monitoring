@@ -33,6 +33,7 @@ function focusSafely(el) {
  * The panel is at most 90% of the screen high: the title bar and footer stay put and only the body scrolls. Its width is the
  * smaller of widthClass and the screen minus the 16px margins, so it never overflows sideways.
  * fullScreenOnMobile makes the panel fill the screen below the sm breakpoint. While any modal is open the page behind does not scroll.
+ * hideHeader leaves the accessible title in place but lets an embedded view supply its own visual header and close control.
  */
 export default function Modal({
   open,
@@ -49,6 +50,7 @@ export default function Modal({
   showClose = false,
   fullScreenOnMobile = false,
   flushBody = false,
+  hideHeader = false,
 }) {
   const titleId = useId();
   const stackId = useId();
@@ -160,6 +162,7 @@ export default function Modal({
         tabIndex={-1}
         className={`relative flex w-full ${widthClass} card flex-col overflow-hidden focus:outline-none ${fullScreenOnMobile ? 'h-full max-h-full rounded-none sm:h-auto sm:max-h-[90vh] sm:rounded-xl' : 'max-h-[90vh]'}`}
       >
+        {hideHeader ? <h2 id={titleId} className="sr-only">{title}</h2> : (
         <div className={'flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-6 py-4'}>
           <h2 id={titleId} className="text-xl">
             {title}
@@ -177,6 +180,7 @@ export default function Modal({
             </button>
           ) : null}
         </div>
+        )}
         <div className={flushBody ? 'flex min-h-0 flex-1 flex-col' : 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5'}>{children}</div>
         {footer ? <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-6 py-4">{footer}</div> : null}
       </div>

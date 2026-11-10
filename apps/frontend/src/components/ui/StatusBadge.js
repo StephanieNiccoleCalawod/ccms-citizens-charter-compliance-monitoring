@@ -7,20 +7,23 @@
  */
 const VARIANT_STYLES = {
   // Classification variants
-  simple: 'bg-[#E3F2E9] text-[#2E7D4E]',
-  complex: 'bg-[#FFF4D9] text-[#9A6A00]',
-  highly_technical: 'bg-[#E8F1FC] text-[#1D5E9E]',
+  simple: 'bg-emerald-50 text-emerald-700',
+  complex: 'bg-amber-50 text-amber-800',
+  highly_technical: 'bg-blue-50 text-blue-700',
 
   // Record status variants
   active: 'bg-emerald-50 text-emerald-700',
   inactive: 'bg-slate-100 text-slate-600',
+  dissolved: 'bg-red-50 text-red-700',
+  archived: 'bg-slate-100 text-slate-600',
 
   // Transaction status variants
-  in_progress: 'bg-[#E8F1FC] text-[#1D5E9E]',
-  on_hold: 'bg-[#FFF4D9] text-[#9A6A00]',
+  in_progress: 'bg-blue-50 text-blue-700',
+  on_hold: 'bg-amber-50 text-amber-800',
   completed: 'bg-emerald-50 text-emerald-700',
   cancelled: 'bg-slate-100 text-slate-600',
   auto_closed: 'bg-slate-100 text-slate-600',
+  rejected: 'bg-red-50 text-red-700',
 
   // Compliance result variants (transaction detail)
   compliant: 'bg-emerald-50 text-emerald-700',

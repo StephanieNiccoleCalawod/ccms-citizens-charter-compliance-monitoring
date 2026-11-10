@@ -13,6 +13,7 @@ export default function ConfirmDialog({
   message,
   confirmLabel = 'Confirm',
   danger = false,
+  confirmClassName,
   busy = false,
   busyLabel = 'Please wait…',
   onConfirm,
@@ -37,7 +38,7 @@ export default function ConfirmDialog({
           <button ref={cancelRef} type="button" className="btn-secondary" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
-          <button type="button" className={danger ? 'btn-danger' : 'btn-primary'} onClick={onConfirm} disabled={busy} aria-busy={busy || undefined}>
+          <button type="button" className={confirmClassName ?? (danger ? 'btn-danger' : 'btn-primary')} onClick={onConfirm} disabled={busy} aria-busy={busy || undefined}>
             {busy ? busyLabel : confirmLabel}
           </button>
         </>

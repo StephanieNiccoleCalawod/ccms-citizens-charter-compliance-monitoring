@@ -9,19 +9,21 @@
   --color-maroon-50: #fbf2f2;
   --color-gold-400: #e5b53a;
   --color-gold-500: #d4a017;
-  /* PUP sidebar palette */
+  /* CCMS Brand palette */
   --color-pup-maroon: #800000;
-  --color-pup-maroon-dark: #650000;
+  --color-pup-maroon-dark: #600000;
   --color-pup-maroon-active: #8f2020;
   --color-pup-maroon-divider: #962020;
   --color-pup-gold: #ffdf00;
   --color-pup-gray: #e5e5e5;
-  --color-table-divider: #F1EBE4;
-  /* Content area and tables (the Audit Logs design is the reference) */
-  --color-page: #F7F3EE;
-  --color-line: #E7DFD7;
-  --color-table-head: #400909;
-  --color-table-hover: #FAF8F6;
+  --color-table-divider: #E5E7EB;
+  /* Content area and tables */
+  --color-page: #F5F6FA;
+  --color-line: #E5E7EB;
+  --color-table-head: #800000;
+  --color-table-hover: rgba(128, 0, 0, 0.04);
+  /* Shadows */
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 /* inline: the font variable is set by next/font on <html> (see layout.js). */
@@ -32,39 +34,46 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-800 antialiased;
+    @apply bg-page text-slate-800 antialiased;
   }
   h1,
   h2,
   h3 {
     @apply font-serif text-slate-900;
   }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: #800000;
+  }
 }
 
 /* Shared component classes (Tailwind v4 @utility so they can be reused with @apply). */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-primary {
-  @apply btn bg-maroon-800 text-white hover:bg-maroon-700;
+  @apply btn bg-pup-maroon text-white hover:bg-pup-maroon-dark focus-visible:ring-maroon-700;
+}
+@utility btn-save {
+  @apply btn bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-500;
 }
 @utility btn-secondary {
   @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
 }
 @utility btn-danger {
-  @apply btn bg-red-700 text-white hover:bg-red-600;
+  @apply btn bg-red-700 text-white hover:bg-red-600 focus-visible:ring-red-500;
 }
 @utility btn-link {
-  @apply text-sm font-semibold text-maroon-800 hover:underline disabled:opacity-50;
+  @apply text-sm font-semibold text-pup-maroon hover:underline disabled:opacity-50;
 }
 @utility label {
   @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500;
 }
 @utility input {
-  @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-maroon-800 focus:outline-none focus:ring-1 focus:ring-maroon-800 disabled:bg-slate-100 aria-invalid:border-red-600 aria-invalid:focus:border-red-700 aria-invalid:focus:ring-red-700;
+  @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-pup-maroon focus:outline-none focus:ring-1 focus:ring-pup-maroon disabled:bg-slate-100 aria-invalid:border-red-600 aria-invalid:focus:border-red-700 aria-invalid:focus:ring-red-700;
 }
 @utility card {
-  @apply rounded-xl border border-line bg-white shadow-sm;
+  @apply rounded-xl border border-line bg-white shadow-card;
 }
 @utility badge {
   @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
@@ -80,7 +89,7 @@
 }
 /* Tables: one container, one header, one row. Use <TableShell> and <Table> (components/ui/TableShell.js). */
 @utility table-shell {
-  @apply overflow-hidden rounded-xl border border-line bg-white;
+  @apply overflow-hidden rounded-xl border border-line bg-white shadow-card;
 }
 @utility table-head {
   @apply bg-table-head;
@@ -97,20 +106,20 @@
 }
 /* Small square icon button inside a row (expand arrow, row menu): same size, border and radius everywhere. */
 @utility row-icon-button {
-  @apply inline-flex h-7 w-7 items-center justify-center rounded-lg border border-line bg-white text-slate-500 hover:bg-table-hover hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-7 w-7 items-center justify-center rounded-lg border border-line bg-white text-slate-500 hover:bg-table-hover hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 @utility table-pager {
   @apply flex flex-wrap items-center justify-between gap-3 border-t border-table-divider px-4 py-3;
 }
 @utility page-size-select {
-  @apply rounded-full border border-line bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000];
+  @apply rounded-full border border-line bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon;
 }
 @utility page-arrow {
-  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-table-hover hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent;
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-table-hover hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent;
 }
 @utility page-current {
-  @apply inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-[#800000] px-2 text-xs font-semibold text-white;
+  @apply inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-pup-maroon px-2 text-xs font-semibold text-white;
 }
 
 /* Heading scale: page title, section title inside a page, card title. Serif is for headings only. */
@@ -126,7 +135,7 @@
 
 /* Text-style action inside a table row or list: at least 24px tall so it is easy to hit. */
 @utility row-action {
-  @apply inline-flex min-h-6 items-center rounded px-1.5 text-sm font-semibold text-maroon-800 hover:bg-maroon-50 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 disabled:opacity-50;
+  @apply inline-flex min-h-6 items-center rounded px-1.5 text-sm font-semibold text-pup-maroon hover:bg-maroon-50 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 disabled:opacity-50;
 }
 
 /* Public home hero: layered maroon and gold glow, CSS only (no image files). */

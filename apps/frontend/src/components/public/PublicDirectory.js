@@ -48,7 +48,7 @@ function ServiceRow({ number, item, onView }) {
 }
 
 /** The existing public service detail, loaded for one service and shown in a modal. */
-function RequirementsBody({ service }) {
+function RequirementsBody({ service, onClose }) {
   const [state, setState] = useState({ loading: true, data: null, error: null });
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +61,7 @@ function RequirementsBody({ service }) {
   }, [service.service_id]);
   if (state.loading) return <p className="text-sm text-slate-500" role="status">Loading requirements…</p>;
   if (state.error) return <ErrorBanner message={state.error} />;
-  return <PublicServiceView service={state.data} embedded />;
+  return <PublicServiceView service={state.data} embedded onClose={onClose} />;
 }
 
 function FilterPill({ active, onClick, children }) {
@@ -209,8 +209,8 @@ export default function PublicDirectory({ catalogue }) {
         </footer>
       </main>
 
-      <Modal open={selected !== null} title="Service requirements" widthClass="max-w-4xl" showClose fullScreenOnMobile onClose={() => setSelected(null)}>
-        {selected ? <RequirementsBody key={selected.service_id} service={selected} /> : null}
+      <Modal open={selected !== null} title="Service requirements" widthClass="max-w-4xl" hideHeader fullScreenOnMobile onClose={() => setSelected(null)}>
+        {selected ? <RequirementsBody key={selected.service_id} service={selected} onClose={() => setSelected(null)} /> : null}
       </Modal>
     </div>
   );

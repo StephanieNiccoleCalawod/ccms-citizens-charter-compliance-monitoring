@@ -3,7 +3,7 @@
  * ("Saving…", "Creating…", "Updating…"), is disabled so it cannot be pressed twice, and goes back to normal when the page sets
  * busy to false (after success or failure). `form` is the id of the form it submits (the button sits in the modal footer).
  */
-export default function SubmitButton({ busy = false, label = 'Save', busyLabel = 'Saving…', form, disabled = false, className = 'btn-primary' }) {
+export default function SubmitButton({ busy = false, label = 'Save', busyLabel = 'Saving…', form, disabled = false, className = 'btn-save' }) {
   return (
     <button type="submit" form={form} className={className} disabled={busy || disabled} aria-busy={busy || undefined}>
       {busy ? (

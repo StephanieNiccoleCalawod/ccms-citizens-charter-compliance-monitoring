@@ -7,7 +7,8 @@
 //
 // Rules (Administrative Code of 1987, Book I, Sec. 31: the start day is not counted, the last is):
 //   window of a date   none when the schedule marks the weekday non-working or a whole-day entry
-//                      applies (campus-wide, or that office's); otherwise opening to closing with each
+//                      applies (campus-wide, or that office's); otherwise opening to closing with the lunch
+//                      break (CC048: only when the schedule row has closes_for_lunch) and each
 //                      applicable part-day suspension cut out. A suspension runs from suspended_from to
 //                      suspended_until (EB4); an old entry without suspended_until runs to closing time.
 //                      A date can therefore have two working segments (before and after a mid-day
@@ -86,9 +87,19 @@ export function formatManilaIso(ms) {
   );
 }
 
+/** The lunch break of a schedule row as minutes of the day, or null: not enabled, unreadable, or not inside the opening hours. */
+function lunchOf(row, open, close) {
+  if (row.closes_for_lunch !== true) return null;
+  const from = timeToMinutes(row.lunch_start);
+  const until = timeToMinutes(row.lunch_end);
+  return from !== null && until !== null && from >= open && until <= close && until > from ? { from, until } : null;
+}
+
 /**
  * Builds a calendar for one office from injected data.
- *   schedule    [{ day_of_week, is_working, opening_time, closing_time }]  (0 = Sunday)
+ *   schedule    [{ day_of_week, is_working, opening_time, closing_time }]  (0 = Sunday). A row may also carry
+ *               closes_for_lunch, lunch_start, lunch_end (CC048, office schedules): the lunch is then not working time.
+ *               The campus schedule has none, so for it nothing changes.
  *   exceptions  [{ exception_date, suspended_from, is_recurring, office_id }]  (any office; filtered here)
  *   officeId    optional. Without it only campus-wide entries apply.
  * Returns { windowOf(dayIndex) } where the window is { open, close } in minutes of the day or null.
@@ -99,7 +110,7 @@ export function createCalendar({ schedule, exceptions = [], officeId = null }) {
     if (!row?.is_working) continue;
     const open = timeToMinutes(row.opening_time);
     const close = timeToMinutes(row.closing_time);
-    if (open !== null && close !== null && close > open) byWeekday[row.day_of_week] = { open, close };
+    if (open !== null && close !== null && close > open) byWeekday[row.day_of_week] = { open, close, lunch: lunchOf(row, open, close) };
   }
 
   const office = officeId == null ? null : String(officeId).toLowerCase();
@@ -129,6 +140,7 @@ export function createCalendar({ schedule, exceptions = [], officeId = null }) {
       const until = entry.suspended_until == null || entry.suspended_until === '' ? null : timeToMinutes(entry.suspended_until);
       cuts.push([from, until === null ? base.close : Math.max(until, from)]);
     }
+    if (base.lunch) cuts.push([base.lunch.from, base.lunch.until]);
     cuts.sort((a, b) => a[0] - b[0]);
     const segments = [];
     let cursor = base.open;

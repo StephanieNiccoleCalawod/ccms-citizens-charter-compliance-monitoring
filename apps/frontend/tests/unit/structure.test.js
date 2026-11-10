@@ -48,7 +48,7 @@ describe('the frontend only talks to the API gateway', () => {
 
   it('has every screen of the system', () => {
     const pages = sources.filter((f) => f.endsWith('/page.js')).map((f) => f.slice(join(ROOT, 'src/app').length, -'/page.js'.length) || '/');
-    for (const expected of ['/', '/login', '/reset-password', '/accounts', '/office', '/campus', '/offices', '/services', '/services/[id]', '/public/[id]', '/calendar', '/settings', '/logs', '/transactions/new', '/transactions', '/transactions/[id]']) {
+    for (const expected of ['/', '/login', '/reset-password', '/accounts', '/office', '/campus', '/offices', '/services', '/services/[id]', '/public/[id]', '/calendar', '/settings', '/logs', '/registry', '/transactions/new', '/transactions', '/transactions/[id]']) {
       assert.ok(pages.includes(expected), `missing page ${expected}`);
     }
   });

@@ -92,8 +92,13 @@ export const Transaction = new EntitySchema({
     receiptEmailClaimUntil: { name: 'receipt_email_claim_until', type: 'timestamptz', nullable: true },
     // CC046: the starter's position at the time of Start (a copy; empty when unknown).
     startedByPosition: { name: 'started_by_position', type: 'varchar', length: 100, nullable: true },
+<<<<<<< HEAD
     // CC051: confirmed Start outside working time (server-set).
     startedOutsideHours: { name: 'started_outside_hours', type: 'boolean', default: false },
+=======
+    // CC046: the starter's display name at the time of Start (a copy, like the office name; empty when unknown or an old row).
+    startedByName: { name: 'started_by_name', type: 'varchar', length: 200, nullable: true },
+>>>>>>> origin/feature/sprint-5-6-integration
     // CC050: how it ended. Both stay empty on old rows ("Not recorded").
     outcome: { type: 'varchar', length: 12, nullable: true },
     disapprovalReason: { name: 'disapproval_reason', type: 'text', nullable: true },
@@ -102,4 +107,30 @@ export const Transaction = new EntitySchema({
   },
 });
 
-export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit];
+// ---- CC038 Forecast runs (Sprint 6) ----
+// One row per completed or attempted forecast run. Never updated; retrain inserts a new row.
+// Indexes and constraints created in after-sync via migrateSprint6Operations.
+export const ForecastRun = new EntitySchema({
+  name: 'ForecastRun',
+  tableName: 'forecast_runs',
+  columns: {
+    id:                       { type: 'uuid', primary: true, generated: 'uuid' },
+    officeId:                 { name: 'office_id', type: 'uuid' },
+    serviceId:                { name: 'service_id', type: 'uuid', nullable: true },
+    selectedModel:            { name: 'selected_model', type: 'varchar', length: 30 },
+    mae:                      { type: 'numeric', precision: 10, scale: 4, nullable: true },
+    historyStartDate:         { name: 'history_start_date', type: 'date', nullable: true },
+    historyEndDate:           { name: 'history_end_date', type: 'date', nullable: true },
+    historyWorkingDays:       { name: 'history_working_days', type: 'int', nullable: true },
+    historicalTransactionCount: { name: 'historical_transaction_count', type: 'int', nullable: true },
+    forecastPayload:          { name: 'forecast_payload', type: 'jsonb', default: () => "'[]'" },
+    weeklyTotal:              { name: 'weekly_total', type: 'int', default: 0 },
+    status:                   { type: 'varchar', length: 20, default: 'SUCCESS' },
+    errorCode:                { name: 'error_code', type: 'varchar', length: 50, nullable: true },
+    errorMessage:             { name: 'error_message', type: 'text', nullable: true },
+    generatedAt:              { name: 'generated_at', type: 'timestamptz', createDate: true },
+    createdAt:                { name: 'created_at', type: 'timestamptz', createDate: true },
+  },
+});
+
+export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun];

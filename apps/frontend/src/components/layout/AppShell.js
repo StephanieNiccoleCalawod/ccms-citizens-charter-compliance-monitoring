@@ -197,7 +197,7 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
   const toggleLabel = wide ? (collapsed ? 'Expand sidebar' : 'Collapse sidebar') : menuOpen ? 'Close navigation' : 'Open navigation';
 
   return (
-    <div className="min-h-screen bg-white md:flex">
+    <div className="min-h-screen bg-page md:flex">
       {!wide && menuOpen ? <div className="fixed inset-0 z-30 bg-slate-900/40" onClick={() => setMenuOpen(false)} aria-hidden="true" /> : null}
       {/* Sidebar: a drawer on phones, a permanent sidebar from md up that the hamburger button in the header collapses to icons. */}
       <aside

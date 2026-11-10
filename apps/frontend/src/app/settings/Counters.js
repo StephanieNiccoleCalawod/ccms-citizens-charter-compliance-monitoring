@@ -215,7 +215,7 @@ export default function Counters({ user, canWrite }) {
             <button type="button" className="btn-secondary" onClick={() => setForm(null)} disabled={saving}>
               Cancel
             </button>
-            <button type="submit" form="counter-form" className="btn-primary" disabled={saving}>
+            <button type="submit" form="counter-form" className="btn-save" disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
             </button>
           </>

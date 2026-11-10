@@ -141,7 +141,9 @@ describe('formatting stays at the display boundary', () => {
     has('src/app/calendar/Holidays.js', 'suspended_from: time.from,');
     has('src/app/calendar/Holidays.js', 'suspended_until: time.until,');
     has('src/app/calendar/Terms.js', 'start_date: form.start_date, end_date: form.end_date');
-    has('src/app/calendar/WorkingHours.js', 'opening_time: r.opening_time.trim(), closing_time: r.closing_time.trim()');
+    // The working-hours form sends the typed 24-hour text as it is (trimmed), through one helper.
+    has('src/lib/ui/office-schedule.js', 'opening_time: r.opening_time.trim(),');
+    has('src/lib/ui/office-schedule.js', 'closing_time: r.closing_time.trim(),');
     has('src/lib/ui/service-form.js', 'effective_from: values.effective_from,');
     // Edit forms start from the API values, untouched.
     has('src/app/calendar/Terms.js', 'start_date: term.start_date, end_date: term.end_date');
@@ -169,7 +171,9 @@ describe('every screen uses the shared helpers', () => {
   });
 
   it('native date and time pickers are still native (no text inputs replacing them)', () => {
-    assert.equal([...read('src/app/calendar/WorkingHours.js').matchAll(/type="time"/g)].length, 4);
+    // Every time in the working-hours form is the one native time input (a shared component), never a text box.
+    assert.equal([...read('src/app/calendar/ScheduleDayRow.js').matchAll(/type="time"/g)].length, 1);
+    assert.doesNotMatch(read('src/app/calendar/WorkingHoursModal.js'), /type="text"/);
     for (const file of ['src/app/calendar/Holidays.js', 'src/app/calendar/Terms.js', 'src/app/services/[id]/page.js', 'src/components/forms/ServiceForm.js']) assert.match(read(file), /type="date"/, file);
   });
 
@@ -182,7 +186,8 @@ describe('every screen uses the shared helpers', () => {
     uses('src/app/calendar/Holidays.js', ['formatDate', 'formatTime']);
     uses('src/app/calendar/Terms.js', ['formatDate']);
     uses('src/app/calendar/SyncPanel.js', ['formatDateTime']);
-    uses('src/app/calendar/WorkingHours.js', ['formatDateTime']);
+    assert.match(read('src/lib/ui/working-hours.js'), /from '\.\/date-format\.js'/); // the records on the Working hours tab
+    assert.ok(read('src/lib/ui/working-hours.js').includes('formatDateTime('));
     uses('src/app/services/[id]/page.js', ['formatDate']);
     assert.match(read('src/lib/api/calendar.js'), /formatTimeRange/);
   });

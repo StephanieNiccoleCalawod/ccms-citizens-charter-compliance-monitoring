@@ -296,17 +296,19 @@ export async function apiFetch(path, { method = 'GET', body, headers } = {}, ret
     throw new ApiError('Your session has ended. Please sign in again.', { status: 401, code: 'SESSION_ENDED' });
   }
 
+  // A FormData body (a file upload) is sent as it is: the browser sets the multipart content type and boundary itself.
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   let response;
   try {
     response = await fetch(path, {
       method,
       credentials: 'same-origin',
       headers: {
-        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+        ...(body === undefined || isForm ? {} : { 'content-type': 'application/json' }),
         authorization: `Bearer ${token}`,
         ...headers,
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
   } catch {
     throw networkError();

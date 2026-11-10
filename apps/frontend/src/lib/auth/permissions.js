@@ -21,6 +21,11 @@ export function logsNav(role) {
   return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Logs', href: '/logs' } : null;
 }
 
+/** The Student and Alumni Registry import (CC043) is for Super Admin only: nobody else gets the menu item (the page and the services check the role too). */
+export function registryNav(role) {
+  return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Registry', href: '/registry' } : null;
+}
+
 /**
  * The Transactions list is for Super Admin, Office Head and Office Staff. Starting a transaction is no longer a menu item: it is the
  * "+ Add Transaction" button on that page, which opens /transactions/new (that page is limited to the same roles).
@@ -45,5 +50,5 @@ export function activeNavHref(items, pathname) {
 export function appNavForRole(role) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
-  return [...shared, transactionsNav(role), transactionSettingsNav(role), logsNav(role)].filter(Boolean);
+  return [...shared, transactionsNav(role), transactionSettingsNav(role), registryNav(role), logsNav(role)].filter(Boolean);
 }

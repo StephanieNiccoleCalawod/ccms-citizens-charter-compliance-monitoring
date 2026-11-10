@@ -131,7 +131,8 @@ async function assertNotLastSuperAdmin(manager, target) {
 // CC046: the position is a label shown on screens; it is never written to the audit trail.
 const withoutPosition = (dto) => {
   if (!dto) return dto;
-  const { position: _position, ...rest } = dto;
+  const rest = { ...dto };
+  delete rest.position;
   return rest;
 };
 

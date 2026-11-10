@@ -25,6 +25,7 @@ export function toTransactionDto(row, { detail = true } = {}) {
     status: row.status,
     started_at: iso(row.started_at),
     started_by: row.started_by,
+    started_by_name: row.started_by_name ?? null, // a copy taken at Start (CC046): a later rename of the account does not change it
     started_by_position: row.started_by_position ?? null,
     ended_at: iso(row.ended_at),
     ended_by: row.ended_by ?? null,

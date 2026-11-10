@@ -199,7 +199,7 @@ function SettingsManager({ user }) {
 
         {canWrite ? (
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="btn-primary" disabled={!dirty || saving}>
+            <button type="submit" className="btn-save" disabled={!dirty || saving}>
               {saving ? 'Saving…' : 'Save settings'}
             </button>
             <button type="button" className="btn-secondary" disabled={!dirty || saving} onClick={() => { setForm(settingsToForm(settings)); setFieldErrors({}); }}>
@@ -221,6 +221,7 @@ function SettingsManager({ user }) {
         title="Save transaction settings?"
         message="The new settings apply from now on. The change is recorded in the audit log."
         confirmLabel="Save settings"
+        confirmClassName="btn-save"
         busy={saving}
         busyLabel="Saving…"
         onConfirm={confirmSave}

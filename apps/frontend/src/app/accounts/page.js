@@ -27,13 +27,17 @@ import { ACCOUNTS_API } from '../../lib/api/identity.js';
 import { OFFICES_API } from '../../lib/api/catalogue.js';
 import { apiFetch } from '../../lib/auth/session.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
+import { POSITION_MAX, accountBody, accountToForm, accountsParams, positionCounter, positionError, positionLabel } from '../../lib/ui/account-position.js';
+import { FieldError } from '../../components/forms/Field.js';
 
 const DEFAULT_PAGE_SIZE = 10;
-const EMPTY_FORM = { employee_no: '', full_name: '', email: '', role: ROLES.OFFICE_STAFF, office_id: '', password: '' };
+const EMPTY_FORM = { employee_no: '', full_name: '', email: '', role: ROLES.OFFICE_STAFF, office_id: '', position: '', password: '' };
+const NO_FILTERS = { q: '', role: '', office_id: '', status: 'active', position: '' };
 
 function AccountsManager() {
-  const [filters, setFilters] = useState({ q: '', role: '', office_id: '', status: 'active' });
+  const [filters, setFilters] = useState({ ...NO_FILTERS });
   const [appliedQuery, setAppliedQuery] = useState('');
+  const [appliedPosition, setAppliedPosition] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [list, setList] = useState({ loading: true, items: [], total: 0, error: null });
@@ -81,6 +85,15 @@ function AccountsManager() {
     return () => clearTimeout(timer);
   }, [filters.q]);
 
+  // The position filter waits for a pause in typing too; the service does the matching (any letter case, part of a title).
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedPosition(filters.position);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filters.position]);
+
   // Depend on the individual filter values, not the whole `filters` object: that object is replaced on
   // every keystroke in the search box, which would re-run the request before the debounce above fires.
   const { role, office_id, status } = filters;
@@ -94,12 +107,7 @@ function AccountsManager() {
     try {
       // The service returns accounts A to Z in pages, so all pages of this search are read and ordered newest first here.
       const all = await fetchEveryPage(apiFetch, (pageNo, size) => {
-        const params = new URLSearchParams({ page: String(pageNo), page_size: String(size) });
-        if (appliedQuery.trim()) params.set('q', appliedQuery.trim());
-        if (role) params.set('role', role);
-        if (office_id) params.set('office_id', office_id);
-        if (status) params.set('status', status);
-        return `${ACCOUNTS_API}?${params}`;
+        return `${ACCOUNTS_API}?${accountsParams({ page: pageNo, pageSize: size, q: appliedQuery, role, office_id, status, position: appliedPosition })}`;
       });
       if (request !== latestRequest.current) return;
       const items = sortNewestFirst(all);
@@ -108,7 +116,7 @@ function AccountsManager() {
       if (request !== latestRequest.current) return;
       setList((current) => ({ ...current, loading: false, error: err.message }));
     }
-  }, [appliedQuery, role, office_id, status]);
+  }, [appliedQuery, appliedPosition, role, office_id, status]);
 
   useEffect(() => {
     load();
@@ -130,16 +138,14 @@ function AccountsManager() {
 
   function setFilter(key, value) {
     setFilters((current) => ({ ...current, [key]: value }));
-    if (key !== 'q') setPage(1);
+    if (key !== 'q' && key !== 'position') setPage(1);
   }
 
   function openForm(account) {
     rememberTrigger();
     setFieldErrors({});
     setForm(
-      account
-        ? { id: account.account_id, employee_no: account.employee_no, full_name: account.full_name, email: account.email, role: account.role, office_id: account.office_id ?? '', password: '' }
-        : { ...EMPTY_FORM },
+      account ? accountToForm(account) : { ...EMPTY_FORM },
     );
   }
 
@@ -159,16 +165,16 @@ function AccountsManager() {
         return;
       }
     }
+    const tooLong = positionError(form.position);
+    if (tooLong) {
+      setFieldErrors({ position: tooLong });
+      notify.error(MESSAGES.validation);
+      return;
+    }
     setBusy(true);
     setFieldErrors({});
     try {
-      const body = {
-        employee_no: form.employee_no,
-        full_name: form.full_name,
-        email: form.email,
-        role: form.role,
-        office_id: isOfficeBound(form.role) ? form.office_id || null : null,
-      };
+      const body = accountBody(form, { officeBound: isOfficeBound(form.role) });
       if (form.id) await apiFetch(`${ACCOUNTS_API}/${form.id}`, { method: 'PUT', body });
       else await apiFetch(ACCOUNTS_API, { method: 'POST', body: { ...body, password: form.password } });
       setForm(null);
@@ -233,6 +239,10 @@ function AccountsManager() {
             <label className="label" htmlFor="account-search">Search name</label>
             <SearchInput id="account-search" value={filters.q} onChange={(e) => setFilter('q', e.target.value)} />
           </div>
+          <div className="w-full sm:w-56">
+            <label className="label" htmlFor="filter-position">Position</label>
+            <SearchInput id="filter-position" value={filters.position} onChange={(e) => setFilter('position', e.target.value)} />
+          </div>
           <div className="w-full sm:w-44">
             <label className="label" htmlFor="filter-role">Role</label>
             <select id="filter-role" className="input select-chevron" value={filters.role} onChange={(e) => setFilter('role', e.target.value)}>
@@ -259,12 +269,13 @@ function AccountsManager() {
               <option value="inactive">Inactive</option>
             </select>
           </div>
-          {filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active' ? (
+          {filters.q.trim() || filters.position.trim() || filters.role || filters.office_id || filters.status !== 'active' ? (
             <ClearFiltersButton
               className="w-full sm:w-auto"
               onClick={() => {
-                setFilters({ q: '', role: '', office_id: '', status: 'active' });
+                setFilters({ ...NO_FILTERS });
                 setAppliedQuery('');
+                setAppliedPosition('');
                 setPage(1);
               }}
             />
@@ -278,10 +289,11 @@ function AccountsManager() {
       <TableShell footer={<Pager page={page} pageSize={pageSize} total={list.total} onPage={setPage} onPageSizeChange={changePageSize} loading={list.loading} />}>
         <Table
           busy={list.loading}
-          minWidth="52rem"
+          minWidth="60rem"
           head={
             <tr>
               <Th>Name</Th>
+              <Th>Position</Th>
               <Th>Email</Th>
               <Th>Role</Th>
               <Th>Office</Th>
@@ -291,9 +303,9 @@ function AccountsManager() {
           }
         >
               {list.loading ? (
-                <TableState colSpan={6} kind="loading">Loading accounts…</TableState>
+                <TableState colSpan={7} kind="loading">Loading accounts…</TableState>
               ) : list.items.length === 0 ? (
-                <TableState colSpan={6}>No accounts match.</TableState>
+                <TableState colSpan={7}>No accounts match.</TableState>
               ) : (
                 pageSlice(list.items, page, pageSize).rows.map((account) => (
                   <tr key={account.account_id} className={`tr-row ${account.is_active ? '' : 'bg-table-hover'}`}>
@@ -301,6 +313,7 @@ function AccountsManager() {
                       <p className="font-semibold text-slate-900">{account.full_name}</p>
                       <p className="text-xs text-slate-500">{account.employee_no}</p>
                     </td>
+                    <td className="td" data-testid="account-position">{positionLabel(account.position)}</td>
                     <td className="td">{account.email}</td>
                     <td className="td"><RoleBadge role={account.role} /></td>
                     <td className="td">{officeLabel(account.office_id)}</td>
@@ -361,6 +374,24 @@ function AccountsManager() {
               <label className="label" htmlFor="email">Email<RequiredMark /></label>
               <input id="email" type="email" className="input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
               {fieldErrors.email ? <p className="mt-1 text-xs text-red-700">{fieldErrors.email}</p> : null}
+            </div>
+            <div>
+              <div className="flex items-baseline justify-between gap-2">
+                <label className="label" htmlFor="position">Position / Designation</label>
+                <span className={`text-xs ${positionError(form.position) ? 'font-semibold text-red-700' : 'text-slate-500'}`} data-testid="position-counter" aria-live="polite">{positionCounter(form.position)}</span>
+              </div>
+              <input
+                id="position"
+                className="input"
+                value={form.position}
+                onChange={(e) => setForm({ ...form, position: e.target.value })}
+                onBlur={(e) => setForm((current) => (current ? { ...current, position: e.target.value.trim() } : current))}
+                aria-invalid={fieldErrors.position ? 'true' : undefined}
+                aria-describedby="position-help position-error"
+                autoComplete="off"
+              />
+              <p id="position-help" className="mt-1 text-xs text-slate-500">Optional. A label shown on screens, such as &ldquo;Administrative Aide III&rdquo;. Up to {POSITION_MAX} characters. It does not change what the person can do.</p>
+              <FieldError id="position-error">{fieldErrors.position}</FieldError>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>

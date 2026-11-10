@@ -49,6 +49,11 @@
           "path": "/api/jobs/receipt-emails",
           "method": "GET",
           "historicalSchedule": "30 1 * * *"
+        },
+        {
+          "path": "/api/jobs/forecast",
+          "method": "GET",
+          "historicalSchedule": "0 18 * * *"
         }
       ]
     }
