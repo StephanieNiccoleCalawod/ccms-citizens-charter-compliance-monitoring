@@ -83,7 +83,7 @@ describe('the page', () => {
 
   it('the cards have a white background with a border, not the transparent card utility', () => {
     assert.match(page, /const CARD = 'rounded-2xl border border-slate-200 bg-white'/);
-    assert.doesNotMatch(page, /className="card\b|bg-white/);
+    assert.doesNotMatch(page, /className="card\b/);
     assert.doesNotMatch(modal, /className="card\b/);
   });
 

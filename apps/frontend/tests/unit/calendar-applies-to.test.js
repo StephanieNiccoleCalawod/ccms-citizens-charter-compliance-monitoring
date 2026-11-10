@@ -15,7 +15,7 @@ import {
 } from '../../src/lib/api/calendar.js';
 import { CATALOGUE_SETTINGS_API } from '../../src/lib/api/catalogue.js';
 
-const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8');
+const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8').replaceAll('\r\n', '\n');
 const apiError = (status, code, message = 'x') => Object.assign(new Error(message), { name: 'ApiError', status, code });
 
 describe('Applies to and Classes are: the values and their labels', () => {

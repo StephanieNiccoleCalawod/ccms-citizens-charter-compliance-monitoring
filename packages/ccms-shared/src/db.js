@@ -1,8 +1,10 @@
 import { DataSource, EntitySchema } from 'typeorm';
+import { MIGRATIONS_TABLE, resolveDbTarget } from './migrations.js';
 
 // Database access for every service is TypeORM on PostgreSQL. Entities are plain-JavaScript
-// EntitySchema objects (no decorators). Schema changes are explicit: run the owning service
-// db:sync or migrate command before startup. Runtime synchronization defaults to off.
+// EntitySchema objects (no decorators). Schema changes are explicit: hosted databases change only
+// through the numbered migrations (migrate:run); db:sync is for disposable local databases.
+// Runtime synchronization is always off.
 
 // Audit outbox: an event row is written in the same transaction as the business change and later
 // delivered to the Logs service. audit_id makes re-sends idempotent.
@@ -38,26 +40,48 @@ export function envFlag(name, fallback) {
   return !['false', '0', 'no', 'off'].includes(value.toLowerCase());
 }
 
+let warnedIgnoredSync = false;
+
 /**
  * Builds a DataSource.
  *   url          PostgreSQL connection string (defaults to DATABASE_URL)
  *   entities     the service's EntitySchema list (include OutboxEvent for services that audit)
- *   synchronize  create/update tables from the entities on start (default: DB_SYNCHRONIZE, false)
+ *   synchronize  create/update tables from the entities on start (default: DB_SYNCHRONIZE, false).
+ *                Refused for a hosted target (DB_TARGET=hosted, or a non-local host): TT1.
+ *   migrations   migration classes, in order (the migrate:* commands only)
  *   afterSync    async (dataSource) => void, idempotent raw SQL that runs after sync
  *                (for example the append-only triggers on the Logs table). getDataSource only runs
  *                it when synchronize is on.
  */
-export function createDataSource({ url = process.env.DATABASE_URL, entities, synchronize, logging = false } = {}) {
+export function createDataSource({ url = process.env.DATABASE_URL, entities, synchronize, migrations, logging = false } = {}) {
   if (!url) throw new Error('DATABASE_URL is not configured');
   // Neon (and any hosted Postgres) needs TLS. It is on when DATABASE_SSL is true or the URL asks
   // for it (sslmode=require); the certificate is verified unless DATABASE_SSL_INSECURE=true.
   const wantsSsl = envFlag('DATABASE_SSL', /[?&]sslmode=(require|verify-full|verify-ca)/.test(url));
   const shouldSynchronize = synchronize ?? envFlag('DB_SYNCHRONIZE', false);
+  if (shouldSynchronize && process.env.NODE_ENV === 'production') {
+    throw new Error('Schema synchronization is refused: NODE_ENV=production. Use npm run migrate:run.');
+  }
+  const { target, reason } = resolveDbTarget(url);
+  if (target === 'hosted') {
+    // Hosted schema changes go through the numbered migrations only. This check runs before any connection.
+    if (shouldSynchronize) {
+      throw new Error(`Schema synchronization is refused on a hosted database (${reason}). Use npm run migrate:run.`);
+    }
+    if (envFlag('DB_SYNCHRONIZE', false) && !warnedIgnoredSync) {
+      warnedIgnoredSync = true;
+      console.warn('DB_SYNCHRONIZE=true is ignored for a hosted database; set DB_SYNCHRONIZE=false.');
+    }
+  }
   return new DataSource({
     type: 'postgres',
     url,
     entities,
     synchronize: shouldSynchronize,
+    migrations: migrations ?? [],
+    migrationsTableName: MIGRATIONS_TABLE,
+    migrationsTransactionMode: 'each',
+    migrationsRun: false,
     // TypeORM otherwise issues CREATE EXTENSION even when synchronize is false.
     installExtensions: shouldSynchronize,
     logging,

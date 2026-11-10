@@ -1,0 +1,7 @@
+{
+  "column:transactions.disapproval_notice_given": "boolean",
+  "column:transactions.disapproval_reason": "text",
+  "column:transactions.outcome": "character varying(12)",
+  "column:transactions.started_by_position": "character varying(100)",
+  "constraint:transactions.transactions_outcome_ck": "CHECK ((((outcome IS NULL) AND (disapproval_reason IS NULL) AND (disapproval_notice_given IS NULL)) OR (((outcome)::text = 'GRANTED'::text) AND (disapproval_reason IS NULL) AND (disapproval_notice_given IS NULL)) OR (((outcome)::text = 'DISAPPROVED'::text) AND (disapproval_reason IS NOT NULL) AND ((char_length(btrim(disapproval_reason)) >= 1) AND (char_length(btrim(disapproval_reason)) <= 1000)) AND (disapproval_notice_given IS TRUE))))"
+}

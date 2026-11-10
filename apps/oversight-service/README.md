@@ -24,16 +24,47 @@ docker run -d --name ccms-oversight-db -e POSTGRES_USER=ccms_oversight -e POSTGR
 
 cp .env.example .env.local
 npm install
-npm run db:sync      # creates audit_log, the two roles and the grants (connects as the owner)
+npm run migrate:run  # empty database: creates audit_log, the two roles and the grants (connects as the owner)
+                     # (or: npm run db:sync, local only)
 npm run dev          # http://127.0.0.1:3002/api/health  ->  { "status": "UP" }
 ```
+
+## Database migrations (TypeORM, TT1)
+
+Schema synchronization is refused with `NODE_ENV=production`, including local targets. The reconstructed baseline
+requires verification against an isolated hosted copy before adoption. This service permits no extra schema objects
+during adoption; `--accept-extra` cannot bypass unknown objects.
+
+The schema is defined by the numbered migrations in `migrations/`. Every migration command connects as the schema owner
+(`DATABASE_ADMIN_URL`, falling back to `DATABASE_URL`); never point it at `ccms_logs_writer`. The running service never changes
+the schema (`synchronize: false`; keep `DB_SYNCHRONIZE=false`).
+
+| Command | What it does |
+| --- | --- |
+| `npm run migrate:show` | Read-only: each migration `[X]` applied or `[ ]` pending |
+| `npm run migrate:run` | Applies pending migrations. On an empty database it runs the baseline: `audit_log`, its indexes and checks, then the two runtime roles and grants exactly as `db:sync` provisions them |
+| `npm run migrate:revert` | Reverts the latest migration (the baseline cannot be reverted: restore the backup instead) |
+| `npm run migrate:check-baseline` | Read-only: compares the live schema, including the `audit_log` grants, with `migrations/baseline-schema.json` |
+| `npm run migrate:baseline` | Existing database only: records the baseline as applied after verifying the schema. Bookkeeping only: no schema, grant, role or row change |
+
+Migrations: `OversightBaseline1793491200000` only (the pre-Sprint-5 schema, including the Sprint 4 `entity_name` column and check).
+A later migration that adds a table must `GRANT` exactly the runtime access it needs.
+
+**Baseline setup.** Empty database: `npm run migrate:run`. Existing database (including the hosted one): `migrate:check-baseline`,
+then `migrate:baseline`; `migrate:run` then reports nothing pending. If the grants differ from the baseline, `check-baseline`
+reports them; do not adopt until they are reviewed.
+
+**Hosted safeguards.** `db:sync` is local development only and is refused for `DB_TARGET=hosted` (or any non-loopback host when
+`DB_TARGET` is unset) before connecting. Hosted writes need `DB_TARGET=hosted` and `--confirm=<database>`, and are run only by
+BE Dev 1 after a verified backup: see [../../docs/database-migrations.md](../../docs/database-migrations.md).
 
 `TEST_PG_URL` must point to a disposable test PostgreSQL cluster, not the local or hosted Oversight cluster. The security tests
 create temporary databases and provision the cluster-wide `ccms_logs_writer` and `ccms_oversight_app` roles with test passwords.
 
 ## Database roles (TT2, D6)
 
-`npm run db:sync` connects as the schema owner (`DATABASE_ADMIN_URL`) and, in `src/lib/after-sync.js`:
+The baseline migration (empty databases) and the local `npm run db:sync` both connect as the schema owner (`DATABASE_ADMIN_URL`)
+and, in `src/lib/after-sync.js`:
 
 | Role | Rights on `audit_log` | Used by |
 | --- | --- | --- |
@@ -46,8 +77,8 @@ Provisioning also revokes the database's default `PUBLIC` access, including `CON
 memberships, sets both runtime roles to `NOINHERIT` with no administrative attributes, and revokes schema creation. This prevents
 another CCMS database credential from entering Oversight when services share a PostgreSQL cluster.
 The schema owner keeps the rights every table owner has and must never be the role the service runs as. On Neon, create the
-database and the owner role in the console first; `db:sync` creates the two roles and sets their passwords from
-`LOGS_WRITER_PASSWORD` and `OVERSIGHT_APP_PASSWORD`.
+database and the owner role in the console first; on an empty database `migrate:run` creates the two roles and sets their
+passwords from `LOGS_WRITER_PASSWORD` and `OVERSIGHT_APP_PASSWORD` (`db:sync` is refused on Neon).
 
 ## API (under `/api`)
 
@@ -78,4 +109,5 @@ with its `CRON_SECRET` to send a batch at once. Re-sent events are ignored by `a
 - The logs module has no outbox, no outbound request and no job (BR-LOG-001): audit entries never leave CCMS.
 - Indexes: `(occurred_at DESC)`, `(office_id, occurred_at DESC)`, `action`, `entity_type`, `actor_user_id`. A CHECK requires a user unless
   `actor_role = 'system'`. There are no foreign keys (user and office are plain IDs from other services).
-- Tables are created from the entities by `npm run db:sync`; constraints, indexes and grants are in `src/lib/after-sync.js` (no migration files, E22 open).
+- Schema changes are numbered migrations in `migrations/` (TT1). `src/lib/after-sync.js` (constraints, indexes, grants) is used by
+  the local `db:sync` and, for the grants, by the baseline; `npm run test:safety` at the root checks that both build the same schema.

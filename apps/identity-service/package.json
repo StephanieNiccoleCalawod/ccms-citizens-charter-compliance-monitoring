@@ -8,6 +8,12 @@
     "port": 3001
   },
   "scripts": {
+    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js run",
+    "migrate:run": "node --env-file-if-exists=.env.local scripts/migrate.js run",
+    "migrate:revert": "node --env-file-if-exists=.env.local scripts/migrate.js revert",
+    "migrate:show": "node --env-file-if-exists=.env.local scripts/migrate.js show",
+    "migrate:check-baseline": "node --env-file-if-exists=.env.local scripts/migrate.js check-baseline",
+    "migrate:baseline": "node --env-file-if-exists=.env.local scripts/migrate.js baseline",
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
@@ -18,14 +24,13 @@
     "ci": "npm run lint && npm run check:time && npm test && npm run build",
     "bootstrap:admin": "node --env-file-if-exists=.env.local scripts/bootstrap.js",
     "keygen": "node scripts/generate-jwt-key.js",
-    "migrate:sprint5": "node --env-file-if-exists=.env.local scripts/migrate-sprint5.js",
-    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js"
+    "migrate:sprint5": "node --env-file-if-exists=.env.local scripts/migrate-sprint5.js"
   },
   "dependencies": {
     "ccms-shared": "0.1.0",
     "jose": "6.2.12",
     "next": "16.4.5",
-    "nodemailer": "7.0.13",
+    "nodemailer": "10.5.0",
     "pg": "8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",

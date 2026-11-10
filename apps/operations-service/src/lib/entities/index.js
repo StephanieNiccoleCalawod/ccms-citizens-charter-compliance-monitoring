@@ -92,13 +92,10 @@ export const Transaction = new EntitySchema({
     receiptEmailClaimUntil: { name: 'receipt_email_claim_until', type: 'timestamptz', nullable: true },
     // CC046: the starter's position at the time of Start (a copy; empty when unknown).
     startedByPosition: { name: 'started_by_position', type: 'varchar', length: 100, nullable: true },
-<<<<<<< HEAD
     // CC051: confirmed Start outside working time (server-set).
     startedOutsideHours: { name: 'started_outside_hours', type: 'boolean', default: false },
-=======
     // CC046: the starter's display name at the time of Start (a copy, like the office name; empty when unknown or an old row).
     startedByName: { name: 'started_by_name', type: 'varchar', length: 200, nullable: true },
->>>>>>> origin/feature/sprint-5-6-integration
     // CC050: how it ended. Both stay empty on old rows ("Not recorded").
     outcome: { type: 'varchar', length: 12, nullable: true },
     disapprovalReason: { name: 'disapproval_reason', type: 'text', nullable: true },
@@ -114,7 +111,7 @@ export const ForecastRun = new EntitySchema({
   name: 'ForecastRun',
   tableName: 'forecast_runs',
   columns: {
-    id:                       { type: 'uuid', primary: true, generated: 'uuid' },
+    id:                       { type: 'uuid', primary: true, primaryKeyConstraintName: 'forecast_runs_pkey', default: () => 'gen_random_uuid()' },
     officeId:                 { name: 'office_id', type: 'uuid' },
     serviceId:                { name: 'service_id', type: 'uuid', nullable: true },
     selectedModel:            { name: 'selected_model', type: 'varchar', length: 30 },

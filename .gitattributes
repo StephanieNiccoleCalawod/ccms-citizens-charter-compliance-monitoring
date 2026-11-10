@@ -1,0 +1,2 @@
+# Function-body fingerprints must not change when Windows checks out frozen SQL.
+apps/*/migrations/sql/*.sql text eol=lf

@@ -60,7 +60,7 @@ describe('pagination text', () => {
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8');
+const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8').replaceAll('\r\n', '\n');
 
 describe('the split-screen directory (source checks, not a browser)', () => {
   const dir = read('src/components/public/PublicDirectory.js');

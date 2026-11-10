@@ -1,0 +1,4 @@
+{
+  "column:accounts.position": "character varying(100)",
+  "constraint:accounts.accounts_position_ck": "CHECK (((\"position\" IS NULL) OR (((\"position\")::text = btrim((\"position\")::text)) AND ((char_length((\"position\")::text) >= 1) AND (char_length((\"position\")::text) <= 100)))))"
+}

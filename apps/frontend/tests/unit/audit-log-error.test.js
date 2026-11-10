@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { SERVER_ERROR_MESSAGE, auditErrorResult } from '../../src/lib/ui/audit-log.js';
 
-const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8');
+const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8').replaceAll('\r\n', '\n');
 
 describe('audit log failure handling (source checks, not a browser)', () => {
   const page = read('src/app/logs/page.js');

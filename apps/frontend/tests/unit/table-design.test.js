@@ -17,23 +17,23 @@ const TABLE_PAGES = {
   'src/app/accounts/page.js': ['Name', 'Position', 'Email', 'Role', 'Office', 'Status', 'Actions'],
   'src/app/offices/page.js': ['Office name', 'Status', 'Actions'],
   'src/app/logs/page.js': ['Date &amp; time', 'Done by', 'Action', 'Affected entity', 'Office'],
-  'src/app/calendar/Terms.js': ['Term', 'Start date', 'End date', 'Action'],
+  'src/app/calendar/Terms.js': ['Term', 'Start date', 'End date'],
   'src/app/calendar/SyncPanel.js': ['External system', 'Event', 'Status', 'Last synced', 'Attempts'],
   'src/app/settings/Counters.js': ['Counter', 'Status', 'Actions'],
 };
 
 describe('the shared design tokens', () => {
-  it('define the warm palette once: page, line, table header and row hover', () => {
-    assert.match(css, /--color-page:\s*#F7F3EE;/i);
-    assert.match(css, /--color-line:\s*#E7DFD7;/i);
-    assert.match(css, /--color-table-head:\s*#400909;/i);
-    assert.match(css, /--color-table-hover:\s*#FAF8F6;/i);
+  it('define the shared palette once: page, line, table header and row hover', () => {
+    assert.match(css, /--color-page:\s*#F5F6FA;/i);
+    assert.match(css, /--color-line:\s*#E5E7EB;/i);
+    assert.match(css, /--color-table-head:\s*#800000;/i);
+    assert.match(css, /--color-table-hover:\s*rgba\(128, 0, 0, 0\.04\);/i);
   });
 
-  it('the table container is white, warm-bordered, 12px rounded and clips its children, with no shadow', () => {
+  it('the table container uses shared border and shadow tokens, is white, rounded and clips its children', () => {
     const shell = /@utility table-shell \{\s*@apply ([^;]+);/.exec(css)[1];
     for (const token of ['overflow-hidden', 'rounded-xl', 'border', 'border-line', 'bg-white']) assert.ok(shell.split(/\s+/).includes(token), token);
-    assert.doesNotMatch(shell, /shadow/);
+    assert.ok(shell.split(/\s+/).includes('shadow-card'));
   });
 
   it('the header is the burgundy token with small bold uppercase white labels and no lines between the columns', () => {
@@ -50,13 +50,13 @@ describe('the shared design tokens', () => {
 
   it('icon buttons in rows share one size, border and radius; the pagination uses the maroon page marker and muted arrows', () => {
     assert.match(css, /@utility row-icon-button \{\s*@apply inline-flex h-7 w-7[^;]*rounded-lg border border-line bg-white/);
-    assert.match(css, /@utility page-current \{[^}]*bg-\[#800000\][^}]*text-white/);
+    assert.match(css, /@utility page-current \{[^}]*bg-pup-maroon[^}]*text-white/);
     assert.match(css, /@utility page-arrow \{[^}]*text-slate-500[^}]*disabled:text-slate-300/);
     assert.match(css, /@utility table-pager \{[^}]*border-t/);
   });
 
-  it('the content area uses the warm page background; no page sets its own', () => {
-    assert.match(read('src/components/layout/AppShell.js'), /min-h-screen bg-white md:flex/);
+  it('the content area uses the shared page background; no page sets its own', () => {
+    assert.match(read('src/components/layout/AppShell.js'), /min-h-screen bg-page md:flex/);
     for (const file of sources.filter((f) => rel(f).startsWith('src/app/') && !rel(f).endsWith('globals.css'))) {
       assert.doesNotMatch(readFileSync(file, 'utf8'), /bg-\[#F7F3EE\]|pageClassName=/i, rel(file));
     }

@@ -90,7 +90,9 @@ async function auditLogRules(dataSource) {
 //   ccms_oversight_app  SELECT only (the future reports and analytics).
 // UPDATE, DELETE and TRUNCATE are refused for both and for everyone else (PUBLIC). The schema owner that runs
 // `npm run db:sync` keeps the rights every table owner has; it is never the role the service runs as.
-async function auditLogGrants(dataSource) {
+// Exported for the baseline migration (migrations/1793491200000-OversightBaseline.js), which provisions an empty database
+// the same way. It accepts a DataSource or a QueryRunner (anything with query()).
+export async function auditLogGrants(dataSource) {
   await ensureRole(dataSource, LOGS_WRITER_ROLE, process.env.LOGS_WRITER_PASSWORD);
   await ensureRole(dataSource, OVERSIGHT_APP_ROLE, process.env.OVERSIGHT_APP_PASSWORD);
 

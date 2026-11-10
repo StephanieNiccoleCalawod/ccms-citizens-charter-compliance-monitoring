@@ -46,15 +46,19 @@ describe('CC038 RequestForecastSection', () => {
     assert.match(section, /data-testid="forecast-empty"/);
   });
 
-  it('uses apiFetch and known API patterns (apiFetch, useSingleSubmit, notify, ConfirmDialog)', () => {
-    assert.match(section, /import.*apiFetch.*from/);
+  it('uses the API adapter and shared submission, feedback and confirmation controls', () => {
+    assert.match(section, /import.*getRequestForecast.*from/);
+    assert.match(apiLib, /import.*apiFetch.*from/);
     assert.match(section, /import.*useSingleSubmit.*from/);
     assert.match(section, /import.*notify.*from/);
     assert.match(section, /import ConfirmDialog from/);
   });
 
-  it('uses OFFICES_API and SERVICES_API from catalogue module', () => {
-    assert.match(section, /import \{ OFFICES_API, SERVICES_API \} from/);
+  it('loads selector data through the forecast adapter using the shared catalogue endpoints', () => {
+    assert.match(apiLib, /import \{ OFFICES_API, SERVICES_API \} from/);
+    assert.match(section, /Promise\.all\(\[getForecastOffices\(\), getForecastServices\(\)\]\)/);
+    assert.match(apiLib, /return fetcher\(OFFICES_API\)/);
+    assert.match(apiLib, /return fetcher\(SERVICES_API\)/);
   });
 });
 
