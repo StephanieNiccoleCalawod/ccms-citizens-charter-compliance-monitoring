@@ -22,6 +22,14 @@ export function kickOutbox() {
   afterResponse(async () => (await import('../jobs/outbox-dispatch.js')).runOutboxDispatch());
 }
 
+/**
+ * TT2: delivers waiting analytics events once, after the response. Independent of kickOutbox (audit): each runs in its
+ * own after() callback with its own error handling, so one destination failing never stops the other.
+ */
+export function kickAnalytics() {
+  afterResponse(async () => (await import('../jobs/analytics-dispatch.js')).runAnalyticsDispatch());
+}
+
 /** Tries the receipt emails that are waiting (CC024) once, after the response. The cron job is the safety net. */
 export function kickReceipts() {
   afterResponse(async () => (await import('../jobs/receipt-emails.js')).runReceiptEmails());

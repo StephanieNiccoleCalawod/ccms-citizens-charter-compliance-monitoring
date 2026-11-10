@@ -8,12 +8,25 @@ export const SERVICES = {
   catalogue: { env: 'CORE_URL', fallback: 'http://127.0.0.1:3003' },
   calendar: { env: 'CORE_URL', fallback: 'http://127.0.0.1:3003' },
   logs: { env: 'LOGS_URL', fallback: 'http://127.0.0.1:3002' },
+  // TT2: Oversight (the Logs service) also answers as "analytics" and "reports", like catalogue/calendar for Core.
+  // No report or KPI endpoint exists yet; when one does, it is reached here with a user token and checked by Oversight.
+  analytics: { env: 'LOGS_URL', fallback: 'http://127.0.0.1:3002' },
+  reports: { env: 'LOGS_URL', fallback: 'http://127.0.0.1:3002' },
   operations: { env: 'OPERATIONS_URL', fallback: 'http://127.0.0.1:3004' },
 };
 
-// Backend-only writes (service-to-service, protected by the shared key). Browsers never need them,
-// so the gateway refuses every method except GET/HEAD on these paths. GET /api/logs/audit-events is
-// the read-only audit viewer and passes through to the Logs service (which checks the token and role).
+// Backend-only endpoints (service-to-service, protected by the shared key). Rules are per SERVICE (the env variable
+// of the target), not per alias, so every alias that reaches that service is covered (logs, analytics, reports).
+// Paths are the service's own paths; they are compared case-insensitively, after percent-decoding, with trailing
+// slashes removed, and also block everything below them.
+//   writes   refuse every method except GET/HEAD (GET /api/audit-events is the read-only audit viewer)
+//   all      refuse every method, GET and HEAD included
+export const BACKEND_ONLY = [
+  { env: 'LOGS_URL', path: '/api/audit-events', methods: 'writes' },
+  { env: 'LOGS_URL', path: '/api/analytics-events', methods: 'all' },
+  { env: 'OPERATIONS_URL', path: '/api/transactions/analytics-export', methods: 'all' },
+];
+// Kept for compatibility: the browser-facing spelling of the Sprint 2 rule.
 export const BLOCKED_API_PATHS = ['/api/logs/audit-events'];
 const READ_METHODS = new Set(['GET', 'HEAD']);
 
@@ -29,6 +42,8 @@ export const PUBLIC_API = {
   catalogue: ['/api/public/', '/api/health'],
   calendar: ['/api/health'],
   logs: ['/api/health'],
+  analytics: ['/api/health'],
+  reports: ['/api/health'],
   operations: ['/api/health'],
 };
 
@@ -71,11 +86,24 @@ export function resolveRoute(url, targets = serviceTargets(), method = 'GET') {
   const path = `/api${match[2] ?? ''}`;
   const trimmed = path.replace(/\/+$/, '');
 
-  if (BLOCKED_PREFIXES.some((prefix) => trimmed === prefix || trimmed.startsWith(`${prefix}/`))) return { blocked: true };
+  // Decoded, lower-case form for the blocking rules, so an alternate spelling (%61, upper case) cannot slip past.
+  let normalised;
+  try {
+    normalised = decodeURIComponent(trimmed).toLowerCase().replace(/\/+$/, '');
+  } catch {
+    return { blocked: true };
+  }
+  const under = (p, prefix) => p === prefix || p.startsWith(`${prefix}/`);
+  if (BLOCKED_PREFIXES.some((prefix) => under(trimmed, prefix) || under(normalised, prefix))) return { blocked: true };
   const readOnly = READ_METHODS.has(String(method).toUpperCase());
-  const fullTrimmed = pathname.replace(/\/+$/, '');
-  if (!readOnly && BLOCKED_API_PATHS.some((blocked) => fullTrimmed === blocked || fullTrimmed.startsWith(`${blocked}/`))) {
+  if (BACKEND_ONLY.some((rule) => reachesService(match[1], rule.env, targets) && (rule.methods === 'all' || !readOnly) && under(normalised, rule.path))) {
     return { blocked: true };
   }
   return { name: match[1], path: path + query };
+}
+
+/** True when the alias belongs to the service configured by `env`, or is configured with that service's address. */
+function reachesService(name, env, targets) {
+  if (SERVICES[name]?.env === env) return true;
+  return Object.entries(SERVICES).some(([other, s]) => s.env === env && targets[other] && targets[other] === targets[name]);
 }

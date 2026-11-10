@@ -18,7 +18,7 @@
     "build:shared": "node scripts/check-shared.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "check:time": "npm run check:time --workspaces --if-present",
-    "test": "npm test --workspaces --if-present && npm run test:safety",
+    "test": "npm test --workspaces --if-present && npm run test:safety && npm run test:integration",
     "ci": "npm run lint && npm run check:time && npm test && npm run build",
     "env:init": "node scripts/init-env.mjs",
     "db:up": "docker compose -f compose.local.yml up -d",
@@ -53,7 +53,8 @@
     "start:oversight-service": "npm run start --workspace=apps/oversight-service",
     "build:oversight-service": "npm run build --workspace=apps/oversight-service",
     "test:oversight-service": "npm run test --workspace=apps/oversight-service",
-    "test:safety": "node --test --test-concurrency=1 scripts/runtime-db.test.mjs scripts/migration-guards.test.mjs scripts/migration-fingerprint.test.mjs scripts/migrations.test.mjs scripts/migration-integration.test.mjs"
+    "test:integration": "node --test --test-concurrency=1 scripts/analytics-feed.test.mjs",
+    "test:safety": "node --test --test-concurrency=1 scripts/runtime-db.test.mjs scripts/migration-guards.test.mjs scripts/migration-fingerprint.test.mjs scripts/migrations.test.mjs scripts/migration-integration.test.mjs scripts/tt2-migrations.test.mjs"
   },
   "overrides": {
     "typeorm": {

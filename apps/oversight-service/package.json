@@ -15,6 +15,7 @@
     "migrate:check-baseline": "node --env-file-if-exists=.env.local scripts/migrate.js check-baseline",
     "migrate:baseline": "node --env-file-if-exists=.env.local scripts/migrate.js baseline",
     "migrate:sprint4": "node --env-file-if-exists=.env.local scripts/migrate-sprint4-critical.js",
+    "analytics:backfill": "node --env-file-if-exists=.env.local scripts/analytics-backfill.js",
     "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start -p 3002",

@@ -1,5 +1,6 @@
 import { recordAudit } from 'ccms-shared';
-import { kickOutbox } from '../../lib/outbox.js';
+import { kickAnalytics, kickOutbox } from '../../lib/outbox.js';
+import { recordAnalytics } from '../analytics/producer.js';
 import { STATUS, SYSTEM_ACTOR } from './constants.js';
 import { rowsOf } from './db.js';
 import { AUTO_CLOSE_BY_CLASSIFICATION, readSettingsRow } from './settings.js';
@@ -56,6 +57,7 @@ export async function runAutoClose({ dataSource, core, now = () => new Date() })
         ),
       );
       if (!rows[0]) return false;
+      await recordAnalytics(manager, row.transaction_id, 'TRANSACTION_AUTO_CLOSED');
       await recordAudit(manager, {
         ...SYSTEM_ACTOR,
         action: 'TRANSACTION_AUTO_CLOSED',
@@ -75,6 +77,9 @@ export async function runAutoClose({ dataSource, core, now = () => new Date() })
     });
     if (didClose) closed += 1;
   }
-  if (closed > 0) kickOutbox();
+  if (closed > 0) {
+    kickOutbox();
+    kickAnalytics();
+  }
   return { checked: candidates.length, closed, skipped };
 }

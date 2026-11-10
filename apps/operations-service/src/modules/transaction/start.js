@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Errors, assertOfficeAccess, isUniqueViolation, isUuid, recordAudit, toManilaDate } from 'ccms-shared';
-import { kickOutbox, kickReceipts } from '../../lib/outbox.js';
+import { kickAnalytics, kickOutbox, kickReceipts } from '../../lib/outbox.js';
+import { recordAnalytics } from '../analytics/producer.js';
 import { CoreRejectedError, CoreUnavailableError } from './core-client.js';
 import { CLIENT_TYPES, MSG, STATUS } from './constants.js';
 import { assertWorkingTimeOrConfirmed } from './working-time.js';
@@ -206,6 +207,11 @@ export async function startTransaction(dataSource, { core, identity = null, now 
           ipAddress,
         });
       }
+      // TT2: one analytics snapshot per state the row passes through in this database transaction. A start that is
+      // recorded already completed (CC026) emits STARTED (version 1) and COMPLETED (version 2); both carry the row as
+      // stored (status COMPLETED), so the higher version is the final snapshot and nothing is reinterpreted.
+      await recordAnalytics(manager, transactionId, 'TRANSACTION_STARTED');
+      if (completed) await recordAnalytics(manager, transactionId, 'TRANSACTION_COMPLETED');
       if (completed) {
         await recordAudit(manager, {
           actor: user,
@@ -234,6 +240,7 @@ export async function startTransaction(dataSource, { core, identity = null, now 
     throw mapUnique(err) ?? err;
   }
   kickOutbox();
+  kickAnalytics();
 
   if (completed) {
     // Recorded after the fact in one call: work out the result right away (Core down: it stays pending for the job).

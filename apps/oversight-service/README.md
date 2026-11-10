@@ -86,6 +86,8 @@ passwords from `LOGS_WRITER_PASSWORD` and `OVERSIGHT_APP_PASSWORD` (`db:sync` is
 | --- | --- |
 | `GET /health` | anyone (503 when the database is unreachable) |
 | `POST /audit-events` | **service key only** (`x-service-key`); the gateway never forwards a browser POST here |
+| `POST /analytics-events` | **service key only** (TT2); at most 500 events / 1 MiB; the gateway blocks it for every method and alias |
+| `GET /jobs/analytics-backfill` | `CRON_SECRET` only (TT2); one bounded backfill run |
 | `GET /audit-events?actor=&action=&entity_type=&office_id=&from=&to=&page=&page_size=` | Super Admin: all entries. Office Head: own office only. Office Staff, Executive: 403 |
 
 `POST /audit-events` takes exactly what `recordAudit` (ccms-shared) sends: `audit_id, actor_user_id, actor_role, action, entity_type,
@@ -104,9 +106,18 @@ for the gateway, `http://127.0.0.1:3002/api` for the others) and use the same `S
 oldest first, 50 per cron run of each sender (once a day on the current plan, E20); a developer can call a sender's `/api/jobs/outbox`
 with its `CRON_SECRET` to send a batch at once. Re-sent events are ignored by `audit_id`.
 
+## Analytics projection (Sprint 5 TT2)
+
+`analytics_transactions` holds the latest analytics snapshot per transaction (highest `event_version` wins; `is_seeded` derived
+from the tracking number, K16). `analytics_backfill_state` holds the backfill cursor and lease. `ccms_logs_writer` gets SELECT,
+INSERT and UPDATE on both (no DELETE/TRUNCATE); `ccms_oversight_app` gets SELECT on the projection; `audit_log` grants are unchanged.
+Backfill: `npm run analytics:backfill` (CLI, `--max-pages=N`, `--reset`, hosted needs `DB_TARGET=hosted --confirm=<database>`) or the
+job route. New variables: `OPERATIONS_SERVICE_URL`, `CRON_SECRET`. Details: [../../docs/analytics-feed.md](../../docs/analytics-feed.md).
+
 ## Notes
 
-- The logs module has no outbox, no outbound request and no job (BR-LOG-001): audit entries never leave CCMS.
+- The logs module has no outbox and never sends audit entries out (BR-LOG-001): audit entries never leave CCMS. The only
+  outbound request is the TT2 backfill reading the Operations analytics export.
 - Indexes: `(occurred_at DESC)`, `(office_id, occurred_at DESC)`, `action`, `entity_type`, `actor_user_id`. A CHECK requires a user unless
   `actor_role = 'system'`. There are no foreign keys (user and office are plain IDs from other services).
 - Schema changes are numbered migrations in `migrations/` (TT1). `src/lib/after-sync.js` (constraints, indexes, grants) is used by

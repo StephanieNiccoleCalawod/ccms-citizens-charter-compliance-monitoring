@@ -106,6 +106,7 @@ export const resetData = async (ds) => {
   await ds.query('DELETE FROM tracking_sequences');
   await ds.query('DELETE FROM counters');
   await ds.query('DELETE FROM audit_outbox');
+  await ds.query('DELETE FROM analytics_outbox');
   await ds.query('UPDATE transaction_settings SET hold_enabled = false, counters_enabled = false, auto_close_days_simple = NULL, auto_close_days_complex = NULL, auto_close_days_highly_technical = NULL, version = 1');
 };
 

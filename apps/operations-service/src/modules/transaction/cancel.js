@@ -1,5 +1,6 @@
 import { Errors, recordAudit } from 'ccms-shared';
-import { kickOutbox } from '../../lib/outbox.js';
+import { kickAnalytics, kickOutbox } from '../../lib/outbox.js';
+import { recordAnalytics } from '../analytics/producer.js';
 import { MSG, REASON_MAX, STATUS } from './constants.js';
 import { loadTransactionRow, notFound, rowsOf } from './db.js';
 import { toTransactionDto } from './dto.js';
@@ -28,6 +29,7 @@ export async function cancelTransaction(dataSource, user, id, body, { ipAddress 
       ),
     );
     if (!rows[0]) return null;
+    await recordAnalytics(manager, id, 'TRANSACTION_CANCELLED');
     await recordAudit(manager, {
       actor: user,
       action: 'TRANSACTION_CANCELLED',
@@ -46,5 +48,6 @@ export async function cancelTransaction(dataSource, user, id, body, { ipAddress 
     throw Errors.conflict(MSG.CANCEL_STATE, 'INVALID_STATE', { status: current?.status ?? row.status });
   }
   kickOutbox();
+  kickAnalytics();
   return toTransactionDto(await loadTransactionRow(dataSource, id));
 }

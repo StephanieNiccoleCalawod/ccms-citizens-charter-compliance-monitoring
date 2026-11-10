@@ -1,5 +1,6 @@
 import { Errors, recordAudit } from 'ccms-shared';
-import { kickOutbox } from '../../lib/outbox.js';
+import { kickAnalytics, kickOutbox } from '../../lib/outbox.js';
+import { recordAnalytics } from '../analytics/producer.js';
 import { CoreRejectedError, CoreUnavailableError } from './core-client.js';
 import { MSG, REASON_MAX, STATUS } from './constants.js';
 import { loadTransactionRow, notFound, rowsOf } from './db.js';
@@ -40,6 +41,7 @@ export async function holdTransaction(dataSource, user, id, body, { now = () => 
       ),
     );
     if (!rows[0]) return null;
+    await recordAnalytics(manager, id, 'TRANSACTION_HELD');
     await recordAudit(manager, {
       actor: user,
       action: 'TRANSACTION_HELD',
@@ -55,6 +57,7 @@ export async function holdTransaction(dataSource, user, id, body, { now = () => 
   });
   if (!held) throw await explainNoChange(dataSource, id, STATUS.IN_PROGRESS, MSG.NOT_IN_PROGRESS);
   kickOutbox();
+  kickAnalytics();
   return toTransactionDto(await loadTransactionRow(dataSource, id));
 }
 
@@ -91,6 +94,8 @@ export async function resumeTransaction(dataSource, { core, now = () => new Date
       ),
     );
     if (!rows[0]) return null;
+    // TT2: the snapshot carries the persisted held_minutes total after this resume.
+    await recordAnalytics(manager, id, 'TRANSACTION_RESUMED');
     await recordAudit(manager, {
       actor: user,
       action: 'TRANSACTION_RESUMED',
@@ -106,5 +111,6 @@ export async function resumeTransaction(dataSource, { core, now = () => new Date
   });
   if (!resumed) throw await explainNoChange(dataSource, id, STATUS.ON_HOLD, MSG.NOT_ON_HOLD);
   kickOutbox();
+  kickAnalytics();
   return toTransactionDto(await loadTransactionRow(dataSource, id));
 }

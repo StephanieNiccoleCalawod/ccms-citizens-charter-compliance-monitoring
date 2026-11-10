@@ -26,8 +26,11 @@ ccms-api-gateway/
 
 1. Starts or keeps the correlation id (`x-correlation-id`) and returns it.
 2. Refuses plain HTTP when HTTPS is required (on Vercel it is; locally it is off).
-3. Maps `/api/{name}/…` to a service: `identity` → Identity, `catalogue` and `calendar` → Core, `logs` → Logs, and
-   `operations` → Operations. Anything else is a 404.
+3. Maps `/api/{name}/…` to a service: `identity` → Identity, `catalogue` and `calendar` → Core, `logs`, `analytics` and `reports`
+   → Logs (Oversight, `LOGS_URL`; TT2), and `operations` → Operations. Anything else is a 404.
+   Backend-only endpoints are refused for every alias of their service (case-insensitive, after percent-decoding, before the token
+   check): Oversight `POST`-style writes to `/api/audit-events`, every method on `/api/analytics-events`, and every method (GET/HEAD
+   included) on Operations `/api/transactions/analytics-export`. See `docs/analytics-feed.md`.
 4. Refuses ambiguous paths (`..`, `//`, `%2e`, `%2f`, `\`) and **never forwards `/api/jobs/*`**: scheduled jobs are called by Vercel
    Cron directly on each service, not through the gateway.
 5. On every route that is not public, requires a valid token (signature, expiry, issuer, audience). **It does no role or office

@@ -62,6 +62,7 @@ async function ensureRole(dataSource, role, password) {
 export async function afterSync(dataSource) {
   await migrateSprint4Oversight(dataSource);
   await auditLogRules(dataSource);
+  await analyticsRules(dataSource);
 
   // Keep all role mutations on one checked-out connection under an advisory lock so two syncs of this
   // database cannot concurrently update the same PostgreSQL system-catalog rows. The test suite runs its
@@ -72,10 +73,34 @@ export async function afterSync(dataSource) {
   try {
     await runner.query('SELECT pg_advisory_lock(43436, 2)');
     await auditLogGrants(runner);
+    await analyticsGrants(runner);
   } finally {
     await runner.query('SELECT pg_advisory_unlock(43436, 2)').catch(() => {});
     await runner.release();
   }
+}
+
+// TT2 (keep identical to migrations/sql/1794355300000-Tt2AnalyticsTransactions.up.sql).
+async function analyticsRules(dataSource) {
+  await addConstraint(
+    dataSource,
+    'analytics_transactions',
+    'analytics_transactions_values_ck',
+    "CHECK (event_version >= 0 AND held_minutes >= 0 AND status IN ('IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED', 'AUTO_CLOSED') AND classification IN ('SIMPLE', 'COMPLEX', 'HIGHLY_TECHNICAL') AND client_type IN ('STUDENT', 'ALUMNI', 'EMPLOYEE', 'EXTERNAL') AND registry_status IN ('MATCHED', 'EXPIRED', 'NOT_FOUND', 'NONE') AND (outcome IS NULL OR outcome IN ('GRANTED', 'DISAPPROVED')))",
+  );
+  await dataSource.query('CREATE INDEX IF NOT EXISTS analytics_transactions_office_started_idx ON analytics_transactions (office_id, started_at DESC)');
+  await dataSource.query('CREATE INDEX IF NOT EXISTS analytics_transactions_service_started_idx ON analytics_transactions (service_id, started_at DESC)');
+  await dataSource.query('CREATE INDEX IF NOT EXISTS analytics_transactions_status_idx ON analytics_transactions (status)');
+}
+
+// TT2 runtime access. Runs after auditLogGrants (which first revokes everything from the runtime roles). audit_log keeps
+// exactly its own grants: nothing here touches it.
+//   ccms_logs_writer    SELECT, INSERT, UPDATE on analytics_transactions and analytics_backfill_state (upsert, cursor)
+//   ccms_oversight_app  SELECT on analytics_transactions
+export async function analyticsGrants(dataSource) {
+  await dataSource.query(`GRANT SELECT, INSERT, UPDATE ON analytics_transactions TO ${LOGS_WRITER_ROLE}`);
+  await dataSource.query(`GRANT SELECT ON analytics_transactions TO ${OVERSIGHT_APP_ROLE}`);
+  await dataSource.query(`GRANT SELECT, INSERT, UPDATE ON analytics_backfill_state TO ${LOGS_WRITER_ROLE}`);
 }
 
 async function auditLogRules(dataSource) {

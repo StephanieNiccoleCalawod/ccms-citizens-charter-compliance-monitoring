@@ -1,5 +1,6 @@
 import { Errors, recordAudit } from 'ccms-shared';
-import { kickOutbox, kickReceipts } from '../../lib/outbox.js';
+import { kickAnalytics, kickOutbox, kickReceipts } from '../../lib/outbox.js';
+import { recordAnalytics } from '../analytics/producer.js';
 import { DISAPPROVAL_REASON_MAX, MSG, OUTCOMES, STATUS, SYSTEM_ACTOR } from './constants.js';
 import { loadTransactionRow, notFound, rowsOf } from './db.js';
 import { toTransactionDto } from './dto.js';
@@ -63,6 +64,8 @@ export async function computeAndStoreResult(dataSource, core, row, { actor, syst
       ),
     );
     if (!rows[0]) return false;
+    // TT2: the snapshot is read back from the updated row inside this transaction (never the stale pre-computation row).
+    await recordAnalytics(manager, row.transaction_id, 'TRANSACTION_RESULT_COMPUTED');
     await recordAudit(manager, {
       ...(system ? SYSTEM_ACTOR : { actor }),
       action: 'TRANSACTION_RESULT_COMPUTED',
@@ -75,7 +78,10 @@ export async function computeAndStoreResult(dataSource, core, row, { actor, syst
     });
     return true;
   });
-  if (written) kickOutbox();
+  if (written) {
+    kickOutbox();
+    kickAnalytics();
+  }
   return { computed: written };
 }
 
@@ -113,6 +119,7 @@ export async function completeTransaction(dataSource, { core, now = () => new Da
       ),
     );
     if (!rows[0]) return null;
+    await recordAnalytics(manager, id, 'TRANSACTION_COMPLETED');
     await recordAudit(manager, {
       actor: user,
       action: 'TRANSACTION_COMPLETED',
@@ -151,6 +158,7 @@ export async function completeTransaction(dataSource, { core, now = () => new Da
     throw Errors.conflict(message, 'INVALID_STATE', { status: current.status });
   }
   kickOutbox();
+  kickAnalytics();
 
   await computeAndStoreResult(dataSource, core, completed, { actor: user, ipAddress });
   if (completed.client_email) kickReceipts();

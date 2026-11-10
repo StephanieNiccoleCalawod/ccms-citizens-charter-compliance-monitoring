@@ -23,6 +23,22 @@ export async function afterSync(dataSource) {
   await settingsRules(dataSource);
   await counterRules(dataSource);
   await transactionRules(dataSource);
+  await analyticsOutboxRules(dataSource);
+}
+
+// TT2 (keep identical to migrations/sql/1794355200000-Tt2AnalyticsOutbox.up.sql).
+export const ANALYTICS_EVENT_TYPES_SQL =
+  "('TRANSACTION_STARTED', 'TRANSACTION_HELD', 'TRANSACTION_RESUMED', 'TRANSACTION_COMPLETED', 'TRANSACTION_RESULT_COMPUTED', 'TRANSACTION_CANCELLED', 'TRANSACTION_AUTO_CLOSED')";
+
+async function analyticsOutboxRules(dataSource) {
+  await addConstraint(dataSource, 'analytics_outbox', 'analytics_outbox_version_uq', 'UNIQUE (transaction_id, event_version)');
+  await addConstraint(
+    dataSource,
+    'analytics_outbox',
+    'analytics_outbox_values_ck',
+    `CHECK (event_version >= 1 AND attempts >= 0 AND event_type IN ${ANALYTICS_EVENT_TYPES_SQL})`,
+  );
+  await dataSource.query('CREATE INDEX IF NOT EXISTS analytics_outbox_pending_idx ON analytics_outbox (next_attempt_at, created_at) WHERE delivered_at IS NULL');
 }
 
 async function settingsRules(dataSource) {

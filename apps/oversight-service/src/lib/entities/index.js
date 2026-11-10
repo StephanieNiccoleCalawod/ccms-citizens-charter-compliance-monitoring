@@ -32,5 +32,64 @@ export const AuditLog = new EntitySchema({
   ],
 });
 
-// The Logs module only receives and shows entries: it has no outbox and sends nothing out (BR-LOG-001).
-export const entities = [AuditLog];
+// ---- TT2 analytics projection (spec 2.2) ----
+// One row per transaction: the snapshot with the highest event_version received from Operations (live feed or backfill).
+// Field meanings are in ccms-shared/src/analytics.js. is_seeded is derived here from the tracking number (K16).
+// The CHECK, the indexes and the grants are created in after-sync / the TT2 migration. No foreign keys: every ID is a
+// value owned by another service.
+export const AnalyticsTransaction = new EntitySchema({
+  name: 'AnalyticsTransaction',
+  tableName: 'analytics_transactions',
+  columns: {
+    transactionId: { name: 'transaction_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'analytics_transactions_pkey' },
+    trackingNo: { name: 'tracking_no', type: 'varchar', length: 60 },
+    officeId: { name: 'office_id', type: 'uuid' },
+    serviceId: { name: 'service_id', type: 'uuid' },
+    serviceCode: { name: 'service_code', type: 'varchar', length: 200 },
+    classification: { type: 'varchar', length: 20 },
+    clientType: { name: 'client_type', type: 'varchar', length: 20 },
+    standardDays: { name: 'standard_days', type: 'int' },
+    standardHours: { name: 'standard_hours', type: 'int' },
+    standardMinutes: { name: 'standard_minutes', type: 'int' },
+    startedAt: { name: 'started_at', type: 'timestamptz' },
+    endedAt: { name: 'ended_at', type: 'timestamptz', nullable: true },
+    status: { type: 'varchar', length: 20 },
+    elapsedWorkingMinutes: { name: 'elapsed_working_minutes', type: 'int', nullable: true },
+    isCompliant: { name: 'is_compliant', type: 'boolean', nullable: true },
+    varianceMinutes: { name: 'variance_minutes', type: 'int', nullable: true },
+    heldMinutes: { name: 'held_minutes', type: 'int' },
+    isBackdated: { name: 'is_backdated', type: 'boolean' },
+    startedOutsideHours: { name: 'started_outside_hours', type: 'boolean' },
+    registryStatus: { name: 'registry_status', type: 'varchar', length: 12 },
+    registryMissReason: { name: 'registry_miss_reason', type: 'varchar', length: 20, nullable: true },
+    outcome: { type: 'varchar', length: 12, nullable: true },
+    startedByUserId: { name: 'started_by_user_id', type: 'uuid' },
+    endedByUserId: { name: 'ended_by_user_id', type: 'uuid', nullable: true },
+    counterId: { name: 'counter_id', type: 'uuid', nullable: true },
+    eventVersion: { name: 'event_version', type: 'int' },
+    isSeeded: { name: 'is_seeded', type: 'boolean' },
+    receivedAt: { name: 'received_at', type: 'timestamptz', default: () => 'now()' },
+  },
+});
+
+// TT2 backfill progress: the committed cursor of the current pass and a lease that stops overlapping runs.
+export const AnalyticsBackfillState = new EntitySchema({
+  name: 'AnalyticsBackfillState',
+  tableName: 'analytics_backfill_state',
+  columns: {
+    jobName: { name: 'job_name', type: 'varchar', length: 40, primary: true, primaryKeyConstraintName: 'analytics_backfill_state_pkey' },
+    nextCursor: { name: 'next_cursor', type: 'varchar', length: 200, nullable: true },
+    passStartedAt: { name: 'pass_started_at', type: 'timestamptz', nullable: true },
+    passRows: { name: 'pass_rows', type: 'int', default: 0 },
+    passesCompleted: { name: 'passes_completed', type: 'int', default: 0 },
+    lastPassCompletedAt: { name: 'last_pass_completed_at', type: 'timestamptz', nullable: true },
+    leaseToken: { name: 'lease_token', type: 'uuid', nullable: true },
+    leaseUntil: { name: 'lease_until', type: 'timestamptz', nullable: true },
+    lastError: { name: 'last_error', type: 'varchar', length: 500, nullable: true },
+    updatedAt: { name: 'updated_at', type: 'timestamptz', default: () => 'now()' },
+  },
+});
+
+// The Logs module receives and shows audit entries: it has no outbox and sends nothing out (BR-LOG-001). TT2 adds the
+// analytics projection, which it also only receives.
+export const entities = [AuditLog, AnalyticsTransaction, AnalyticsBackfillState];
