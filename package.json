@@ -55,6 +55,11 @@
     "test:oversight-service": "npm run test --workspace=apps/oversight-service",
     "test:safety": "node --test --test-concurrency=1 scripts/runtime-db.test.mjs scripts/migration-guards.test.mjs scripts/migration-fingerprint.test.mjs scripts/migrations.test.mjs scripts/migration-integration.test.mjs"
   },
+  "overrides": {
+    "typeorm": {
+      "glob": "14.0.2"
+    }
+  },
   "devDependencies": {
     "ccms-shared": "0.1.0",
     "jose": "6.2.12"
