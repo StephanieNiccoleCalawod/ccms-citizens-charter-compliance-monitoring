@@ -402,7 +402,7 @@ describe('Sprint 5 numbered migrations', () => {
     assert.deepEqual(await columns(db.url, 'accounts', ['position']), []);
   });
 
-  test('AC1 (interim script already ran): adoption needs --accept-extra, then the Sprint 5 migrations change nothing', async () => {
+  test('AC1 (interim script already ran): adoption preserves existing objects and TT2 adds only its declared objects', async () => {
     for (const [service, legacy, fn] of [
       ['identity', '../apps/identity-service/src/lib/migrations/sprint5.js', 'migrateSprint5Identity'],
       ['operations', '../apps/operations-service/src/lib/migrations/sprint5.js', 'migrateSprint5Operations'],
@@ -436,7 +436,11 @@ describe('Sprint 5 numbered migrations', () => {
       const tt2 = service === 'operations' ? (await import('../apps/operations-service/migrations/tt2-analytics-schema.json', { with: { type: 'json' } })).default : {};
       assert.deepEqual(await fingerprint(db.url), { ...schemaBefore, ...tt2 }, `${service}: business schema changed`);
       assert.deepEqual(await dataChecksum(db.url, schemaBefore), dataBefore, `${service}: business data changed`);
-      assert.deepEqual(await constraints(), constraintsBefore, `${service}: existing constraints were recreated`);
+      const existingNames = new Set(constraintsBefore.map((constraint) => constraint.conname));
+      const existingAfter = (await constraints()).filter((constraint) => existingNames.has(constraint.conname));
+      // TT2 legitimately adds its own constraints; every pre-existing constraint must retain its original OID.
+      // The complete fingerprint assertion above separately restricts every new object to the declared TT2 schema.
+      assert.deepEqual(existingAfter, constraintsBefore, `${service}: existing constraints were recreated`);
     }
   });
 });
