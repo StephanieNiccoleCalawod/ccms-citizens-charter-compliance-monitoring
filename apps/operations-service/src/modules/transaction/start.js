@@ -122,18 +122,12 @@ export async function startTransaction(dataSource, { core, identity = null, now 
   const standard = await lookUpStandard(core, input.serviceId, manilaDate, { backdated });
   assertOfficeAccess(user, standard.office_id);
 
-<<<<<<< HEAD
   // CC051: a Start outside working time needs a confirmation and is flagged; a backdated entry is never flagged.
   const startedOutsideHours = backdated ? false : await assertWorkingTimeOrConfirmed(core, { officeId: standard.office_id, at: requestTime, confirmed: input.confirmOutsideHours });
 
-  // CC046: the starter's position, asked before the database transaction so a slow Identity never holds a lock.
-  // Identity down or slow = an empty position; the start is never blocked.
-  const startedByPosition = identity ? await identity.positionOf(user.id) : null;
-=======
   // CC046: the starter's position and display name, asked before the database transaction so a slow Identity never holds a
   // lock. Identity down, slow, misconfigured or answering badly = both empty; the start is never blocked.
   const { position: startedByPosition, name: startedByName } = await lookUpStarter(identity, user.id);
->>>>>>> origin/feature/sprint-5-6-integration
 
   const transactionId = randomUUID();
   const completed = input.endedAt !== null;
@@ -164,12 +158,8 @@ export async function startTransaction(dataSource, { core, identity = null, now 
            transaction_id, tracking_no, service_id, service_code, service_name, office_id, office_code, service_classification,
            standard_id, standard_duration_days, standard_duration_hours, standard_duration_minutes, counter_id, client_type,
            client_reference, client_email, started_at, started_by, ended_at, ended_by, status, is_backdated, backdate_reason,
-<<<<<<< HEAD
-            receipt_email_status, office_name, started_by_position, started_outside_hours)
-=======
-            receipt_email_status, office_name, started_by_position, started_by_name)
->>>>>>> origin/feature/sprint-5-6-integration
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
+            receipt_email_status, office_name, started_by_position, started_by_name, started_outside_hours)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
         [
           transactionId, number, input.serviceId, standard.service_code, standard.service_name, standard.office_id, standard.office_code,
           standard.classification, standard.standard_id, standard.duration_days, standard.duration_hours, standard.duration_minutes,
@@ -177,11 +167,7 @@ export async function startTransaction(dataSource, { core, identity = null, now 
           completed ? input.endedAt : null, completed ? user.id : null,
           completed ? STATUS.COMPLETED : STATUS.IN_PROGRESS, backdated, input.backdateReason,
           completed && input.clientEmail ? 'PENDING' : 'NONE',
-<<<<<<< HEAD
-          standard.office_name, startedByPosition, startedOutsideHours,
-=======
-          standard.office_name, startedByPosition, startedByName,
->>>>>>> origin/feature/sprint-5-6-integration
+          standard.office_name, startedByPosition, startedByName, startedOutsideHours,
         ],
       );
 

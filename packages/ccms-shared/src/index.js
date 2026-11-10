@@ -6,6 +6,7 @@ export * from './auth.js';
 export * from './permissions.js';
 export * from './service-key.js';
 export * from './db.js';
+export * from './migrations.js';
 export * from './logs-client.js';
 export * from './audit-name.js';
 export * from './time.js';

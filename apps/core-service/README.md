@@ -36,7 +36,7 @@ ccms-core-service/
 ```bash
 cp .env.example .env.local     # or use ccms-local-stack, which does this for every service
 npm install
-npm run db:sync                # creates the tables
+npm run migrate:run            # creates the tables on an empty local database (or: npm run db:sync, local only)
 npm run dev                    # http://127.0.0.1:3003/api/health
 npm run mocks                  # optional: mock FMS (4101) and mock Audit (4102) for the Calendar pushes
 ```
@@ -64,14 +64,36 @@ There is no long-running process on Vercel, so nothing here uses `setInterval` o
   allows daily cron). Because of `after()`, the daily run is only the safety net. On a plan that allows it, change the schedules to
   `*/5 * * * *` to retry failed pushes sooner. Check Vercel's current cron limits before relying on a frequency.
 
-## Database (TypeORM, auto-created)
+## Database migrations (TypeORM, TT1)
 
-Tables are created from the entities in `src/lib/entities/` when the service first connects, so you only need an empty database
-(`ccms_core`). `npm run db:sync` does it without starting the app. This repository keeps the auto-create behaviour on purpose
-(no migration files). On Vercel every cold start would re-check the schema, so after the first deploy you may set
-`DB_SYNCHRONIZE=false` and run `npm run db:sync` yourself whenever the entities change.
+Schema synchronization is also refused with `NODE_ENV=production`, including local targets. The baseline is a
+candidate reconstructed from old code; BE Dev 1 must verify it against an isolated hosted copy before adoption.
 
-When upgrading a database created before the three-part duration and multiple-transaction-type model, `npm run db:sync`
+The schema is defined by the numbered migrations in `migrations/` (entities in `src/lib/entities/` must match them). The
+running service never changes the schema (`synchronize: false`; keep `DB_SYNCHRONIZE=false`).
+
+| Command | What it does |
+| --- | --- |
+| `npm run migrate:show` | Read-only: each migration `[X]` applied or `[ ]` pending |
+| `npm run migrate:run` | Applies pending migrations. On an empty database it runs the baseline and creates every table, the institution settings row and the default Mon-Fri 08:00-17:00 schedule |
+| `npm run migrate:revert` | Reverts the latest migration (the baseline cannot be reverted: restore the backup instead) |
+| `npm run migrate:check-baseline` | Read-only: compares the live schema with `migrations/baseline-schema.json` |
+| `npm run migrate:baseline` | Existing database only: records the baseline as applied after verifying the schema. Bookkeeping only, no schema or data change |
+
+Migrations: `CoreBaseline1793491200000` only: the pre-Sprint-5 Catalogue and Calendar schema, including the Sprint 4 critical
+changes (institution settings, service-code sequences and immutability triggers, calendar cal-1.0 columns, `machine_keys`, the
+office freeze list and its triggers). `Cc048OfficeSchedules1794300000000` adds per-office schedules and their persistent
+version counters, with complete schema validation and guarded reversal.
+
+**Baseline setup.** Empty database: `npm run migrate:run`. Existing database (including the hosted one): `migrate:check-baseline`,
+then `migrate:baseline`; `migrate:run` then reports nothing pending.
+
+**Hosted safeguards.** `db:sync` and `db:bootstrap` are local development only and are refused for `DB_TARGET=hosted` (or any
+non-loopback host when `DB_TARGET` is unset) before connecting, so the seeding-model preparation cannot run on a hosted database
+either. Hosted writes need `DB_TARGET=hosted` and `--confirm=<database>`, and are run only by BE Dev 1 after a verified backup:
+see [../../docs/database-migrations.md](../../docs/database-migrations.md).
+
+When upgrading a **local** database created before the three-part duration and multiple-transaction-type model, `npm run db:sync`
 preserves and converts those old values before synchronizing the schema. Existing service scope must be classified manually as
 `INTERNAL` or `EXTERNAL`; the command stops with a count of unclassified rows because scope cannot be inferred from transaction type.
 
@@ -163,7 +185,10 @@ real Charter content in your own file.
 | `npm run check:time` | Fails on server-local date methods in `src`, `scripts` and `mocks` (use the Asia/Manila helpers in `ccms-shared`) |
 | `npm test` | every test (Catalogue and Calendar), then the engine suite again with the server clock set to UTC and to America/Los_Angeles (`test:engine:tz`) |
 | `npm run test:engine:tz` | only the repeated engine runs |
-| `npm run db:sync` | Create/update tables from the entities |
+| `npm run migrate:show` / `migrate:run` / `migrate:revert` | TypeORM migrations (see "Database migrations") |
+| `npm run migrate:check-baseline` / `migrate:baseline` | Verify / adopt the baseline on an existing database |
+| `npm run db:sync` | Local development only: create/update tables from the entities (refused for a hosted database) |
+| `npm run migrate:sprint4` | Interim explicit Sprint 4 script (approved fallback; included in the baseline) |
 | `npm run seed -- --file <path> [--dry-run]` | Load offices, services, first standards and checklists from a JSON file (see Seeding) |
 | `npm run mocks` | mock FMS and mock Audit (Calendar) |
 | `npm run seed:holidays -- --year 2026 [--dry-run]` | holiday import (deployment aid, see below) |

@@ -8,6 +8,12 @@
     "port": 3004
   },
   "scripts": {
+    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js run",
+    "migrate:run": "node --env-file-if-exists=.env.local scripts/migrate.js run",
+    "migrate:revert": "node --env-file-if-exists=.env.local scripts/migrate.js revert",
+    "migrate:show": "node --env-file-if-exists=.env.local scripts/migrate.js show",
+    "migrate:check-baseline": "node --env-file-if-exists=.env.local scripts/migrate.js check-baseline",
+    "migrate:baseline": "node --env-file-if-exists=.env.local scripts/migrate.js baseline",
     "migrate:sprint4": "node --env-file-if-exists=.env.local scripts/migrate-sprint4-critical.js",
     "migrate:sprint5": "node --env-file-if-exists=.env.local scripts/migrate-sprint5.js",
     "migrate:sprint6": "node --env-file-if-exists=.env.local scripts/migrate-sprint6.js",
@@ -18,7 +24,6 @@
     "check:time": "ccms-check-time src scripts",
     "test": "node --test \"test/**/*.test.js\"",
     "db:sync": "node --env-file-if-exists=.env.local scripts/sync-db.js",
-    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js",
     "ci": "npm run lint && npm run check:time && npm test && npm run build"
   },
   "dependencies": {

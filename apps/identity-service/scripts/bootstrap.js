@@ -2,11 +2,14 @@
 // Creates the first Super Admin from environment variables when no Super Admin exists.
 //   BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD  (required)
 //   BOOTSTRAP_ADMIN_EMPLOYEE_NO (default ADMIN-001), BOOTSTRAP_ADMIN_NAME (default System Administrator)
-import { getDataSource } from 'ccms-shared';
+import { getDataSource, resolveDbTarget } from 'ccms-shared';
 import { bootstrapSuperAdmin } from '../src/lib/bootstrap.js';
 import { dbOptions } from '../src/lib/data-source.js';
 
-const dataSource = await getDataSource({ ...dbOptions, synchronize: true });
+// A local database is still synchronized first, as before. A hosted database is never synchronized (TT1): its tables
+// come from the migrations (npm run migrate:run), so this only inserts the first Super Admin there.
+const local = resolveDbTarget(process.env.DATABASE_URL).target === 'local';
+const dataSource = await getDataSource({ ...dbOptions, synchronize: local });
 try {
   const result = await bootstrapSuperAdmin(dataSource, {
     email: process.env.BOOTSTRAP_ADMIN_EMAIL,

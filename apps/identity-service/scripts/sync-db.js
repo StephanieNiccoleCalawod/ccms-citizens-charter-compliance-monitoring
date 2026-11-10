@@ -1,9 +1,16 @@
-// Creates/updates this service's tables from its TypeORM entities without starting the app.
-// The app does the same on start, so this is only for setting up a database ahead of time.
-import { getDataSource } from 'ccms-shared';
+// LOCAL DEVELOPMENT ONLY. Creates/updates this service's tables from its TypeORM entities (schema synchronization).
+// Refused for a hosted database (DB_TARGET=hosted, or any non-local host) before connecting: hosted databases change
+// only through the numbered migrations (npm run migrate:run).
+import { assertSchemaSyncAllowed, getDataSource } from 'ccms-shared';
 import { dbOptions } from '../src/lib/data-source.js';
 
-// Always synchronise here: this is the connection that owns the schema.
+try {
+  assertSchemaSyncAllowed(process.env.DATABASE_URL, 'db:sync');
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
+}
+
 const dataSource = await getDataSource({ ...dbOptions, synchronize: true });
 const tables = await dataSource.query(
   "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",

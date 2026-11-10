@@ -120,8 +120,8 @@ export const OfficeSchedule = new EntitySchema({
   name: 'OfficeSchedule',
   tableName: 'office_schedules',
   columns: {
-    officeId: { name: 'office_id', type: 'uuid', primary: true },
-    weekday: { name: 'weekday', type: 'smallint', primary: true },
+    officeId: { name: 'office_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'office_schedules_pkey' },
+    weekday: { name: 'weekday', type: 'smallint', primary: true, primaryKeyConstraintName: 'office_schedules_pkey' },
     isWorking: { name: 'is_working', type: 'boolean', default: false },
     opensAt: { name: 'opens_at', type: 'text', nullable: true },
     closesAt: { name: 'closes_at', type: 'text', nullable: true },
@@ -138,7 +138,7 @@ export const OfficeScheduleVersion = new EntitySchema({
   name: 'OfficeScheduleVersion',
   tableName: 'office_schedule_versions',
   columns: {
-    officeId: { name: 'office_id', type: 'uuid', primary: true },
+    officeId: { name: 'office_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'office_schedule_versions_pkey' },
     version: { name: 'version', type: 'int', default: 0 },
     updatedAt: { name: 'updated_at', type: 'timestamptz', updateDate: true },
   },

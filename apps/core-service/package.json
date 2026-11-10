@@ -8,6 +8,12 @@
     "port": 3003
   },
   "scripts": {
+    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js run",
+    "migrate:run": "node --env-file-if-exists=.env.local scripts/migrate.js run",
+    "migrate:revert": "node --env-file-if-exists=.env.local scripts/migrate.js revert",
+    "migrate:show": "node --env-file-if-exists=.env.local scripts/migrate.js show",
+    "migrate:check-baseline": "node --env-file-if-exists=.env.local scripts/migrate.js check-baseline",
+    "migrate:baseline": "node --env-file-if-exists=.env.local scripts/migrate.js baseline",
     "readiness": "node --env-file-if-exists=.env.local scripts/readiness-report.js",
     "migrate:sprint4": "node --env-file-if-exists=.env.local scripts/migrate-sprint4-critical.js",
     "migrate:sprint5": "node --env-file-if-exists=.env.local scripts/migrate-sprint5.js",
@@ -26,8 +32,7 @@
     "recode:pup-offices": "node --env-file-if-exists=.env.local scripts/recode-pup-offices.js",
     "seed:holidays": "node --env-file-if-exists=.env.local scripts/seed-holidays.js",
     "mocks": "node --env-file-if-exists=.env.local mocks/index.js",
-    "ci": "npm run lint && npm run check:time && npm test && npm run build",
-    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.js"
+    "ci": "npm run lint && npm run check:time && npm test && npm run build"
   },
   "dependencies": {
     "ccms-shared": "0.1.0",

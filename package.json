@@ -25,6 +25,8 @@
     "db:down": "docker compose -f compose.local.yml down",
     "db:sync": "node scripts/run-db.mjs db:sync",
     "db:migrate": "node scripts/run-db.mjs migrate",
+    "db:migrate:show": "node scripts/run-db.mjs migrate:show",
+    "db:migrate:check-baseline": "node scripts/run-db.mjs migrate:check-baseline",
     "db:migrate:sprint4": "node scripts/run-db.mjs migrate:sprint4",
     "db:migrate:sprint5": "node scripts/run-db.mjs migrate:sprint5",
     "dev:frontend": "npm run dev --workspace=apps/frontend",
@@ -51,7 +53,7 @@
     "start:oversight-service": "npm run start --workspace=apps/oversight-service",
     "build:oversight-service": "npm run build --workspace=apps/oversight-service",
     "test:oversight-service": "npm run test --workspace=apps/oversight-service",
-    "test:safety": "node --test scripts/runtime-db.test.mjs"
+    "test:safety": "node --test --test-concurrency=1 scripts/runtime-db.test.mjs scripts/migration-guards.test.mjs scripts/migration-fingerprint.test.mjs scripts/migrations.test.mjs scripts/migration-integration.test.mjs"
   },
   "devDependencies": {
     "ccms-shared": "0.1.0",

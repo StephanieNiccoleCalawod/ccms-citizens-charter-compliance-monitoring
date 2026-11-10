@@ -1,9 +1,11 @@
 // Development-only database preparation run explicitly with npm run db:bootstrap.
-import { createDataSource, getDataSource, isUuid } from 'ccms-shared';
+// It synchronizes the schema, so it is refused for a hosted database before connecting (TT1).
+import { assertSchemaSyncAllowed, createDataSource, getDataSource, isUuid } from 'ccms-shared';
 import { bootstrapCatalogueData, loadReviewedSeeds } from '../src/lib/catalogue/development-bootstrap.js';
 import { migrateSeedingModel } from '../src/lib/catalogue/seeding-model-migration.js';
 import { dbOptions } from '../src/lib/data-source.js';
 
+assertSchemaSyncAllowed(process.env.DATABASE_URL, 'db:bootstrap');
 const actorId = process.env.CCMS_SEED_ACTOR_ID?.trim();
 if (process.env.NODE_ENV === 'production') {
   throw new Error('Development bootstrap is disabled when NODE_ENV=production');

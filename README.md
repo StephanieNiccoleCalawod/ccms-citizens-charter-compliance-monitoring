@@ -51,21 +51,25 @@ For these local servers, the example owner password is `<database>_dev_pw`. Over
 
 Oversight's provisioning owner needs `CREATEROLE`, `CREATEDB`, and administrative permission over pre-existing audit runtime roles to harden their attributes. The provided local Docker owner has these capabilities. They belong only to the administrative connection, never `ccms_logs_writer`.
 
-On **fresh disposable local databases**, explicitly create the schema:
+On **fresh disposable local databases**, create the schema with either the numbered migrations (the same path the hosted databases use) or schema synchronization:
 
 ```sh
-npm run db:sync
+npm run db:migrate        # TypeORM migrations, all four services (Oversight, Identity, Core, Operations)
+npm run db:migrate:show   # [X] applied / [ ] pending, per service
+# or, local only:
+npm run db:sync           # TypeORM schema synchronization from the entities
 ```
 
-`db:sync` runs Oversight first, then Identity, Core and Operations. Individual examples:
+Use one or the other on a given database: a database created by `db:sync` has no migration records, and `migrate:run` refuses it until its baseline is adopted (`migrate:baseline`). Individual examples:
 
 ```sh
+npm run migrate:show --workspace=apps/identity-service
+npm run migrate:run --workspace=apps/operations-service
+npm run migrate:revert --workspace=apps/operations-service
 npm run db:sync --workspace=apps/core-service
-npm run migrate --workspace=apps/identity-service
-npm run migrate:sprint4 --workspace=apps/operations-service
 ```
 
-`npm run db:migrate` runs each original `migrate` command, which aliases TypeORM schema synchronization. It is not a versioned migration runner. `npm run db:migrate:sprint4` runs the existing idempotent critical migrations for Oversight, Core and Operations. Original schema preparation, post-sync constraints, grants, triggers, and migration files are preserved. Core's schema sync also runs the existing seeding-model conversion first, which can stop for ambiguous legacy data. For existing data, back up and review these original commands before invoking them: TypeORM synchronization can alter/drop schema objects. No migration is triggered by `dev`, `start`, `build` or install.
+**Hosted databases change only through numbered migrations** (TT1). `db:sync`, Core's `db:bootstrap` and any schema synchronization are refused for a hosted target before connecting: `DB_TARGET=hosted`, or any database host that is not loopback when `DB_TARGET` is unset (`*.neon.tech` is always hosted). Writes to a hosted database also need `DB_TARGET=hosted` set explicitly and `--confirm=<database>`. Keep `DB_SYNCHRONIZE=false` everywhere. Hosted execution is BE Dev 1's, after a verified backup: follow [docs/database-migrations.md](docs/database-migrations.md), which also describes the baseline, the supported starting schema and rollback limits. `npm run db:migrate:sprint4` / `db:migrate:sprint5` remain as the interim explicit scripts (the approved fallback). No migration is triggered by `dev`, `start`, `build` or install.
 
 Set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` in Identity's `.env.local`, then explicitly create the first administrator:
 
@@ -80,7 +84,7 @@ npm run setup:pup --workspace=apps/core-service -- --actor YOUR_SUPER_ADMIN_ACCO
 npm run db:bootstrap --workspace=apps/core-service
 ```
 
-This command synchronizes schema, recodes offices and imports reviewed seeds. Review Core's own documentation before using it on an existing database. Other independent commands (`seed`, `seed:holidays`, `setup:pup`, `freeze:offices`, `readiness`, and `recode:pup-offices`) remain in Core's package manifest.
+This command synchronizes schema, recodes offices and imports reviewed seeds, so it is refused for a hosted database. Review Core's own documentation before using it on an existing database. Other independent commands (`seed`, `seed:holidays`, `setup:pup`, `freeze:offices`, `readiness`, and `recode:pup-offices`) remain in Core's package manifest.
 
 `npm run db:down` stops only this Compose project's servers and preserves volumes. No reset/delete-volume command is part of ordinary startup.
 
@@ -145,7 +149,7 @@ The [source inventory](docs/migration/source-inventory.json) records original de
 
 - **Port already in use:** inspect the occupying process before stopping anything. Defaults are intentionally preserved. Database examples must match your chosen local PostgreSQL ports.
 - **Docker pipe/daemon error:** start Docker Desktop's Linux engine, then retry `db:up`. Check `docker compose -f compose.local.yml ps`.
-- **Missing tables:** run the owning service's explicit `db:sync` on a fresh local database. Do not turn runtime schema synchronization on to fix an existing database blindly.
+- **Missing tables:** on a fresh local database run the owning service's `migrate:run` (or `db:sync`). On a hosted database run `migrate:show` and follow [docs/database-migrations.md](docs/database-migrations.md). Never turn schema synchronization on to fix an existing database.
 - **Audit permission errors:** provision Oversight using its owner URL, then run it as `ccms_logs_writer`. Existing privileged runtime roles are deliberately rejected by provisioning.
 - **Authentication fails after restart:** use a persistent `JWT_PRIVATE_KEY` in Identity's local file, matching issuer/audience across services. Ensure all service keys match.
 - **`ccms-shared` cannot resolve:** run `npm ci` from the root. Do not copy vendors or add nested lockfiles.
