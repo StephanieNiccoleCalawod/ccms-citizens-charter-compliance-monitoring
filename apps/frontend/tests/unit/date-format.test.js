@@ -140,13 +140,15 @@ describe('formatting stays at the display boundary', () => {
     has('src/app/calendar/Holidays.js', 'exception_date: form.exception_date,');
     has('src/app/calendar/Holidays.js', 'suspended_from: time.from,');
     has('src/app/calendar/Holidays.js', 'suspended_until: time.until,');
-    has('src/app/calendar/Terms.js', 'start_date: form.start_date, end_date: form.end_date');
     // The working-hours form sends the typed 24-hour text as it is (trimmed), through one helper.
     has('src/lib/ui/office-schedule.js', 'opening_time: r.opening_time.trim(),');
     has('src/lib/ui/office-schedule.js', 'closing_time: r.closing_time.trim(),');
     has('src/lib/ui/service-form.js', 'effective_from: values.effective_from,');
-    // Edit forms start from the API values, untouched.
-    has('src/app/calendar/Terms.js', 'start_date: term.start_date, end_date: term.end_date');
+    // SMS owns academic terms; CCMS only displays their API dates.
+    const terms = read('src/app/calendar/Terms.js');
+    assert.match(terms, /formatDate\(term\.start_date\)/);
+    assert.match(terms, /formatDate\(term\.end_date\)/);
+    assert.doesNotMatch(terms, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/);
     // No formatter is called anywhere a request body is made.
     for (const file of sources) {
       const text = readFileSync(file, 'utf8');
@@ -174,7 +176,8 @@ describe('every screen uses the shared helpers', () => {
     // Every time in the working-hours form is the one native time input (a shared component), never a text box.
     assert.equal([...read('src/app/calendar/ScheduleDayRow.js').matchAll(/type="time"/g)].length, 1);
     assert.doesNotMatch(read('src/app/calendar/WorkingHoursModal.js'), /type="text"/);
-    for (const file of ['src/app/calendar/Holidays.js', 'src/app/calendar/Terms.js', 'src/app/services/[id]/page.js', 'src/components/forms/ServiceForm.js']) assert.match(read(file), /type="date"/, file);
+    for (const file of ['src/app/calendar/Holidays.js', 'src/app/services/[id]/page.js', 'src/components/forms/ServiceForm.js']) assert.match(read(file), /type="date"/, file);
+    assert.doesNotMatch(read('src/app/calendar/Terms.js'), /<input\b/, 'SMS terms are read-only');
   });
 
   it('Calendar, sync, working hours, terms and service standards import the shared formatters', () => {

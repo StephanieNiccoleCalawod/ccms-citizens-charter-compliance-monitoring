@@ -4,9 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import StatusBanner from '../feedback/StatusBanner.js';
-import { apiFetch } from '../../lib/auth/session.js';
-import { OFFICES_API, SERVICES_API } from '../../lib/api/catalogue.js';
-import { getRequestForecast, retrainRequestForecast } from '../../lib/api/request-forecast.js';
+import { getRequestForecast, retrainRequestForecast, getForecastOffices, getForecastServices } from '../../lib/api/request-forecast.js';
 import { notify } from '../../lib/ui/notify.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
@@ -78,7 +76,7 @@ export default function RequestForecastSection({ user }) {
   // Load offices + services once on mount
   useEffect(() => {
     if (isOfficeBound) return; // office-bound roles don't need the list
-    Promise.all([apiFetch(OFFICES_API), apiFetch(SERVICES_API)])
+    Promise.all([getForecastOffices(), getForecastServices()])
       .then(([od, sd]) => {
         setOffices(Array.isArray(od?.items) ? od.items.filter((o) => o.is_active) : []);
         setServices(Array.isArray(sd?.items) ? sd.items.filter((s) => s.is_active) : []);

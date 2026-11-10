@@ -41,7 +41,7 @@ describe('the shared app shell: header and sidebar (source checks, not a browser
     assert.ok(shell.includes("drawerHidden ? 'invisible md:visible' : ''"));
   });
   it('the page content sits beside the sidebar and the header is a plain 64px bar aligned with the sidebar logo bar', () => {
-    assert.ok(shell.includes('min-h-screen bg-white md:flex'));
+    assert.ok(shell.includes('min-h-screen bg-page md:flex'));
     assert.ok(shell.includes('flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white'));
     assert.ok(shell.includes('flex h-16 shrink-0 border-b border-white/10 bg-[#3D0606]'));
   });
