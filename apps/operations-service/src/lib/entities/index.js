@@ -101,6 +101,31 @@ export const Transaction = new EntitySchema({
     disapprovalReason: { name: 'disapproval_reason', type: 'text', nullable: true },
     disapprovalNoticeGiven: { name: 'disapproval_notice_given', type: 'boolean', nullable: true },
     version: { type: 'int', default: 1 },
+    // TT2: analytics feed counter (not the optimistic lock). 0 = never emitted; each analytics event increments it.
+    analyticsEventVersion: { name: 'analytics_event_version', type: 'int', default: 0 },
+  },
+});
+
+// ---- TT2 analytics outbox (logical consumer ANALYTICS) ----
+// One row per emitted analytics snapshot, written in the same database transaction as the business change and later
+// delivered to Oversight. Separate from audit_outbox: the two destinations never share delivery state. The unique
+// (transaction_id, event_version), the CHECK and the pending index are created in after-sync / the TT2 migration.
+export const AnalyticsOutboxEvent = new EntitySchema({
+  name: 'AnalyticsOutboxEvent',
+  tableName: 'analytics_outbox',
+  columns: {
+    eventId: { name: 'event_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'analytics_outbox_pkey' },
+    transactionId: { name: 'transaction_id', type: 'uuid' },
+    eventVersion: { name: 'event_version', type: 'int' },
+    eventType: { name: 'event_type', type: 'varchar', length: 40 },
+    payload: { type: 'jsonb' },
+    createdAt: { name: 'created_at', type: 'timestamptz', default: () => 'now()' },
+    attempts: { type: 'int', default: 0 },
+    nextAttemptAt: { name: 'next_attempt_at', type: 'timestamptz', default: () => 'now()' },
+    leaseToken: { name: 'lease_token', type: 'uuid', nullable: true },
+    leaseUntil: { name: 'lease_until', type: 'timestamptz', nullable: true },
+    deliveredAt: { name: 'delivered_at', type: 'timestamptz', nullable: true },
+    lastError: { name: 'last_error', type: 'varchar', length: 500, nullable: true },
   },
 });
 
@@ -130,4 +155,4 @@ export const ForecastRun = new EntitySchema({
   },
 });
 
-export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun];
+export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun, AnalyticsOutboxEvent];

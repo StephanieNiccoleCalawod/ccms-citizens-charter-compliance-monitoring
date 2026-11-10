@@ -371,6 +371,8 @@ describe('Sprint 5 numbered migrations', () => {
     const all = ['disapproval_notice_given', 'disapproval_reason', 'outcome', 'started_by_name', 'started_by_position', 'started_outside_hours'];
     assert.equal(cli('operations', db.url, ['run']).code, 0);
     assert.deepEqual(await columns(db.url, 'transactions', all), all);
+    assert.match(cli('operations', db.url, ['revert']).out, /Reverted: Tt2AnalyticsOutbox1794355200000/);
+    assert.deepEqual(await columns(db.url, 'transactions', ['analytics_event_version']), []);
     assert.match(cli('operations', db.url, ['revert']).out, /Reverted: Cc038ForecastRuns1794300300000/);
     assert.match(cli('operations', db.url, ['revert']).out, /Reverted: Cc051OutsideHours1794300200000/);
     assert.match(cli('operations', db.url, ['revert']).out, /Reverted: Cc046StarterName1794300100000/);
@@ -430,7 +432,9 @@ describe('Sprint 5 numbered migrations', () => {
       const run = cli(service, db.url, ['run']);
       assert.equal(run.code, 0, run.out);
       assert.match(run.out, /Applied: Cc/);
-      assert.deepEqual(await fingerprint(db.url), schemaBefore, `${service}: business schema changed`);
+      // Only the TT2 objects (a later, additive migration) are new; every Sprint 5 object is unchanged.
+      const tt2 = service === 'operations' ? (await import('../apps/operations-service/migrations/tt2-analytics-schema.json', { with: { type: 'json' } })).default : {};
+      assert.deepEqual(await fingerprint(db.url), { ...schemaBefore, ...tt2 }, `${service}: business schema changed`);
       assert.deepEqual(await dataChecksum(db.url, schemaBefore), dataBefore, `${service}: business data changed`);
       assert.deepEqual(await constraints(), constraintsBefore, `${service}: existing constraints were recreated`);
     }

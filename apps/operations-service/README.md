@@ -48,6 +48,8 @@ Migrations, in order:
 | `OperationsBaseline1793491200000` | The pre-Sprint-5 schema, including the Sprint 4 critical columns and checks | refused (restore the backup) |
 | `Cc050TransactionOutcome1794182400000` | `transactions.outcome`, `disapproval_reason`, `disapproval_notice_given`, `transactions_outcome_ck` | deletes every recorded outcome and reason |
 | `Cc046StartedByPosition1794225600000` | `transactions.started_by_position` | deletes every copied position |
+| `Cc046StarterName1794300100000`, `Cc051OutsideHours1794300200000`, `Cc038ForecastRuns1794300300000` | see `docs/database-migrations.md` | guarded |
+| `Tt2AnalyticsOutbox1794355200000` | `transactions.analytics_event_version` (default 0), `analytics_outbox` | refused while events or versions exist unless `CCMS_ALLOW_DATA_LOSS=Tt2AnalyticsOutbox1794355200000` |
 
 **Baseline setup.** Empty database: `npm run migrate:run`. Existing database (including the hosted one): `migrate:check-baseline`,
 then `migrate:baseline`, then `migrate:run`. A database where the interim `migrate:sprint5` already ran reports the four Sprint 5
@@ -67,7 +69,7 @@ by BE Dev 1 after a verified backup: see [../../docs/database-migrations.md](../
 | `IDENTITY_JWKS_URL`, `JWT_ISSUER`, `JWT_AUDIENCE` | token verification |
 | `SERVICE_KEY` | shared service key (calls to Core) |
 | `CORE_URL` | Core address, with or without `/api` |
-| `LOGS_SERVICE_URL` | where audit events are delivered |
+| `LOGS_SERVICE_URL` | Oversight (Logs) address, with or without `/api`: audit events and, since TT2, analytics events (`/analytics-events`) |
 | `CRON_SECRET` | secret Vercel Cron sends to `/api/jobs/*` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | receipt email (CC024); empty host = nothing is sent |
 
@@ -81,10 +83,18 @@ by BE Dev 1 after a verified backup: see [../../docs/database-migrations.md](../
 | `POST /transactions`, `GET /transactions`, `GET /transactions/:id` | Super Admin, Office Head, Office Staff (scoped); Executive 403 |
 | `POST /transactions/:id/hold`, `/resume`, `/complete` | who started it, Office Head of the office, Super Admin |
 | `POST /transactions/:id/cancel` | Office Head (own office), Super Admin |
-| `GET /jobs/outbox`, `/jobs/compute-pending`, `/jobs/auto-close`, `/jobs/receipt-emails` | `CRON_SECRET` only (not reachable through the gateway) |
+| `GET /transactions/analytics-export?limit=&cursor=` | **service key only** (TT2 backfill source; blocked by the gateway for every method) |
+| `GET /jobs/outbox`, `/jobs/compute-pending`, `/jobs/auto-close`, `/jobs/receipt-emails`, `/jobs/analytics-outbox` | `CRON_SECRET` only (not reachable through the gateway) |
 
 Errors use `{ error: { code, message, details, correlation_id, timestamp } }`. Every change writes its audit event in the same
 database transaction (outbox) and the outbox job delivers it.
+
+## Analytics feed (Sprint 5 TT2)
+
+Every start, hold, resume, completion, result, cancellation and auto-close also writes a privacy-safe analytics snapshot to
+`analytics_outbox` in the same database transaction (`src/modules/analytics/producer.js`), delivered to Oversight after the response
+and by `GET /api/jobs/analytics-outbox` (not scheduled in `vercel.json`). Contract, delivery rules, export paging and rollout:
+[../../docs/analytics-feed.md](../../docs/analytics-feed.md). No new environment variable: it uses `LOGS_SERVICE_URL` and `SERVICE_KEY`.
 
 ## Notes
 

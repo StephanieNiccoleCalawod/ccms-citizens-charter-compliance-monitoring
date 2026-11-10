@@ -1,0 +1,22 @@
+{
+  "column:analytics_outbox.attempts": "integer NOT NULL DEFAULT 0",
+  "column:analytics_outbox.created_at": "timestamp with time zone NOT NULL DEFAULT now()",
+  "column:analytics_outbox.delivered_at": "timestamp with time zone",
+  "column:analytics_outbox.event_id": "uuid NOT NULL",
+  "column:analytics_outbox.event_type": "character varying(40) NOT NULL",
+  "column:analytics_outbox.event_version": "integer NOT NULL",
+  "column:analytics_outbox.last_error": "character varying(500)",
+  "column:analytics_outbox.lease_token": "uuid",
+  "column:analytics_outbox.lease_until": "timestamp with time zone",
+  "column:analytics_outbox.next_attempt_at": "timestamp with time zone NOT NULL DEFAULT now()",
+  "column:analytics_outbox.payload": "jsonb NOT NULL",
+  "column:analytics_outbox.transaction_id": "uuid NOT NULL",
+  "column:transactions.analytics_event_version": "integer NOT NULL DEFAULT 0",
+  "constraint:analytics_outbox.analytics_outbox_pkey": "PRIMARY KEY (event_id)",
+  "constraint:analytics_outbox.analytics_outbox_values_ck": "CHECK (((event_version >= 1) AND (attempts >= 0) AND ((event_type)::text = ANY ((ARRAY['TRANSACTION_STARTED'::character varying, 'TRANSACTION_HELD'::character varying, 'TRANSACTION_RESUMED'::character varying, 'TRANSACTION_COMPLETED'::character varying, 'TRANSACTION_RESULT_COMPUTED'::character varying, 'TRANSACTION_CANCELLED'::character varying, 'TRANSACTION_AUTO_CLOSED'::character varying])::text[]))))",
+  "constraint:analytics_outbox.analytics_outbox_version_uq": "UNIQUE (transaction_id, event_version)",
+  "index:analytics_outbox.analytics_outbox_pending_idx": "CREATE INDEX analytics_outbox_pending_idx ON public.analytics_outbox USING btree (next_attempt_at, created_at) WHERE (delivered_at IS NULL)",
+  "index:analytics_outbox.analytics_outbox_pkey": "CREATE UNIQUE INDEX analytics_outbox_pkey ON public.analytics_outbox USING btree (event_id)",
+  "index:analytics_outbox.analytics_outbox_version_uq": "CREATE UNIQUE INDEX analytics_outbox_version_uq ON public.analytics_outbox USING btree (transaction_id, event_version)",
+  "table:analytics_outbox": ""
+}

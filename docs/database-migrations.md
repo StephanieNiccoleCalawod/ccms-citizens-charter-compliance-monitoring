@@ -106,6 +106,10 @@ Oversight has no post-baseline schema change on this branch. The other services 
 | Operations | `Cc051OutsideHours1794300200000` | `transactions.started_outside_hours`, default false | Drops the column after the value guard |
 | Operations | `Cc038ForecastRuns1794300300000` | Forecast storage, indexes and checks | Drops the empty table; populated storage requires explicit data-loss authorization |
 | Identity | `Cc046TrimmedPosition1794300400000` | Stronger trimmed-position check | Restores the previous check; changes no account values |
+| Operations | `Tt2AnalyticsOutbox1794355200000` | Sprint 5 TT2: `transactions.analytics_event_version` (default 0) and `analytics_outbox` | Refused while the outbox has rows or any version is not 0, unless explicitly allowed |
+| Oversight | `Tt2AnalyticsTransactions1794355300000` | Sprint 5 TT2: `analytics_transactions`, `analytics_backfill_state`, exact runtime grants | Refused while either table has rows, unless explicitly allowed |
+
+TT2 details, rollout order and backfill: [analytics-feed.md](analytics-feed.md).
 
 The stricter position migration refuses untrimmed existing values instead of silently changing them. Any required
 normalization needs a separately reviewed data correction. Existing new tables must match the complete frozen
