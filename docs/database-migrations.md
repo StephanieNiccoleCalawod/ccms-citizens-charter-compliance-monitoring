@@ -212,7 +212,7 @@ evidence is unavailable, leave AC1 pending and stop before adoption.
 * "matches ... exactly" → state A.
 * Only `unexpected` lines, and they are exactly the Sprint 5 objects in the table above → state B.
 * Any `missing` or `changed` line, or `unexpected` objects that are not the Sprint 5 objects → **stop**. Do not adopt.
-  Send the output to the team (see section 4).
+  Send the output to the team (see section 5).
 
 ### Step 4. Rehearse on the backup branch
 
