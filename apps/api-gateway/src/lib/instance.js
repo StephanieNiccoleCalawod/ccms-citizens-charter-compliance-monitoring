@@ -1,12 +1,14 @@
 import { createTokenCheck } from './auth.js';
 import { createGateway } from './gateway.js';
 import { serviceTargets } from './routes.js';
+import { assertQaServiceTargets } from 'ccms-shared/qa';
 
 const KEY = '__ccmsGateway';
 const flag = (value, fallback) => (value === undefined || value === '' ? fallback : !['false', '0', 'no', 'off'].includes(String(value).toLowerCase()));
 
 /** The gateway for this process, built from the environment on first use. */
 export function getGateway(env = process.env) {
+  assertQaServiceTargets(env);
   if (!globalThis[KEY]) {
     const targets = serviceTargets(env);
     // HTTPS is enforced on Vercel (it always terminates TLS and tells us with X-Forwarded-Proto). A local

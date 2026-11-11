@@ -1,8 +1,9 @@
-import { Errors, isUuid } from 'ccms-shared';
+import { Errors, ROLES, isUuid, recordAudit } from 'ccms-shared';
 import { newId } from './calendar-rules.js';
 import { SyncLog } from '../entities/index.js';
 import { enqueueAffectedSnapshots } from './sms-snapshot.js';
 import { CHANGE_KIND, buildMessage, calendarWindow, effectEnabled, entityIdOf, occurrenceDates, sendableToFms } from './message.js';
+import { kickOutbox, kickSync } from '../outbox.js';
 
 export const CONSUMERS = Object.freeze(['FMS', 'AUDIT']);
 
@@ -101,6 +102,7 @@ export function toSyncItem(row) {
     status: row.status,
     last_synced_at: iso(row.lastSyncedAt),
     attempts: row.attempts,
+    ...(String(row.lastError ?? '').startsWith('KEY_REJECTED:') ? { error_code: 'KEY_REJECTED' } : {}),
   };
 }
 
@@ -140,13 +142,40 @@ export async function getSyncStatus(dataSource, { limit = 20 } = {}) {
   const failedStillOpen = failedSms && (!lastSms?.lastSyncedAt || (failedSms.lastAttemptAt ?? failedSms.createdAt) > lastSms.lastSyncedAt);
   return {
     audit_last_synced: iso(lastAudit?.lastSyncedAt),
-    fms_last_push: lastFms ? { status: lastFms.status, at: iso(lastFms.lastAttemptAt ?? lastFms.createdAt) } : null,
+    fms_last_push: lastFms ? { status: lastFms.status, at: iso(lastFms.lastAttemptAt ?? lastFms.createdAt),
+      ...(String(lastFms.lastError ?? '').startsWith('KEY_REJECTED:') ? { error_code: 'KEY_REJECTED' } : {}) } : null,
     sms_last_received: iso(lastSms?.lastSyncedAt),
     sms_issue: failedStillOpen
       ? { state: String(failedSms.lastError ?? '').startsWith('KEY_REJECTED') ? 'KEY_REJECTED' : 'FAILED', at: iso(failedSms.lastAttemptAt ?? failedSms.createdAt) }
       : null,
     recent: recent.map(toSyncItem),
   };
+}
+
+/** TT6: explicit recovery only; preserve the sync ID and payload and audit the retry decision without credentials. */
+export async function requeueRejectedSync(dataSource, actor, syncId, { ipAddress } = {}) {
+  if (actor.role !== ROLES.SUPER_ADMIN) throw Errors.forbidden();
+  if (!isUuid(syncId)) throw Errors.notFound('Unknown sync ID', 'SYNC_NOT_FOUND');
+  const result = await dataSource.transaction(async (manager) => {
+    const repo = manager.getRepository(SyncLog);
+    const row = await repo.findOne({ where: { syncId }, lock: { mode: 'pessimistic_write' } });
+    if (!row) throw Errors.notFound('Unknown sync ID', 'SYNC_NOT_FOUND');
+    if (row.status !== 'FAILED' || !String(row.lastError ?? '').startsWith('KEY_REJECTED:') || !CONSUMERS.includes(row.consumerSystem)) {
+      throw Errors.conflict('Only a sync row stopped by a rejected key can be requeued here', 'SYNC_NOT_KEY_REJECTED');
+    }
+    const before = { status: row.status, attempts: row.attempts, error_code: 'KEY_REJECTED' };
+    row.status = 'PENDING';
+    row.attempts = 0;
+    row.lastError = null;
+    row.nextAttemptAt = new Date();
+    await repo.save(row);
+    await recordAudit(manager, { actor, action: 'SYNC_REQUEUED', entityType: 'sync_log', entityId: row.syncId,
+      before, after: { status: 'PENDING', attempts: 0, consumer_system: row.consumerSystem }, ipAddress });
+    return toSyncItem(row);
+  });
+  kickOutbox();
+  kickSync();
+  return result;
 }
 
 /** POST /sync/ack: Audit confirms it received a push. Only Audit rows can be acknowledged. */

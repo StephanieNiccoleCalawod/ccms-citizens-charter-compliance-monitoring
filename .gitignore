@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.next-qa/
 dist/
 build/
 coverage/
@@ -18,3 +19,6 @@ playwright-report/
 ccms-monorepo.zip
 .DS_Store
 Thumbs.db
+.qa/
+qa/targets.local.json
+qa/fixtures.local.json

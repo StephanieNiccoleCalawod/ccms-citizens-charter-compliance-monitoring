@@ -2,6 +2,8 @@
 
 Citizen’s Charter Compliance Monitoring System: six independent Next.js applications and one shared ESM library, managed with npm workspaces. The repository's original README is preserved in [docs/migration/ORIGINAL-README.md](docs/migration/ORIGINAL-README.md).
 
+TT5's isolated QA setup commands, fixture input format and pending hosted evidence are documented in [docs/qa-environment.md](docs/qa-environment.md). TT6's FMS rejected-key behavior and Super Admin requeue action are documented in [docs/fms-key-rejection.md](docs/fms-key-rejection.md). Local release checks are recorded in [docs/tt5-tt6-release-checks.md](docs/tt5-tt6-release-checks.md); the persistent hosted QA environment and EB14 acceptance evidence remain pending.
+
 ## Prerequisites
 
 - Node.js 22.14 or later and npm 10 or later. Node 22 is used in CI. The migration was verified with the versions listed in [verification](docs/migration/VERIFICATION.md).

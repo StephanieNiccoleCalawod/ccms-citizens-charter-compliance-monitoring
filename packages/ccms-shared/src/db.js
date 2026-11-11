@@ -1,5 +1,6 @@
 import { DataSource, EntitySchema } from 'typeorm';
 import { MIGRATIONS_TABLE, resolveDbTarget } from './migrations.js';
+import { assertQaDatabaseTarget } from './qa.js';
 
 // Database access for every service is TypeORM on PostgreSQL. Entities are plain-JavaScript
 // EntitySchema objects (no decorators). Schema changes are explicit: hosted databases change only
@@ -59,6 +60,7 @@ export function createDataSource({ url = process.env.DATABASE_URL, entities, syn
   // for it (sslmode=require); the certificate is verified unless DATABASE_SSL_INSECURE=true.
   const wantsSsl = envFlag('DATABASE_SSL', /[?&]sslmode=(require|verify-full|verify-ca)/.test(url));
   const shouldSynchronize = synchronize ?? envFlag('DB_SYNCHRONIZE', false);
+  assertQaDatabaseTarget(url, { synchronize: shouldSynchronize });
   if (shouldSynchronize && process.env.NODE_ENV === 'production') {
     throw new Error('Schema synchronization is refused: NODE_ENV=production. Use npm run migrate:run.');
   }

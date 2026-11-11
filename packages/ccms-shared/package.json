@@ -9,7 +9,8 @@
     ".": "./src/index.js",
     "./testing": "./src/testing/index.js",
     "./nav": "./src/nav.js",
-    "./roles": "./src/roles.js"
+    "./roles": "./src/roles.js",
+    "./qa": "./src/qa.js"
   },
   "bin": {
     "ccms-check-time": "./scripts/check-time-usage.mjs"

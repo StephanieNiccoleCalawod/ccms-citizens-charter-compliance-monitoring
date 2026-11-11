@@ -1,4 +1,7 @@
 import { fileURLToPath } from 'node:url';
+import { assertQaServiceTargets } from 'ccms-shared/qa';
+
+assertQaServiceTargets();
 
 // The browser only ever talks to this app. Everything under /api is forwarded to the API gateway
 // (a separate Vercel project), which checks the token and routes to Identity, Core and Logs.
@@ -8,6 +11,7 @@ const gatewayUrl = (process.env.API_GATEWAY_URL || 'http://127.0.0.1:8080').repl
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: process.env.CCMS_ENVIRONMENT === 'qa' && process.env.QA_ENV_TYPE === 'local' ? '.next-qa' : '.next',
   turbopack: { root: fileURLToPath(new URL('../../', import.meta.url)) },
   outputFileTracingRoot: fileURLToPath(new URL('../../', import.meta.url)),
   poweredByHeader: false,

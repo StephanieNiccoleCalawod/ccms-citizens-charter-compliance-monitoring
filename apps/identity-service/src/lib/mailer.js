@@ -1,4 +1,5 @@
 import { AppError } from 'ccms-shared';
+import { assertQaServiceTargets } from 'ccms-shared/qa';
 
 // Transactional email. Three ways to deliver, picked from the environment:
 //   1. SMTP (Gmail, Outlook, school mail server...)   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM
@@ -31,6 +32,7 @@ async function sendViaSmtp(message) {
 }
 
 async function defaultSend(message) {
+  assertQaServiceTargets();
   if (process.env.SMTP_HOST) return sendViaSmtp(message);
   const url = process.env.EMAIL_API_URL;
   if (!url) {

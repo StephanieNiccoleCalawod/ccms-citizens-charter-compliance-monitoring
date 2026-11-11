@@ -11,13 +11,14 @@ import { externalSystemLabel } from '../../lib/constants/brand.js';
 
 const STATUS_CLASS = {
   FAILED: 'badge bg-red-50 text-red-700',
+  KEY_REJECTED: 'badge bg-red-50 text-red-700',
   ACKNOWLEDGED: 'badge bg-emerald-50 text-emerald-700',
   SENT: 'badge bg-emerald-50 text-emerald-700',
   PENDING: 'badge bg-slate-100 text-slate-600',
 };
 
 function StatusBadge({ status }) {
-  return <span className={STATUS_CLASS[status] ?? 'badge bg-slate-100 text-slate-600'}>{SYNC_LABELS[status] ?? status}</span>;
+  return <span className={STATUS_CLASS[status] ?? 'badge bg-slate-100 text-slate-600'}>{status === 'KEY_REJECTED' ? 'Key refused' : SYNC_LABELS[status] ?? status}</span>;
 }
 
 // Cards have a border and no fill of their own, so they take the page's background.
@@ -48,6 +49,7 @@ function SystemCard({ card }) {
 export default function SyncPanel({ refreshKey }) {
   const [state, setState] = useState({ loading: true, data: null, error: null });
   const [open, setOpen] = useState(false); // the Sync activity list is closed until asked for
+  const [retrying, setRetrying] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -57,6 +59,19 @@ export default function SyncPanel({ refreshKey }) {
       setState((current) => ({ ...current, loading: false, error: err.message }));
     }
   }, []);
+
+  const requeue = async (id) => {
+    if (retrying !== null) return;
+    setRetrying(id);
+    try {
+      await apiFetch(`/api/calendar/sync/${id}/requeue`, { method: 'POST' });
+      await load();
+    } catch (error) {
+      setState((current) => ({ ...current, error: error.message }));
+    } finally {
+      setRetrying(null);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -126,7 +141,13 @@ export default function SyncPanel({ refreshKey }) {
                           </td>
                           <td className="td">{row.event_type}</td>
                           <td className="td">
-                            <StatusBadge status={row.status} />
+                            <StatusBadge status={row.error_code ?? row.status} />
+                            {row.error_code === 'KEY_REJECTED' ? (
+                              <button type="button" className="ml-2 text-xs font-semibold text-maroon-800 underline disabled:opacity-50"
+                                disabled={retrying !== null} onClick={() => requeue(row.sync_id)}>
+                                {retrying === row.sync_id ? 'Requeueing…' : 'Retry after key update'}
+                              </button>
+                            ) : null}
                           </td>
                           <td className="td">{formatDateTime(row.last_synced_at) || '-'}</td>
                           <td className="td text-right">{row.attempts}</td>

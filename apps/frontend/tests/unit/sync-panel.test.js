@@ -35,6 +35,11 @@ describe('the Syllabus Management System (SMS) card', () => {
 });
 
 describe('the Faculty Management System (FMS) card', () => {
+  it('shows a rejected key separately and never promises automatic retry', () => {
+    const card = fmsCard({ fms_last_push: { status: 'FAILED', error_code: 'KEY_REJECTED', at: '2026-11-09T14:08:00Z', message: 'private receiver detail' } });
+    assert.deepEqual([card.badge, card.tone, card.noticeState], ['Key refused', 'bad', 'KEY_REJECTED']);
+    assert.doesNotMatch(card.text, /retry automatically|private receiver detail/);
+  });
   it('"Not synced yet" when nothing was ever sent, and no "last sent" line', () => {
     const card = fmsCard({ fms_last_push: null });
     assert.deepEqual([card.title, card.short, card.badge, card.tone, card.lastSent], ['Faculty Management System', 'FMS', 'Not synced yet', 'waiting', null]);

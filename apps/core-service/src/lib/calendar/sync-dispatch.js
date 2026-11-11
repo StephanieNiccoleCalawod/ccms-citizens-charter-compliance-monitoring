@@ -60,9 +60,11 @@ export async function dispatchSyncLogs(
       });
       const text = await (response.text?.() ?? Promise.resolve('')).catch(() => '');
       if (!response.ok) {
-        // SMS: a 401 means our key was refused. Retrying cannot help until the key is fixed, so the row stops retrying and says why.
-        if (response.status === 401 && row.consumerSystem === SMS_CONSUMER) {
-          const refused = new Error('KEY_REJECTED: SMS refused our key (401). Fix the key, then requeue this row');
+        // TT6: FMS and SMS both stop after a refused key. Keep the existing terminal-attempt convention;
+        // a Super Admin can explicitly requeue the same row once the receiver key has been corrected.
+        if (response.status === 401 && (row.consumerSystem === SMS_CONSUMER || row.consumerSystem === 'FMS')) {
+          const receiver = row.consumerSystem === 'FMS' ? 'FMS' : 'SMS';
+          const refused = new Error(`KEY_REJECTED: ${receiver} refused our key (401). Fix the key, then requeue this row`);
           refused.stopRetrying = true;
           throw refused;
         }

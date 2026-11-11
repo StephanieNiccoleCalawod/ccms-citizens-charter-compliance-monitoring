@@ -1,0 +1,16 @@
+{
+  "approved": false,
+  "sourceReference": "REQUIRED: authoritative EB14 fixture list and fixture W revision",
+  "superAdmin": { "email": "admin@ccms-qa.test", "fullName": "QA Administrator", "employeeNo": "QA-ADMIN" },
+  "offices": [],
+  "accounts": [],
+  "fixtureW": { "approved": false, "sourceReference": "REQUIRED: exact fixture W contents", "catalogueSettings": {}, "workingHours": [], "entries": [] },
+  "checklist": [
+    { "id": "calendar-w", "requirement": "Authoritative calendar fixture W", "status": "PENDING" },
+    { "id": "accounts", "requirement": "Authoritative QA accounts, roles and office assignments", "status": "PENDING" },
+    { "id": "mailbox", "requirement": "Dedicated capture mailbox", "status": "PENDING" },
+    { "id": "mock-fms", "requirement": "Mock FMS", "status": "PENDING" },
+    { "id": "mock-scms", "requirement": "Mock SCMS/SMS", "status": "PENDING" }
+  ],
+  "note": "These are the five referenced requirements, not a claimed complete EB14 list. Replace with the complete authoritative list before approval. Never mark Exists/Created until actually established."
+}

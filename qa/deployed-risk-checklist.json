@@ -1,0 +1,14 @@
+{
+  "task": "TT5", "status": "NOT_RUN", "commit": null, "environment": null, "checkedAt": null,
+  "risks": [
+    { "id": "environment", "requirement": "QA-only variables and secret references", "result": "PENDING", "evidence": null },
+    { "id": "jobs", "requirement": "Scheduler configuration and CRON_SECRET authentication", "result": "PENDING", "evidence": null },
+    { "id": "cookies", "requirement": "HTTPS, session cookies and refresh behavior", "result": "PENDING", "evidence": null },
+    { "id": "service-urls", "requirement": "Hosted QA destinations, no localhost or demo/production URLs", "result": "PENDING", "evidence": null },
+    { "id": "utc", "requirement": "Server/database UTC and correct display-time rules", "result": "PENDING", "evidence": null },
+    { "id": "mail", "requirement": "Mail goes exclusively to the QA capture mailbox", "result": "PENDING", "evidence": null },
+    { "id": "request-size", "requirement": "Hosted request limits and application boundaries", "result": "PENDING", "evidence": null }
+  ],
+  "hostedSuiteReport": null,
+  "note": "Implementation-only template. No checks have been executed. Record non-secret results and artifact references during the separately authorized review."
+}

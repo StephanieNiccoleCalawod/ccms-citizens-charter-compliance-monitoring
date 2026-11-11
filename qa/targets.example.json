@@ -1,0 +1,24 @@
+{
+  "id": "qa-local",
+  "kind": "local",
+  "services": {
+    "identity-service": "http://127.0.0.1:3301",
+    "oversight-service": "http://127.0.0.1:3302",
+    "core-service": "http://127.0.0.1:3303",
+    "operations-service": "http://127.0.0.1:3304",
+    "api-gateway": "http://127.0.0.1:8380",
+    "frontend": "http://127.0.0.1:3300"
+  },
+  "databases": {
+    "identity-service": { "identity": "127.0.0.1:16433/ccms_identity_qa", "urlEnv": "QA_IDENTITY_DATABASE_URL", "adminUrlEnv": "QA_IDENTITY_DATABASE_ADMIN_URL" },
+    "core-service": { "identity": "127.0.0.1:16435/ccms_core_qa", "urlEnv": "QA_CORE_DATABASE_URL", "adminUrlEnv": "QA_CORE_DATABASE_ADMIN_URL" },
+    "operations-service": { "identity": "127.0.0.1:16436/ccms_operations_qa", "urlEnv": "QA_OPERATIONS_DATABASE_URL", "adminUrlEnv": "QA_OPERATIONS_DATABASE_ADMIN_URL" },
+    "oversight-service": { "identity": "127.0.0.1:16437/ccms_oversight_qa", "urlEnv": "QA_OVERSIGHT_DATABASE_URL", "adminUrlEnv": "QA_OVERSIGHT_DATABASE_ADMIN_URL", "isolatedCluster": true }
+  },
+  "mocks": { "origin": "http://127.0.0.1:4400" },
+  "mail": { "mode": "capture", "smtpHost": "127.0.0.1", "smtpPort": 11025, "captureUrl": "http://127.0.0.1:18025" },
+  "protected": {
+    "databaseIdentities": ["127.0.0.1:5433/ccms_identity", "127.0.0.1:15433/ccms_identity", "127.0.0.1:15435/ccms_core", "127.0.0.1:5435/ccms_core", "127.0.0.1:5436/ccms_operations", "127.0.0.1:5437/ccms_oversight"],
+    "serviceOrigins": ["http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002", "http://127.0.0.1:3003", "http://127.0.0.1:3004", "http://127.0.0.1:8080", "http://localhost:3000", "https://ccms-citizens-charter-compliance-mo-two.vercel.app", "https://ccms-citizens-charter-compliance-mo-eight.vercel.app", "https://ccms-citizens-charter-compliance-mo-kappa.vercel.app", "https://ccms-citizens-charter-compliance-mo-ten.vercel.app", "https://ccms-citizens-charter-compliance-mo-six.vercel.app", "https://ccms-citizens-charter-compliance-mo.vercel.app"]
+  }
+}

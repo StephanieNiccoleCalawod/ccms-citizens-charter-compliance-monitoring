@@ -1,6 +1,7 @@
 import net from 'node:net';
 import tls from 'node:tls';
 import { randomUUID } from 'node:crypto';
+import { assertQaServiceTargets } from 'ccms-shared/qa';
 
 /**
  * A small SMTP client for the receipt email (CC024): EHLO, STARTTLS (port 587) or implicit TLS (port 465), AUTH PLAIN,
@@ -21,6 +22,7 @@ export class SmtpError extends Error {
 }
 
 export function mailerConfig(env = process.env) {
+  assertQaServiceTargets(env);
   const port = Number(env.SMTP_PORT) > 0 ? Number(env.SMTP_PORT) : 587;
   return {
     host: (env.SMTP_HOST ?? '').trim(),

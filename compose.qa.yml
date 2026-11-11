@@ -1,0 +1,33 @@
+# Separate project, containers, ports, databases and volumes. No demo volume is mounted.
+# Operator supplies QA_LOCAL_DATABASE_PASSWORD when starting this configuration later.
+name: ccms-qa
+services:
+  identity-db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: ccms_identity_qa, POSTGRES_DB: ccms_identity_qa, POSTGRES_PASSWORD: "${QA_LOCAL_DATABASE_PASSWORD:?Set the QA-only database password}" }
+    ports: ["127.0.0.1:16433:5432"]
+    volumes: ["identity-qa:/var/lib/postgresql/data"]
+  core-db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: ccms_core_qa, POSTGRES_DB: ccms_core_qa, POSTGRES_PASSWORD: "${QA_LOCAL_DATABASE_PASSWORD:?Set the QA-only database password}" }
+    ports: ["127.0.0.1:16435:5432"]
+    volumes: ["core-qa:/var/lib/postgresql/data"]
+  operations-db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: ccms_operations_qa, POSTGRES_DB: ccms_operations_qa, POSTGRES_PASSWORD: "${QA_LOCAL_DATABASE_PASSWORD:?Set the QA-only database password}" }
+    ports: ["127.0.0.1:16436:5432"]
+    volumes: ["operations-qa:/var/lib/postgresql/data"]
+  oversight-db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: ccms_oversight_qa, POSTGRES_DB: ccms_oversight_qa, POSTGRES_PASSWORD: "${QA_LOCAL_DATABASE_PASSWORD:?Set the QA-only database password}" }
+    ports: ["127.0.0.1:16437:5432"]
+    volumes: ["oversight-qa:/var/lib/postgresql/data"]
+  mailbox:
+    # Capture only. Pin an approved image digest before a hosted QA rollout.
+    image: axllent/mailpit:latest
+    ports: ["127.0.0.1:11025:1025", "127.0.0.1:18025:8025"]
+volumes:
+  identity-qa:
+  core-qa:
+  operations-qa:
+  oversight-qa:

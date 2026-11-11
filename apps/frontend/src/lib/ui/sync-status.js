@@ -34,6 +34,8 @@ export function fmsCard(status) {
   const push = status?.fms_last_push ?? null;
   if (!push) return { ...base, tone: 'waiting', badge: 'Not synced yet', text: 'Nothing has been sent yet. It will get the calendar on the next send.', lastSent: null };
   const lastSent = `Last sent ${when(push.at)}`;
+  if (push.error_code === 'KEY_REJECTED') return { ...base, tone: 'bad', badge: 'Key refused', noticeState: 'KEY_REJECTED',
+    text: 'FMS refused the integration key. Automatic retries have stopped. Update the key, then retry the stopped sync row.', lastSent };
   if (push.status === 'FAILED') return { ...base, tone: 'bad', badge: 'Failed', text: 'The last send failed. It will retry automatically, and your changes are saved.', lastSent };
   if (push.status === 'SENT' || push.status === 'ACKNOWLEDGED') return { ...base, tone: 'good', badge: 'Synced', text: 'The last send went through.', lastSent };
   return { ...base, tone: 'waiting', badge: 'Pending', text: 'A send is waiting. It will go out automatically.', lastSent };
