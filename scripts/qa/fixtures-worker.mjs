@@ -76,6 +76,7 @@ async function run() {
         const { key, office_key: officeKey, ...body } = entry;
         if (!key || (officeKey && !state.offices[officeKey]) || Object.hasOwn(body, 'office_id')) throw new Error('Fixture W entries require a stable key and a declared office_key, never a foreign office ID');
         if (officeKey) body.office_id = state.offices[officeKey];
+        body.reason_category ??= 'OTHER';
         const input = parseExceptionInput(body, { enabled: settings.applies_to_enabled });
         const repo = ds.getRepository(CalendarException);
         const existing = await repo.findOneBy({ exceptionDate: input.exceptionDate, officeId: input.officeId ?? IsNull(), removedAt: IsNull() });

@@ -79,6 +79,27 @@ describe('CC051 outside working hours', () => {
     const [call] = env.core.callsTo('GET', '/is-working-day');
     assert.deepEqual([call.query.date, call.query.officeId], ['2026-10-06', OFFICE_A]);
     assert.equal(call.headers['x-service-key'], 'test-service-key-0123456789');
+    assert.equal(call.query.includeIntervals, 'true');
+  });
+
+  it('requires confirmation during an internal break and records the result in the analytics event', async () => {
+    env.core.override('GET /is-working-day', () => ({
+      status: 200,
+      body: {
+        is_working_day: true,
+        window: { opening_time: '08:00', closing_time: '19:00' },
+        working_intervals: [
+          { opening_time: '08:00', closing_time: '12:00' },
+          { opening_time: '13:00', closing_time: '19:00' },
+        ],
+      },
+    }));
+    await assert.rejects(startAt(at('2026-10-06', '12:30')), outside);
+    assert.equal(await count(), 0);
+    const t = await startAt(at('2026-10-06', '12:30'), { confirmOutsideHours: true });
+    assert.equal(t.started_outside_hours, true);
+    const [event] = await env.ds.query('SELECT payload FROM analytics_outbox WHERE transaction_id = $1', [t.transaction_id]);
+    assert.equal(event.payload.snapshot.started_outside_hours, true);
   });
 
   it('AC4: a backdated entry is never flagged by this rule and Core is not asked', async () => {

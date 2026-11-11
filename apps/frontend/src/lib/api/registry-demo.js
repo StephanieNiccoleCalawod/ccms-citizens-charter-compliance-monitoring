@@ -1,12 +1,9 @@
 // DEMO MODE ONLY (NEXT_PUBLIC_REGISTRY_DEMO=true in a development build). A stand-in for the registry service that lives in
-// the browser tab so the Registry screen can be shown and tried before the Operations service has these routes. It is not
-// the real rules and holds nothing after a page reload. registry.js never loads it into use outside demo mode.
-//
-// The columns below are the demo's own assumption, not a backend contract.
+// the browser tab so the Registry screen can be shown with sample data. It holds nothing after a page reload.
 import { ApiError } from '../auth/session.js';
 import { MAX_RECORDS } from '../ui/registry-import.js';
 
-export const DEMO_COLUMNS = ['student_number', 'full_name', 'program_code', 'status', 'valid_until'];
+export const DEMO_COLUMNS = ['student_number', 'full_name', 'program', 'year_level', 'status', 'valid_until', 'email'];
 const PROGRAMS = ['BSIT', 'BSCS', 'BSA', 'BSBA', 'BSED', 'BSECE', 'BSN', 'BSPSY'];
 
 /** A CSV text from rows (arrays of cells), quoting cells that need it. */
@@ -20,15 +17,17 @@ export function buildDemoValidCsv(count = 2350, { nameSuffix = '' } = {}) {
   const rows = [DEMO_COLUMNS];
   for (let i = 1; i <= count; i++) {
     const enrolled = i % 5 !== 0;
-    rows.push([`2024-${String(i).padStart(5, '0')}-QC-0`, `Demo Student ${i}${nameSuffix}`, PROGRAMS[i % PROGRAMS.length], enrolled ? 'ENROLLED' : 'ALUMNI', enrolled ? '2027-06-30' : '']);
+    rows.push([
+      `2024-${String(i).padStart(5, '0')}-QC-0`, `Demo Student ${i}${nameSuffix}`, PROGRAMS[i % PROGRAMS.length],
+      enrolled ? (i % 4) + 1 : '', enrolled ? 'ENROLLED' : 'ALUMNI', enrolled ? '06/30/2027' : '', '',
+    ]);
   }
   return toCsv(rows);
 }
 
 /** The 12-row QA file: one good row and 11 rows that each break a rule, so a check reports 11 problems. */
 export function buildDemoInvalidCsv() {
-  return toCsv([
-    DEMO_COLUMNS,
+  const rows = [
     ['2024-90001-QC-0', 'Good Row', 'BSIT', 'ENROLLED', '2027-06-30'],
     ['2024-90002-QC-0', 'No Valid Until', 'BSIT', 'ENROLLED', ''],
     ['2024-90003-QC-0', 'Bad Status', 'BSIT', 'GRADUATING', '2027-06-30'],
@@ -41,7 +40,10 @@ export function buildDemoInvalidCsv() {
     ['2024-90010-QC-0', 'Missing Date Again', 'BSBA', 'ENROLLED', ''],
     ['2024-90002-QC-0', 'Duplicate Of Row Three', 'BSBA', 'ALUMNI', ''],
     ['2024-90012-QC-0', 'Bad Date Again', 'BSED', 'ENROLLED', 'soon'],
-  ]);
+  ];
+  return toCsv([DEMO_COLUMNS, ...rows.map(([number, name, program, status, date]) => [
+    number, name, program, status === 'ALUMNI' ? '' : '1', status, date === '2027-06-30' ? '06/30/2027' : date, '',
+  ])]);
 }
 
 function parseCsv(text) {
@@ -80,18 +82,18 @@ function check(records, byNumber) {
     const row = index + 2;
     const problems = [];
     if (!r.student_number) problems.push('student_number is required');
-    else if (seen.has(r.student_number)) problems.push(`Duplicate student number ${r.student_number} in this file`);
+    else if (seen.has(r.student_number)) problems.push('Student number is repeated in this file');
     seen.add(r.student_number);
     if (!r.full_name) problems.push('full_name is required');
-    if (!r.program_code) problems.push('program_code is required');
-    if (!['ENROLLED', 'ALUMNI'].includes(r.status)) problems.push(`status must be ENROLLED or ALUMNI (got "${r.status}")`);
+    if (!r.program) problems.push('program is required');
+    if (!['ENROLLED', 'ALUMNI'].includes(r.status)) problems.push('status must be ENROLLED or ALUMNI');
     if (r.status === 'ENROLLED' && !r.valid_until) problems.push('valid_until is required for ENROLLED records');
-    else if (r.valid_until && !/^\d{4}-\d{2}-\d{2}$/.test(r.valid_until)) problems.push('valid_until must be a date as YYYY-MM-DD');
+    else if (r.valid_until && !/^(0?[1-9]|1[0-2])\/(0?[1-9]|[12]\d|3[01])\/\d{4}$/.test(r.valid_until)) problems.push('valid_until must use MM/DD/YYYY');
     if (problems.length > 0) errors.push({ row, message: problems.join('; ') });
-    else if (byNumber.has(r.student_number)) updated++;
-    else added++;
+    else if (!byNumber.has(r.student_number)) added++;
+    else if (DEMO_COLUMNS.some((name) => byNumber.get(r.student_number)[name] !== r[name])) updated++;
   });
-  return { added, updated, invalid: errors.length, errors };
+  return { total: records.length, added, updated, invalid: errors.length, errors };
 }
 
 /** A fetcher with the same call shape as apiFetch(path, { method, body }) for the three registry routes. */
@@ -106,14 +108,15 @@ export function createDemoFetcher() {
     if (!/\.csv$/i.test(file?.name ?? '')) throw fail('Demo mode reads CSV files only. Use the CSV demo file.', 400);
     const rows = parseCsv(await file.text());
     const header = (rows.shift() ?? []).map((h) => h.trim());
-    const missing = DEMO_COLUMNS.filter((c) => !header.includes(c));
-    if (missing.length > 0) throw fail(`Missing required column(s): ${missing.join(', ')}`, 422);
+    if (header.length !== DEMO_COLUMNS.length || DEMO_COLUMNS.some((name, index) => header[index] !== name)) {
+      throw fail('Use the exact template columns in order.', 422);
+    }
     if (rows.length > MAX_RECORDS) throw fail(`The file has more than ${MAX_RECORDS} records.`, 422);
     const records = rows.map((cells) => Object.fromEntries(header.map((h, i) => [h, (cells[i] ?? '').trim()])));
     const result = check(records, registry);
     if (dryRun) return result;
     if (result.invalid > 0) throw fail('The file has problems. Nothing was imported.', 422, { errors: result.errors });
-    for (const r of records) registry.set(r.student_number, { program_code: r.program_code, status: r.status });
+    for (const r of records) registry.set(r.student_number, r);
     history.push({ import_id: `demo-${++counter}`, created_at: new Date().toISOString(), imported_by: 'Demo Super Admin', total: records.length, added: result.added, updated: result.updated, status: 'COMPLETED' });
     return result;
   }
@@ -122,7 +125,7 @@ export function createDemoFetcher() {
     const programs = new Map();
     let enrolled = 0;
     let alumni = 0;
-    for (const { program_code: p, status } of registry.values()) {
+    for (const { program: p, status } of registry.values()) {
       const entry = programs.get(p) ?? { program_code: p, enrolled: 0, alumni: 0 };
       if (status === 'ENROLLED') { entry.enrolled++; enrolled++; } else { entry.alumni++; alumni++; }
       programs.set(p, entry);

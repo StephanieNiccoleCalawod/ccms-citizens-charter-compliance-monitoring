@@ -265,6 +265,7 @@ function TransactionList({ user }) {
                   <td className="td">
                     <span className="whitespace-nowrap font-mono font-semibold text-maroon-800">{t.tracking_no}</span>
                     {t.is_backdated === true ? <span className="block text-xs text-slate-500">Entered after the fact</span> : null}
+                    {t.started_outside_hours === true ? <span className="block text-xs text-slate-500">Started outside working hours</span> : null}
                   </td>
                   <td className="td">
                     <span className="block font-semibold text-slate-900">{t.service_name}</span>

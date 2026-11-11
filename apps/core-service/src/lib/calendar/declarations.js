@@ -1,7 +1,7 @@
 import { Errors, isValidManilaDate } from 'ccms-shared';
 import { CalendarException } from '../entities/index.js';
 import { smsTermCode } from './sms-snapshot.js';
-import { toExceptionDto } from './exceptions.js';
+import { toEngineEntry } from './exceptions.js';
 import { dayIndexOfDate, MAX_SPAN_DAYS } from './engine/working-time.js';
 import { occurrencesInRange } from './engine/recurrence.js';
 import { CHANGE_KIND, IncompleteEntryError, SCHEMA_VERSION, buildEntry, effectEnabled, sendableToFms } from './message.js';
@@ -64,7 +64,7 @@ export async function buildDeclarations(dataSource, { from, to }, env = process.
   const items = [];
   const incomplete = [];
   for (const row of rows) {
-    const entry = toExceptionDto(row);
+    const entry = toEngineEntry(row);
     const removed = row.removedAt != null;
     if (!sendableToFms(entry, effectOn)) continue;
     for (const date of occurrencesInRange(entry, from, to)) {

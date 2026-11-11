@@ -26,7 +26,12 @@ beforeEach(async () => {
 const row = async (id) => (await env.ds.query('SELECT * FROM sync_log WHERE sync_id = $1', [id]))[0];
 async function queue(consumer = 'FMS') {
   const id = randomUUID();
-  await env.ds.query("INSERT INTO sync_log (sync_id, consumer_system, event_type, entity_type, payload) VALUES ($1, $2, 'CALENDAR_EXCEPTION_ADDED', 'calendar_exception', $3::jsonb)", [id, consumer, JSON.stringify({ messageId: id, date: '2026-12-25' })]);
+  // Make the fixture due even when JavaScript and PostgreSQL resolve the current time at different precision.
+  await env.ds.query(
+    `INSERT INTO sync_log (sync_id, consumer_system, event_type, entity_type, payload, next_attempt_at)
+     VALUES ($1, $2, 'CALENDAR_EXCEPTION_ADDED', 'calendar_exception', $3::jsonb, '2000-01-01T00:00:00Z')`,
+    [id, consumer, JSON.stringify({ messageId: id, date: '2026-12-25' })],
+  );
   return id;
 }
 const dispatch = (token = key, consumer = 'FMS') => dispatchSyncLogs(env.ds, {

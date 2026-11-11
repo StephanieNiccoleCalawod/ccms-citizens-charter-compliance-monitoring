@@ -156,12 +156,14 @@ export const CalendarException = new EntitySchema({
     appliesTo: { name: 'applies_to', type: 'text', default: 'BOTH' },
     classMode: { name: 'class_mode', type: 'text', nullable: true, default: 'SUSPENDED' },
     description: { name: 'description', type: 'text', default: '' },
+    reasonCategory: { name: 'reason_category', type: 'varchar', length: 30, default: 'OTHER' },
+    reference: { type: 'varchar', length: 100, nullable: true },
     officeId: { name: 'office_id', type: 'uuid', nullable: true },
     suspendedFrom: { name: 'suspended_from', type: 'text', nullable: true },
     // EB4: end of a part-day suspension (HH:MM, Asia/Manila). Empty on a whole-day entry. An old entry that has only
     // suspended_from keeps its old effect (suspended until closing time) but cannot be sent until an end is set.
     suspendedUntil: { name: 'suspended_until', type: 'text', nullable: true },
-    // EB3: starts at 1 and goes up by 1 on every change; a removal raises it too and keeps the row (tombstone).
+    // EB3: calendar changes and removals raise the cal-1.0 revision. CC058 metadata edits stay internal.
     revision: { name: 'revision', type: 'int', default: 1 },
     removedAt: { name: 'removed_at', type: 'timestamptz', nullable: true },
     isRecurring: { name: 'is_recurring', type: 'boolean', default: false },
@@ -169,6 +171,10 @@ export const CalendarException = new EntitySchema({
     updatedAt: { name: 'updated_at', type: 'timestamptz', updateDate: true },
   },
   indices: [{ name: 'calendar_exceptions_date_idx', columns: ['exceptionDate'] }],
+  checks: [{
+    name: 'calendar_exceptions_reason_category_check',
+    expression: "reason_category IN ('TYPHOON_WEATHER', 'HEAT_INDEX', 'POWER_WATER_OUTAGE', 'EARTHQUAKE_DRILL', 'SECURITY_THREAT', 'HOLIDAY_PROCLAMATION', 'UNIVERSITY_EVENT', 'OTHER')",
+  }],
 });
 
 // An academic term. Term dates never affect CCMS's own compliance math; Audit uses them.

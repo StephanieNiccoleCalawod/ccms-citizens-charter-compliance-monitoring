@@ -88,10 +88,10 @@ export async function deadline(dataSource, body) {
   }
 }
 
-export async function isWorkingDay(dataSource, { date, officeId }) {
+export async function isWorkingDay(dataSource, { date, officeId, includeIntervals = false }) {
   if (typeof date !== 'string' || !isValidManilaDate(date)) {
     throw Errors.validation('date must be a date (YYYY-MM-DD)', { date: 'date must be a date (YYYY-MM-DD)' });
   }
   const office = parseEngineOfficeId(officeId);
-  return describeDay(await loadCalendar(dataSource, office), date);
+  return describeDay(await loadCalendar(dataSource, office), date, { includeIntervals });
 }

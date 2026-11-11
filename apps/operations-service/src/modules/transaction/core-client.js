@@ -102,12 +102,20 @@ export function createCoreClient({ baseUrl = coreBaseUrl(), serviceKey = process
     },
 
     /** GET /is-working-day?date=&officeId= -> { is_working_day, window: { opening_time, closing_time } | null } (CC051). */
-    async isWorkingDay(date, officeId) {
-      const data = await call('GET', `/is-working-day?date=${encodeURIComponent(date)}&officeId=${encodeURIComponent(officeId)}`);
+    async isWorkingDay(date, officeId, { includeIntervals = false } = {}) {
+      const params = new URLSearchParams({ date, officeId });
+      if (includeIntervals) params.set('includeIntervals', 'true');
+      const data = await call('GET', `/is-working-day?${params}`);
       const w = data.window;
       const time = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
-      const ok = typeof data.is_working_day === 'boolean' && (data.is_working_day ? isObject(w) && time(w.opening_time) && time(w.closing_time) : w === null || w === undefined);
+      const validWindow = (window) => isObject(window) && time(window.opening_time) && time(window.closing_time) && window.opening_time < window.closing_time;
+      const ok = typeof data.is_working_day === 'boolean' && (data.is_working_day ? validWindow(w) : w == null);
       if (!ok) throw invalid('working day');
+      const intervals = data.working_intervals;
+      if (intervals !== undefined && (!Array.isArray(intervals) || !intervals.every(validWindow) ||
+          (intervals.length > 0) !== data.is_working_day)) {
+        throw invalid('working intervals');
+      }
       return data;
     },
 

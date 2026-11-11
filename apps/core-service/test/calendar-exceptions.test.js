@@ -350,7 +350,7 @@ describe('listing exceptions and holidays', () => {
     assert.equal(all.body.items.length, 5);
     assert.deepEqual(
       Object.keys(all.body.items[0]).sort(),
-      ['applies_to', 'class_mode', 'created_at', 'description', 'exception_date', 'exception_id', 'exception_type', 'is_recurring', 'office_id', 'revision', 'suspended_from', 'suspended_until'],
+      ['applies_to', 'class_mode', 'created_at', 'description', 'exception_date', 'exception_id', 'exception_type', 'is_recurring', 'office_id', 'reason_category', 'reference', 'revision', 'suspended_from', 'suspended_until'],
     );
     assert.deepEqual((await list('?from=2026-06-01&to=2026-06-30')).body.items.map((i) => i.description).sort(), ['Independence', 'Office A']);
     // A recurring entry shows when one of its dates is in the range.

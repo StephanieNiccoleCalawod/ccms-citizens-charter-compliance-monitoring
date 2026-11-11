@@ -11,5 +11,9 @@ export const GET = route(async (request) => {
   const params = new URL(request.url).searchParams;
   const officeId = parseEngineOfficeId(params.get('officeId'));
   assertCallerOffice(caller, officeId);
-  return json(await isWorkingDay(await getDb(), { date: params.get('date'), officeId }));
+  return json(await isWorkingDay(await getDb(), {
+    date: params.get('date'),
+    officeId,
+    includeIntervals: params.get('includeIntervals') === 'true',
+  }));
 });

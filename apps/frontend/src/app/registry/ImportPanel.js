@@ -42,7 +42,11 @@ function Counts({ added, updated, invalid }) {
 }
 
 function IssueTable({ issues }) {
-  const shown = issues.slice(0, MAX_ERRORS_SHOWN);
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(issues.length / MAX_ERRORS_SHOWN));
+  const currentPage = Math.min(page, pageCount - 1);
+  const offset = currentPage * MAX_ERRORS_SHOWN;
+  const shown = issues.slice(offset, offset + MAX_ERRORS_SHOWN);
   return (
     <div className="space-y-2">
       <div className="max-h-80 overflow-y-auto rounded-2xl">
@@ -66,7 +70,17 @@ function IssueTable({ issues }) {
           </Table>
         </TableShell>
       </div>
-      {issues.length > shown.length ? <p className="text-sm text-slate-500">Showing the first {n(shown.length)} of {n(issues.length)} problems.</p> : null}
+      {pageCount > 1 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-slate-500" aria-live="polite">
+            Showing {n(offset + 1)}–{n(offset + shown.length)} of {n(issues.length)} problems.
+          </p>
+          <div className="flex gap-2">
+            <button type="button" className="btn-secondary" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 0}>Previous</button>
+            <button type="button" className="btn-secondary" onClick={() => setPage(currentPage + 1)} disabled={currentPage + 1 === pageCount}>Next</button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

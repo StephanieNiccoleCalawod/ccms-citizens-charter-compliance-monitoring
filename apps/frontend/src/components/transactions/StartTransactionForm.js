@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ROLES } from 'ccms-shared/roles';
 import StatusBanner from '../feedback/StatusBanner.js';
+import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import { classificationLabel } from '../../lib/api/catalogue.js';
 import { getServiceStandardAsOf, listRecordsOnDate } from '../../lib/api/backdate.js';
 import { getSettings, listCounters } from '../../lib/api/operations.js';
@@ -76,6 +77,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
   const [fieldErrors, setFieldErrors] = useState({});
   const [banner, setBanner] = useState(null); // { kind, message, conflict }
   const [submitting, setSubmitting] = useState(false);
+  const [outsideDraft, setOutsideDraft] = useState(null);
   const [result, setResult] = useState(null);
   const [past, setPast] = useState({ ...EMPTY_PAST }); // "Record past transaction": what the person typed (Manila time)
   const [pastStandard, setPastStandard] = useState({ state: 'idle', data: null, message: null }); // the standard of the day of the typed start
@@ -245,7 +247,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
 
   async function submit(event) {
     event.preventDefault();
-    if (submittingRef.current || locked) return; // locked: an earlier past write is unconfirmed, so check the saved records first
+    if (submittingRef.current || locked || outsideDraft) return;
     setBanner(null);
     const errors = { ...startErrors({ form, standard: past.enabled ? pastStandard.data : standard.data, items, checks, countersEnabled }), ...backdateErrors(past, Date.now()) };
     if (past.enabled && errors.started_at) delete errors.standard; // the missing start is the real reason; say that one
@@ -255,16 +257,27 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
       notify.error(saveFailureMessage({ status: 400, details: errors }));
       return;
     }
+    await sendStart(withBackdate(buildStartBody({ form, countersEnabled }), past));
+  }
+
+  async function sendStart(body) {
+    if (submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
     try {
-      const transaction = await postTransaction(withBackdate(buildStartBody({ form, countersEnabled }), past));
+      const transaction = await postTransaction(body);
+      setOutsideDraft(null);
       setLock(null);
       // Said once, here, only after the server created it; the modal then closes (embedded) or shows the result (page).
       notify.success(`${savedMessage('Transaction', 'created')} Tracking number: ${transaction.tracking_no}`);
       if (embedded && onCreated) onCreated(transaction);
       else setResult(transaction);
     } catch (err) {
+      if (err?.status === 409 && err.code === 'OUTSIDE_WORKING_TIME' && body.confirmOutsideHours !== true) {
+        setOutsideDraft(body);
+        return;
+      }
+      setOutsideDraft(null);
       const { kind, fieldErrors: fields, message: baseMessage } = startErrorResult(err);
       const message = past.enabled && kind === 'standard' ? pastStandardMessage(err) ?? baseMessage : baseMessage;
       if (past.enabled && isAmbiguousWrite(err)) setLock({ checked: false, state: 'idle', records: [] });
@@ -279,6 +292,11 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
       submittingRef.current = false;
       setSubmitting(false);
     }
+  }
+
+  function confirmOutsideHours() {
+    if (!outsideDraft) return;
+    return sendStart({ ...outsideDraft, confirmOutsideHours: true });
   }
 
   function startAnother() {
@@ -338,6 +356,12 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Entered after the fact</dt>
                 <dd className="text-sm text-slate-800" data-testid="backdated">Yes{result.backdate_reason ? <span className="block whitespace-pre-line text-xs text-slate-600" data-testid="backdate-reason">{result.backdate_reason}</span> : null}</dd>
+              </div>
+            ) : null}
+            {result.started_outside_hours === true ? (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Started outside working hours</dt>
+                <dd className="text-sm text-slate-800">Yes</dd>
               </div>
             ) : null}
             {result.counter_label ? (
@@ -657,6 +681,16 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
         />
         {!ready && form.service_id ? <span className={`text-sm text-slate-500${embedded ? ' order-1 mr-auto' : ''}`}>Confirm every required document to continue.</span> : null}
       </div>
+      <ConfirmDialog
+        open={outsideDraft !== null}
+        title="Start outside working hours"
+        message="It is outside working hours. The time count starts at the next opening. Start anyway?"
+        confirmLabel="Start anyway"
+        busyLabel="Creating…"
+        busy={submitting}
+        onConfirm={confirmOutsideHours}
+        onCancel={() => setOutsideDraft(null)}
+      />
     </form>
   );
 }

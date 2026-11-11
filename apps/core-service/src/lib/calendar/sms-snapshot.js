@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { CalendarException } from '../entities/index.js';
-import { toExceptionDto } from './exceptions.js';
+import { toEngineEntry } from './exceptions.js';
 import { occurrencesInRange } from './engine/recurrence.js';
 import { IncompleteEntryError, CHANGE_KIND, buildEntry } from './message.js';
 
@@ -54,7 +54,7 @@ export async function buildTermSnapshot(manager, term, { syncId = randomUUID(), 
   const skipped = [];
   for (const row of rows) {
     if (row.removedAt != null) continue;
-    const entry = toExceptionDto(row);
+    const entry = toEngineEntry(row);
     for (const date of occurrencesInRange(entry, term.start_date, term.end_date)) {
       try {
         items.push(toItem(buildEntry({ entry, date, changeKind: CHANGE_KIND.UPSERT, effectOn: true })));

@@ -245,10 +245,17 @@ export function computeDeadline(calendar, { startMs, workingDays, heldMinutes = 
 }
 
 /** { is_working_day, window: { opening_time, closing_time } | null } for a 'YYYY-MM-DD' Manila date. */
-export function describeDay(calendar, dateString) {
-  const window = calendar.windowOf(dayIndexOfDate(dateString));
+export function describeDay(calendar, dateString, { includeIntervals = false } = {}) {
+  const dayIndex = dayIndexOfDate(dateString);
+  const window = calendar.windowOf(dayIndex);
   return {
     is_working_day: window !== null,
     window: window ? { opening_time: minutesToTime(window.open), closing_time: minutesToTime(window.close) } : null,
+    ...(includeIntervals ? {
+      working_intervals: segmentsFor(calendar, dayIndex).map(({ open, close }) => ({
+        opening_time: minutesToTime(open),
+        closing_time: minutesToTime(close),
+      })),
+    } : {}),
   };
 }

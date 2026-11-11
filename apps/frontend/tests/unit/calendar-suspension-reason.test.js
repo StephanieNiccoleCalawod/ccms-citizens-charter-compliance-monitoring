@@ -61,9 +61,9 @@ describe('1. the category dropdown', () => {
     assert.equal(isReasonCategory(''), false);
   });
 
-  it('shows the fields for a suspension only (holidays carry no reason)', () => {
-    assert.equal(hasReason('SUSPENSION'), true);
-    for (const type of ['REGULAR_HOLIDAY', 'SPECIAL_NON_WORKING', 'LOCAL_HOLIDAY', '', undefined]) assert.equal(hasReason(type), false, String(type));
+  it('shows the fields for all saved calendar entry types', () => {
+    for (const type of ['SUSPENSION', 'REGULAR_HOLIDAY', 'SPECIAL_NON_WORKING', 'LOCAL_HOLIDAY']) assert.equal(hasReason(type), true);
+    for (const type of ['', undefined]) assert.equal(hasReason(type), false, String(type));
     assert.match(screen, /\{hasReason\(form\.exception_type\) \? \(\s*<div className="grid gap-4 sm:grid-cols-2" data-testid="reason-fields">/);
   });
 });
@@ -76,8 +76,8 @@ describe('2. a new suspension requires a category', () => {
     assert.deepEqual(reasonProblems(form({ reason_category: 'HEAT_INDEX' })), {});
   });
 
-  it('a holiday never needs one', () => {
-    assert.deepEqual(reasonProblems({ exception_type: 'REGULAR_HOLIDAY', reason_category: '', reference: 'x'.repeat(500) }), {});
+  it('a new holiday also requires a category', () => {
+    assert.deepEqual(reasonProblems({ exception_type: 'REGULAR_HOLIDAY', reason_category: '', reference: '' }), { reason_category: CATEGORY_REQUIRED });
   });
 
   it('the save stops before sending and shows the message under the field, marked required', () => {
@@ -146,10 +146,10 @@ describe('8. the edit form', () => {
     assert.match(screen, /\.\.\.formAppliesTo\(entry\),\s*\.\.\.reasonFormFrom\(entry\),/);
   });
 
-  it('an older suspension without a category opens as Other, so editing its times does not force a choice; a holiday opens with none', () => {
+  it('historical suspensions and holidays without a category open as Other', () => {
     assert.deepEqual(reasonFormFrom(SUSPENSION), { reason_category: 'OTHER', reference: '' });
     assert.deepEqual(reasonFormFrom({ ...SUSPENSION, reason_category: 'NOT_A_REASON' }), { reason_category: 'OTHER', reference: '' });
-    assert.deepEqual(reasonFormFrom({ ...SUSPENSION, exception_type: 'REGULAR_HOLIDAY' }), { reason_category: '', reference: '' });
+    assert.deepEqual(reasonFormFrom({ ...SUSPENSION, exception_type: 'REGULAR_HOLIDAY' }), { reason_category: 'OTHER', reference: '' });
     assert.deepEqual(reasonFormFrom(null), { reason_category: '', reference: '' });
   });
 
@@ -174,7 +174,7 @@ describe('9. the list and the details', () => {
     assert.match(screen, /data-testid="entry-reference">Reference: \{reasonDisplay\(entry\)\.reference\}/);
   });
 
-  it('the registry list shows both on each suspension line, and nothing on holidays or Nager.Date references', () => {
+  it('the registry list shows both on saved entries and omits them on Nager.Date references', () => {
     assert.match(screen, /\{!entry\.nager && hasReason\(entry\.exception_type\) \? \(\s*<span className="mt-0\.5 block text-xs text-slate-600" data-testid="entry-reason-line">/);
     assert.match(screen, /Reason: \{reasonDisplay\(entry\)\.category\} · Ref: \{reasonDisplay\(entry\)\.reference\}/);
     const line = (entry) => `Reason: ${reasonDisplay(entry).category} · Ref: ${reasonDisplay(entry).reference}`;
@@ -183,7 +183,7 @@ describe('9. the list and the details', () => {
   });
 });
 
-describe('what the service does today (the limitation), and never pretending otherwise', () => {
+describe('compatibility with older Core responses', () => {
   it('knows whether the service keeps the fields from its answers', () => {
     assert.equal(reasonSupportedBy([SUSPENSION]), false);
     assert.equal(reasonSupportedBy([]), false);
@@ -194,18 +194,18 @@ describe('what the service does today (the limitation), and never pretending oth
     assert.equal(reasonStored(null), false);
   });
 
-  it('tells the person when the fields were not kept, and says up front that they may not be', () => {
+  it('tells the person if an older Core response omits the saved fields', () => {
     assert.match(screen, /setReasonNotice\(hasReason\(body\.exception_type\) && !reasonStored\(answer\)\)/);
     assert.match(screen, /<StatusBanner variant="warning" message=\{REASON_NOT_STORED_NOTICE\}/);
-    assert.match(screen, /\{!reasonKept \? \(\s*<p className="text-xs text-slate-500 sm:col-span-2" data-testid="reason-support-note">/);
-    assert.match(screen, /const reasonKept = reasonSupportedBy\(state\.items\);/);
   });
 });
 
 describe('10. existing calendar workflows are unchanged', () => {
-  it('a holiday sends exactly what it sent before: the reason helper adds nothing', () => {
-    assert.deepEqual(reasonBody({ exception_type: 'REGULAR_HOLIDAY', reason_category: 'OTHER', reference: 'x' }), {});
-    assert.deepEqual(reasonBody({ exception_type: 'LOCAL_HOLIDAY', reason_category: '', reference: '' }), {});
+  it('the reason helper adds metadata to holiday saves', () => {
+    assert.deepEqual(reasonBody({ exception_type: 'REGULAR_HOLIDAY', reason_category: 'HOLIDAY_PROCLAMATION', reference: 'x' }),
+      { reason_category: 'HOLIDAY_PROCLAMATION', reference: 'x' });
+    assert.deepEqual(reasonBody({ exception_type: 'LOCAL_HOLIDAY', reason_category: 'OTHER', reference: '' }),
+      { reason_category: 'OTHER', reference: null });
   });
 
   it('the existing request fields are all still built the same way, and the reason fields are extra ones after them', () => {

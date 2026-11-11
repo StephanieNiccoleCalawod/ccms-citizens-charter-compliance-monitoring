@@ -11,8 +11,13 @@ import { enqueueCalendarChange } from './sync.js';
 import { getCatalogueSettings } from '../catalogue/settings.js';
 
 const UNIQUE_INDEX = 'calendar_exceptions_scope_date_uq';
+const REASON_CATEGORIES = new Set([
+  'TYPHOON_WEATHER', 'HEAT_INDEX', 'POWER_WATER_OUTAGE', 'EARTHQUAKE_DRILL',
+  'SECURITY_THREAT', 'HOLIDAY_PROCLAMATION', 'UNIVERSITY_EVENT', 'OTHER',
+]);
 
-export function toExceptionDto(row) {
+/** Existing calendar fields consumed by the engine and cal-1.0 integrations. */
+export function toEngineEntry(row) {
   return {
     exception_id: row.exceptionId,
     exception_date: row.exceptionDate,
@@ -29,11 +34,12 @@ export function toExceptionDto(row) {
   };
 }
 
-/** The engine's view of an entry (snake_case, plain values). */
-export const toEngineEntry = toExceptionDto;
+export function toExceptionDto(row) {
+  return { ...toEngineEntry(row), reason_category: row.reasonCategory ?? 'OTHER', reference: row.reference ?? null };
+}
 
 /** Validates the body of POST /exceptions and PUT /exceptions/:id. */
-export function parseExceptionInput(body, { enabled = false } = {}) {
+export function parseExceptionInput(body, { enabled = false, previous = null } = {}) {
   const details = {};
   let officeId = null;
   try {
@@ -60,6 +66,14 @@ export function parseExceptionInput(body, { enabled = false } = {}) {
   if (description === undefined) details.description = 'Description must be text';
   else if (description && description.length > 200) details.description = 'Description must be 200 characters or fewer';
   description = description ?? '';
+
+  const reasonCategory = body.reason_category === undefined ? previous?.reason_category : body.reason_category;
+  if (!REASON_CATEGORIES.has(reasonCategory)) {
+    details.reason_category = reasonCategory ? 'Choose a reason from the list' : 'Choose a reason category';
+  }
+  const reference = body.reference === undefined ? previous?.reference ?? null : optionalText(body.reference);
+  if (reference === undefined) details.reference = 'Reference must be text';
+  else if (reference && (reference.length > 100 || reference.includes('\0'))) details.reference = 'Reference must be valid text up to 100 characters';
 
   let isRecurring = false;
   if (body.is_recurring !== undefined && body.is_recurring !== null) {
@@ -88,7 +102,7 @@ export function parseExceptionInput(body, { enabled = false } = {}) {
   if (isRecurring && exceptionType === 'SUSPENSION') {
     throw Errors.validation(MSG.SUSPENSION_NOT_RECURRING, { is_recurring: MSG.SUSPENSION_NOT_RECURRING });
   }
-  return { exceptionDate, exceptionType, description, officeId, suspendedFrom, suspendedUntil, isRecurring, appliesTo, classMode };
+  return { exceptionDate, exceptionType, description, officeId, suspendedFrom, suspendedUntil, isRecurring, appliesTo, classMode, reasonCategory, reference };
 }
 
 /** A suspended_from time must fall inside the working hours of that day (opening <= time < closing), in the office's own schedule if it has one. */
@@ -141,6 +155,8 @@ const toValues = (input) => ({
   exceptionDate: input.exceptionDate,
   exceptionType: input.exceptionType,
   description: input.description,
+  reasonCategory: input.reasonCategory,
+  reference: input.reference,
   officeId: input.officeId,
   suspendedFrom: input.suspendedFrom,
   suspendedUntil: input.suspendedUntil,
@@ -160,9 +176,10 @@ export async function createException(dataSource, actor, body, { ipAddress } = {
       await assertNoConflict(manager, input);
       const exceptionId = newId();
       await manager.getRepository(CalendarException).insert({ exceptionId, ...toValues(input) });
-      const created = toExceptionDto(await findOrFail(manager, exceptionId));
+      const createdRow = await findOrFail(manager, exceptionId);
+      const created = toExceptionDto(createdRow);
       await audit(manager, actor, 'CALENDAR_EXCEPTION_ADDED', null, created, ipAddress);
-      await enqueueCalendarChange(manager, { eventType: 'CALENDAR_EXCEPTION_ADDED', entry: created });
+      await enqueueCalendarChange(manager, { eventType: 'CALENDAR_EXCEPTION_ADDED', entry: toEngineEntry(createdRow) });
       return created;
     });
     kickOutbox();
@@ -180,11 +197,12 @@ export async function updateException(dataSource, actor, id, body, { ipAddress }
       await lockCalendar(manager);
       await manager.query('SELECT id FROM catalogue_settings WHERE id = 1 FOR SHARE');
       const settings = await getCatalogueSettings(manager);
-      const input = parseExceptionInput(body, { enabled: settings.applies_to_enabled });
-      const before = toExceptionDto(await findOrFail(manager, id));
+      const beforeRow = await findOrFail(manager, id);
+      const before = toExceptionDto(beforeRow);
+      const input = parseExceptionInput(body, { enabled: settings.applies_to_enabled, previous: before });
       assertWithinWorkingHours(await readEffectiveSchedule(manager, input.officeId), input);
       await assertNoConflict(manager, input, id);
-      const unchanged =
+      const sameCalendarEffect =
         before.exception_date === input.exceptionDate &&
         before.exception_type === input.exceptionType &&
         before.applies_to === input.appliesTo &&
@@ -194,13 +212,21 @@ export async function updateException(dataSource, actor, id, body, { ipAddress }
         before.suspended_from === input.suspendedFrom &&
         before.suspended_until === input.suspendedUntil &&
         before.is_recurring === input.isRecurring;
-      if (unchanged) return before;
-      // EB3: every real change raises the revision by 1.
-      await manager.getRepository(CalendarException).update({ exceptionId: id }, { ...toValues(input), revision: before.revision + 1 });
-      const after = toExceptionDto(await findOrFail(manager, id));
+      if (sameCalendarEffect && before.reason_category === input.reasonCategory && before.reference === input.reference) return before;
+      // The cal-1.0 revision follows changes to fields visible to the receivers.
+      const revision = sameCalendarEffect ? before.revision : before.revision + 1;
+      await manager.getRepository(CalendarException).update({ exceptionId: id }, { ...toValues(input), revision });
+      const afterRow = await findOrFail(manager, id);
+      const after = toExceptionDto(afterRow);
       // The audit row belongs to the office the entry now applies to; a scope change is visible in before/after.
       await audit(manager, actor, 'CALENDAR_EXCEPTION_UPDATED', before, after, ipAddress);
-      await enqueueCalendarChange(manager, { eventType: 'CALENDAR_EXCEPTION_UPDATED', entry: after, previous: before });
+      if (!sameCalendarEffect) {
+        await enqueueCalendarChange(manager, {
+          eventType: 'CALENDAR_EXCEPTION_UPDATED',
+          entry: toEngineEntry(afterRow),
+          previous: toEngineEntry(beforeRow),
+        });
+      }
       return after;
     });
     kickOutbox();
@@ -220,12 +246,13 @@ export async function updateException(dataSource, actor, id, body, { ipAddress }
 export async function deleteException(dataSource, actor, id, { ipAddress } = {}) {
   await dataSource.transaction(async (manager) => {
     await lockCalendar(manager);
-    const before = toExceptionDto(await findOrFail(manager, id));
+    const row = await findOrFail(manager, id);
+    const before = toExceptionDto(row);
     await manager.getRepository(CalendarException).update({ exceptionId: id }, { removedAt: new Date(), revision: before.revision + 1 });
     await audit(manager, actor, 'CALENDAR_EXCEPTION_REMOVED', before, null, ipAddress);
     await enqueueCalendarChange(manager, {
       eventType: 'CALENDAR_EXCEPTION_REMOVED',
-      entry: { ...before, revision: before.revision + 1 },
+      entry: { ...toEngineEntry(row), revision: before.revision + 1 },
       removed: true,
     });
   });

@@ -73,9 +73,9 @@ describe('holiday import', () => {
   });
 
   it('skips dates that already have a campus-wide entry (one-time or recurring) but not office-only ones', async () => {
-    await createException(env.ds, SYSTEM_ACTOR, { exception_date: '2026-01-01', exception_type: 'REGULAR_HOLIDAY', description: 'Mine' });
-    await createException(env.ds, SYSTEM_ACTOR, { exception_date: '2020-12-25', exception_type: 'REGULAR_HOLIDAY', description: 'Christmas', is_recurring: true });
-    await createException(env.ds, SYSTEM_ACTOR, { exception_date: '2026-06-12', exception_type: 'LOCAL_HOLIDAY', description: 'Office only', office_id: OFFICE_A });
+    await createException(env.ds, SYSTEM_ACTOR, { reason_category: 'OTHER', exception_date: '2026-01-01', exception_type: 'REGULAR_HOLIDAY', description: 'Mine' });
+    await createException(env.ds, SYSTEM_ACTOR, { reason_category: 'OTHER', exception_date: '2020-12-25', exception_type: 'REGULAR_HOLIDAY', description: 'Christmas', is_recurring: true });
+    await createException(env.ds, SYSTEM_ACTOR, { reason_category: 'OTHER', exception_date: '2026-06-12', exception_type: 'LOCAL_HOLIDAY', description: 'Office only', office_id: OFFICE_A });
     const result = await importHolidays(env.ds, { year: 2026, fetchImpl: fakeFetch(PH_2026) });
     assert.deepEqual(result.skipped.map((s) => s.date), ['2026-01-01', '2026-12-25']);
     assert.deepEqual(result.added.map((s) => s.date), ['2026-04-09', '2026-06-12']);
@@ -157,7 +157,7 @@ describe('import rules: public holidays only, deleted holidays stay deleted', ()
     assert.equal(again.added.length, 0);
     assert.ok(again.skipped.some((s) => s.date === '2026-06-12'));
     assert.equal((await entries()).some((e) => e.d === '2026-06-12'), false);
-    await createException(env.ds, SYSTEM_ACTOR, { exception_date: '2026-06-12', exception_type: 'REGULAR_HOLIDAY', description: 'Independence Day' });
+    await createException(env.ds, SYSTEM_ACTOR, { reason_category: 'OTHER', exception_date: '2026-06-12', exception_type: 'REGULAR_HOLIDAY', description: 'Independence Day' });
     assert.equal((await entries()).some((e) => e.d === '2026-06-12'), true);
   });
 });

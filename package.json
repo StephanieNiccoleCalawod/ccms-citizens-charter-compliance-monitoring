@@ -61,7 +61,7 @@
     "start:oversight-service": "npm run start --workspace=apps/oversight-service",
     "build:oversight-service": "npm run build --workspace=apps/oversight-service",
     "test:oversight-service": "npm run test --workspace=apps/oversight-service",
-    "test:integration": "node --test --test-concurrency=1 scripts/analytics-feed.test.mjs",
+    "test:integration": "node --test --test-concurrency=1 scripts/analytics-feed.test.mjs scripts/sprint5-features.test.mjs",
     "test:safety": "node --test --test-concurrency=1 scripts/runtime-db.test.mjs scripts/migration-guards.test.mjs scripts/migration-fingerprint.test.mjs scripts/migrations.test.mjs scripts/migration-integration.test.mjs scripts/tt2-migrations.test.mjs"
   },
   "overrides": {

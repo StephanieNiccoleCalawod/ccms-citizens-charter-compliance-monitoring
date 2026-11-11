@@ -1,11 +1,4 @@
-// CC058: the reason category and the optional reference (memorandum number) of a campus suspension.
-//
-// BACKEND LIMITATION (checked when this was written): the Core calendar service does not store these. Its POST and PUT /exceptions
-// read only the fields it knows, so `reason_category` and `reference` in a request are ignored, and its answers never contain them.
-// This file keeps the screen ready for the day the service does:
-//   - the two fields are sent only with a SUSPENSION, as extra fields beside the existing ones (nothing existing changes);
-//   - what is shown is read from the entry (`reason_category`, `reference`), with the agreed fallbacks for an entry without them;
-//   - `reasonSupportedBy` / `reasonStored` tell the screen whether the service really keeps them, so it never pretends.
+// CC058: reason category and optional reference for saved calendar entries.
 
 export const REASON_CATEGORIES = Object.freeze([
   { value: 'TYPHOON_WEATHER', label: 'Typhoon / Weather' },
@@ -45,16 +38,15 @@ export const referenceLabel = (value) => normalizeReference(value) || NO_REFEREN
 export const referenceCounter = (value) => `${normalizeReference(value).length}/${REFERENCE_MAX}`;
 export const referenceError = (value) => (normalizeReference(value).length > REFERENCE_MAX ? REFERENCE_TOO_LONG : null);
 
-/** Only a suspension carries a reason; holidays have none. */
-export const hasReason = (type) => type === 'SUSPENSION';
+export const hasReason = (type) => ['SUSPENSION', 'REGULAR_HOLIDAY', 'SPECIAL_NON_WORKING', 'LOCAL_HOLIDAY'].includes(type);
 
-/** What the form starts with: empty for a new entry (the person must choose), the saved values for a suspension being edited. */
+/** New entries start without a category. Edits show the saved values. */
 export function reasonFormFrom(entry) {
   if (!entry || !hasReason(entry.exception_type)) return { reason_category: '', reference: '' };
   return { reason_category: isReasonCategory(entry.reason_category) ? entry.reason_category : DEFAULT_REASON, reference: normalizeReference(entry.reference) };
 }
 
-/** Field problems for the reason fields of a suspension: { reason_category?, reference? }. Nothing for any other type. */
+/** Field errors for the category and optional reference. */
 export function reasonProblems(form) {
   if (!hasReason(form.exception_type)) return {};
   const problems = {};
@@ -65,7 +57,7 @@ export function reasonProblems(form) {
   return problems;
 }
 
-/** The extra request fields: the category and the trimmed reference (null when empty) for a suspension, nothing otherwise. */
+/** Include the category and trimmed reference in the calendar save. */
 export function reasonBody(form) {
   if (!hasReason(form.exception_type)) return {};
   return { reason_category: form.reason_category, reference: normalizeReference(form.reference) || null };

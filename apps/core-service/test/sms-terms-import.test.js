@@ -51,7 +51,7 @@ describe('import of the terms SMS owns', () => {
   });
 
   it('a calendar entry saved before its term existed is sent to SMS once the term arrives (no edit needed)', async () => {
-    await createException(env.ds, SYSTEM_ACTOR, { exception_date: '2026-11-24', exception_type: 'REGULAR_HOLIDAY', description: 'Saved before the term' });
+    await createException(env.ds, SYSTEM_ACTOR, { reason_category: 'OTHER', exception_date: '2026-11-24', exception_type: 'REGULAR_HOLIDAY', description: 'Saved before the term' });
     assert.equal((await snapshots()).length, 0, 'no term covers the date, so nothing is queued for SMS');
     await run();
     const queued = await snapshots();
@@ -60,7 +60,7 @@ describe('import of the terms SMS owns', () => {
   });
 
   it('a second run changes nothing and queues nothing new', async () => {
-    await createException(env.ds, SYSTEM_ACTOR, { exception_date: '2026-11-24', exception_type: 'REGULAR_HOLIDAY', description: 'x' });
+    await createException(env.ds, SYSTEM_ACTOR, { reason_category: 'OTHER', exception_date: '2026-11-24', exception_type: 'REGULAR_HOLIDAY', description: 'x' });
     await run();
     const before = (await env.ds.query('SELECT count(*)::int AS n FROM sync_log'))[0].n;
     const second = await run();
@@ -70,7 +70,7 @@ describe('import of the terms SMS owns', () => {
 
   it('new dates from SMS update the stored term and queue a fresh snapshot of it', async () => {
     await run();
-    await createException(env.ds, SYSTEM_ACTOR, { exception_date: '2026-12-14', exception_type: 'REGULAR_HOLIDAY', description: 'Just after the old end' });
+    await createException(env.ds, SYSTEM_ACTOR, { reason_category: 'OTHER', exception_date: '2026-12-14', exception_type: 'REGULAR_HOLIDAY', description: 'Just after the old end' });
     const result = await run([smsTerm('2026-1S', '2026-08-17', '2026-12-20'), SMS[1], SMS[2]]);
     assert.deepEqual(result.updated, ['2026-1S']);
     assert.equal((await stored())[0].e, '2026-12-20');
