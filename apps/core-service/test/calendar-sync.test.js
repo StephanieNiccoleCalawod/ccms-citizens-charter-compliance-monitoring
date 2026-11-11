@@ -51,7 +51,8 @@ const settings = (extra = {}) => ({ urls: { FMS: `${fmsUrl}/calendar`, AUDIT: `$
 const dispatch = (extra) => dispatchSyncLogs(env.ds, settings(extra));
 const rows = () => env.ds.query('SELECT sync_id, consumer_system, event_type, status, attempts, last_error, last_synced_at, next_attempt_at FROM sync_log ORDER BY consumer_system');
 const rowOf = async (consumer) => (await rows()).find((r) => r.consumer_system === consumer);
-const holiday = (date = '2026-12-25') => ({ exception_date: date, exception_type: 'REGULAR_HOLIDAY', description: 'Christmas Day' });
+// Inside the FMS term (2026-08-17 to 2026-12-22): FMS receives only dates of its term.
+const holiday = (date = '2026-12-08') => ({ exception_date: date, exception_type: 'REGULAR_HOLIDAY', description: 'Feast of the Immaculate Conception' });
 const save = async (body = holiday()) => postException(req('POST', '/exceptions', { token: tokens.superAdmin, body }));
 const ack = (syncId, opts = { key: SERVICE_KEY }) => ackRoute(req('POST', '/sync/ack', { ...opts, body: { sync_id: syncId } }));
 const status = async (token = tokens.superAdmin) => (await statusRoute(req('GET', '/sync/status', { token }))).json();
@@ -80,14 +81,15 @@ describe('CC018 pushing to FMS and Audit', () => {
     await dispatch();
     const [push] = fms.state.received;
     assert.equal(push.path, '/calendar');
-    // EB3: the push is a cal-1.0 message; its messageId is the sync row's own ID.
-    assert.equal(push.body.schemaVersion, 'cal-1.0');
+    // EB3: the push is an FMS schema 3 message; its messageId is the sync row's own ID.
+    assert.equal(push.body.schemaVersion, 3);
     assert.equal(push.body.changeKind, 'UPSERT');
     assert.equal(push.body.entityId, exception.exception_id);
     assert.equal(push.body.entityRevision, 1);
-    assert.equal(push.body.date, '2026-12-25');
-    assert.equal(push.body.entryType, 'REGULAR_HOLIDAY');
-    assert.deepEqual(push.body.appliesTo, ['CLASSES', 'WORK']);
+    assert.equal(push.body.declaration.date, '2026-12-08');
+    assert.equal(push.body.declaration.entryType, 'REGULAR_HOLIDAY');
+    assert.deepEqual(push.body.declaration.appliesTo, ['CLASSES', 'WORK']);
+    assert.equal(audit.state.received[0].body.schemaVersion, 'cal-1.0', 'SMS keeps cal-1.0');
     assert.equal(push.body.messageId, (await rowOf('FMS')).sync_id);
     assert.equal(audit.state.received[0].body.messageId, (await rowOf('AUDIT')).sync_id);
     assert.notEqual(push.body.messageId, audit.state.received[0].body.messageId);
@@ -297,7 +299,7 @@ describe('CC018 pushing to FMS and Audit', () => {
 
   it('two overlapping cron runs never push the same row twice', async () => {
     await save();
-    await save({ ...holiday('2026-12-26'), description: 'Day after Christmas' });
+    await save({ ...holiday('2026-12-09'), description: 'Day after the feast' });
     await Promise.all([dispatch({ batchSize: 2 }), dispatch({ batchSize: 2 })]);
     assert.equal(fms.state.received.length, 2, 'each holiday reaches FMS exactly once');
     assert.equal(audit.state.received.length, 2);

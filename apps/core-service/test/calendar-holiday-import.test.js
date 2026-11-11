@@ -88,7 +88,7 @@ describe('holiday import', () => {
     const events = await env.ds.query(`SELECT payload FROM audit_outbox WHERE payload->>'action' = 'CALENDAR_EXCEPTION_ADDED'`);
     assert.equal(events.length, 1);
     assert.equal(events[0].payload.actor_user_id, SYSTEM_ACTOR.id);
-    assert.equal((await env.ds.query('SELECT 1 FROM sync_log')).length, 2);
+    assert.equal((await env.ds.query('SELECT 1 FROM sync_log')).length, 1); // 2026-01-01 is outside the FMS term, so only AUDIT is queued
 
     // The Super Admin can edit an imported entry (mark it recurring) and delete it.
     const [row] = await env.ds.query('SELECT exception_id FROM calendar_exceptions');
@@ -185,7 +185,7 @@ describe('automatic import (HOLIDAY_AUTO_IMPORT)', () => {
     assert.deepEqual(calls.map((u) => u.split('/').pop()), ['2026', '2027']);
     assert.deepEqual(first.years.map((y) => [y.year, y.added]), [[2026, 4], [2027, 1]]);
     assert.equal((await entries()).length, 5);
-    assert.equal((await env.ds.query('SELECT 1 FROM sync_log')).length, 10);
+    assert.equal((await env.ds.query('SELECT 1 FROM sync_log')).length, 5); // all 5 holidays are outside the FMS term (2026-08-17 to 2026-12-22), so only AUDIT rows are queued
     const second = await runHolidayAutoImport(env.ds, { env: { HOLIDAY_AUTO_IMPORT: 'true' }, now, fetchImpl: byYear([]) });
     assert.deepEqual(second.years.map((y) => y.added), [0, 0]);
     assert.equal((await entries()).length, 5);

@@ -2,7 +2,7 @@ import { Errors, ROLES, isUuid, recordAudit } from 'ccms-shared';
 import { newId } from './calendar-rules.js';
 import { SyncLog } from '../entities/index.js';
 import { enqueueAffectedSnapshots } from './sms-snapshot.js';
-import { CHANGE_KIND, buildMessage, calendarWindow, effectEnabled, entityIdOf, occurrenceDates, sendableToFms } from './message.js';
+import { CHANGE_KIND, buildFmsMessage, buildMessage, calendarWindow, entityIdOf, fmsTarget, inFmsTerm, occurrenceDates } from './message.js';
 import { kickOutbox, kickSync } from '../outbox.js';
 
 export const CONSUMERS = Object.freeze(['FMS', 'AUDIT']);
@@ -44,39 +44,42 @@ export async function enqueueSync(manager, { eventType, entityType, entityId, da
  *   removed    true for a removal (the row is kept as a tombstone and REMOVE is sent)
  * One message per dated entry: a recurring entry gives one per date inside the calendar window. Dates that an edit
  * made disappear get a REMOVE. Each message is its own sync row; its messageId is that row's ID, and a retry sends
- * the stored payload again, so the messageId never changes. The EB5 switch (default off) is FMS's: while off, ONLINE entries
- * and the `effect` field are not sent to FMS. The SMS queue (AUDIT) is not held back by it and always gets `effect`.
+ * the stored payload again, so the messageId never changes. FMS gets schema 3 (buildFmsMessage), only for dates inside
+ * its term and only once FMS_TERM_ID is set; the SMS queue (AUDIT) gets cal-1.0.
  */
 export async function enqueueCalendarChange(manager, { eventType, entry, previous = null, removed = false, consumers = CONSUMERS, env = process.env }) {
   const window = calendarWindow(env);
-  const fmsEffectOn = effectEnabled(env);
+  const target = fmsTarget(env);
+  const sourceTimestamp = new Date();
   const repo = manager.getRepository(SyncLog);
   const withRevision = (value) => ({ ...value, revision: entry.revision });
 
   for (const consumerSystem of consumers) {
-    const effectOn = consumerSystem === 'FMS' ? fmsEffectOn : true;
-    const accepts = (value) => consumerSystem !== 'FMS' || sendableToFms(value, effectOn);
+    const fms = consumerSystem === 'FMS';
+    if (fms && !target) continue;
+    const accepts = (date) => !fms || inFmsTerm(target, date);
     const planned = []; // { value, date, changeKind }
     if (removed) {
-      if (accepts(entry)) for (const date of occurrenceDates(entry, window)) planned.push({ value: entry, date, changeKind: CHANGE_KIND.REMOVE });
+      for (const date of occurrenceDates(entry, window)) if (accepts(date)) planned.push({ value: entry, date, changeKind: CHANGE_KIND.REMOVE });
     } else {
       const now = new Set();
       for (const date of occurrenceDates(entry, window)) {
         now.add(entityIdOf(entry, date));
-        if (accepts(entry)) planned.push({ value: entry, date, changeKind: CHANGE_KIND.UPSERT });
+        if (accepts(date)) planned.push({ value: entry, date, changeKind: CHANGE_KIND.UPSERT });
       }
       // What an earlier version sent and this version no longer has (a moved date, or a recurring entry that changed
-      // shape) is withdrawn; so is an entry that the EB5 switch now keeps back from FMS.
-      if (previous && accepts(previous)) {
+      // shape) is withdrawn.
+      if (previous) {
         for (const date of occurrenceDates(previous, window)) {
-          const gone = !now.has(entityIdOf(previous, date)) || !accepts(entry);
-          if (gone) planned.push({ value: withRevision(previous), date, changeKind: CHANGE_KIND.REMOVE });
+          if (!now.has(entityIdOf(previous, date)) && accepts(date)) planned.push({ value: withRevision(previous), date, changeKind: CHANGE_KIND.REMOVE });
         }
       }
     }
     for (const { value, date, changeKind } of planned) {
       const syncId = newId();
-      const payload = buildMessage({ messageId: syncId, entry: value, date, changeKind, effectOn });
+      const payload = fms
+        ? buildFmsMessage({ messageId: syncId, entry: value, date, changeKind, target, sourceTimestamp })
+        : buildMessage({ messageId: syncId, entry: value, date, changeKind });
       await repo.insert({
         syncId,
         consumerSystem,

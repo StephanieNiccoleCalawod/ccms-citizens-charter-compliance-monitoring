@@ -1,6 +1,30 @@
 # Calendar message cal-1.0 — Core side (BE Dev 1)
 
-Status: built in Core, tested only against Core's own test suite. NOT yet tested against FMS. Field names marked PROPOSED must be confirmed against the FMS contract document.
+## 0. FMS now receives schema 3 (supersedes the FMS parts of sections 1, 3 and 4)
+
+FMS locked its calendar contract as schema 3 (`fms-cccms-calendar-candidate-v3-1`, faculty-ms #287 and #437). FMS parses
+it strictly: cal-1.0 bodies are refused. The FMS queue and the FMS pull now use `buildFmsMessage` in
+`src/lib/calendar/message.js`; SMS keeps cal-1.0 unchanged.
+
+- Push body: `{ schemaVersion: 3, messageId, entityId, entityRevision, changeKind, sourceTimestamp, scope: { termId },
+  provenance: { artifactRevision, synthetic: false }, declaration }`. `declaration` is null on REMOVE; otherwise
+  `{ occurrenceId, seriesId? (recurring), appliesTo, scope: CAMPUS|OFFICE, interval: { startsAt, endsAt, timeZone:
+  "Asia/Manila", wholeDay }, mode: [] (all classes), effect (SUSPENDED|ONLINE, "" for WORK-only), entryType, date,
+  description, officeId }`.
+- `effect` and ONLINE entries are always sent. FMS applies a campus SUSPENDED entry and holds ONLINE and office entries
+  for review, so the EB5 switch (`CAL_EFFECT_ENABLED`) is removed.
+- `FMS_TERM_ID` names the FMS Academic Term; `CAL_WINDOW_FROM`/`CAL_WINDOW_TO` are its dates (default 2026-08-17 to
+  2026-12-22). Only dates inside it are queued for FMS. Unset `FMS_TERM_ID`: nothing is queued for FMS and the FMS pull
+  answers 503 `FMS_TERM_NOT_CONFIGURED`.
+- Pull (FMS key): `GET /api/declarations?fromDate=&untilDate=&limit=&cursor=` (from/to still accepted) answers
+  `{ schemaVersion: 3, snapshotId, watermark, scope: { termId, fromDate, untilDate }, totalCount, entries, nextCursor }`.
+  The range must lie inside the FMS term. `watermark` is the sum of all entry revisions, so any change raises it; a
+  cursor from an older watermark gets 409 `CALENDAR_SNAPSHOT_CHANGED` and FMS starts again. Pulled entries carry a
+  stable `messageId` derived from entity, revision and change kind. An SMS key still gets the cal-1.0 listing.
+- Cutoff: rows already queued for FMS in cal-1.0 are not converted. Before FMS activation, drain or mark the old
+  PENDING/FAILED FMS rows, then FMS pulls the full term once and follows pushes.
+
+Status (cal-1.0, now SMS only; FMS uses schema 3, section 0): built in Core, tested only against Core's own test suite. NOT yet tested against FMS. Field names marked PROPOSED must be confirmed against the FMS contract document.
 
 ## 1. Sample message (EB8)
 

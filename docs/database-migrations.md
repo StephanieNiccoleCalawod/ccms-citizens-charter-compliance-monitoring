@@ -122,7 +122,30 @@ Each down migration therefore refuses while any row holds a value in a column it
 Sprint 5 columns existed before the migration was recorded; reverting it still drops them and their data. The only
 lossless rollback of data is restoring the backup.
 
-## 2. Hosted runbook (BE Dev 1 only)
+## 2. FMS cal-1.0 queue drain (before activating FMS_TERM_ID)
+
+This step is required once, on Core's database, before `FMS_TERM_ID` is set in any hosted environment. It converts
+stale cal-1.0 FMS rows that were queued before the Schema V3 integration to `SUPERSEDED` so the 401-retry path
+cannot re-send them to FMS after the key rotation. Run after any pending rows have been attempted (they are either
+`SENT` / `ACKNOWLEDGED`, or `FAILED`).
+
+```sql
+-- Run on Core's database. Record the row count it returns as evidence.
+UPDATE sync_log
+SET status = 'SUPERSEDED'
+WHERE consumer_system = 'FMS'
+  AND status IN ('PENDING', 'FAILED')
+  AND payload->>'schemaVersion' = 'cal-1.0';
+```
+
+The filter `payload->>'schemaVersion' = 'cal-1.0'` limits the update to old-format rows only; any schema 3 rows
+already queued (there should be none before `FMS_TERM_ID` is set) are untouched. Send the row count to the FMS team
+as evidence before they verify the queue is drained.
+
+This is **not** a TypeORM migration. It is a one-time data operation run by BE Dev 1 from a trusted machine with the
+direct admin connection, before `FMS_TERM_ID` is added to the hosted environment's configuration.
+
+## 3. Hosted runbook (BE Dev 1 only)
 
 Hosted execution belongs to **BE Dev 1**, after a verified backup. Nobody else runs any write command against a hosted
 database. Do the services one at a time, in this order: **Oversight, Identity, Core, Operations** (the same order as
@@ -189,7 +212,7 @@ evidence is unavailable, leave AC1 pending and stop before adoption.
 * "matches ... exactly" → state A.
 * Only `unexpected` lines, and they are exactly the Sprint 5 objects in the table above → state B.
 * Any `missing` or `changed` line, or `unexpected` objects that are not the Sprint 5 objects → **stop**. Do not adopt.
-  Send the output to the team (see section 4).
+  Send the output to the team (see section 5).
 
 ### Step 4. Rehearse on the backup branch
 
@@ -251,7 +274,7 @@ do not introduce QA fixtures into the demo database.
   `pg_restore` into a fresh database and repoint the service). This loses every write made after the backup, so keep
   the window short.
 
-## 3. Adding a migration (developers)
+## 4. Adding a migration (developers)
 
 1. Change the entity and write `apps/<service>/migrations/<Date.now()>-<Name>.js` with `up` and `down`; add it to the end
    of `migrations/index.js`. Prefer additive changes. For a column drop in `down`, call
@@ -262,7 +285,7 @@ do not introduce QA fixtures into the demo database.
    nothing left to synchronize.
 4. Never run `db:sync` against a hosted database; it is refused.
 
-## 4. Status and open items
+## 5. Status and open items
 
 Verified locally (disposable PostgreSQL 16 in Docker; never the hosted database):
 

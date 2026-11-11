@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { isValidManilaDate } from 'ccms-shared';
 import { occurrencesInRange } from './engine/recurrence.js';
 
@@ -25,9 +26,9 @@ export class IncompleteEntryError extends Error {
   }
 }
 
-// Recurring entries are sent as one dated entry per date (FMS scenario 3). Which dates: the pull range FMS gave us
-// (2026-08-17 to 2026-12-12) unless CAL_WINDOW_FROM / CAL_WINDOW_TO say otherwise. PM to confirm the horizon.
-export const DEFAULT_WINDOW = Object.freeze({ from: '2026-08-17', to: '2026-12-12' });
+// Recurring entries are sent as one dated entry per date (FMS scenario 3). Which dates: the FMS term
+// (AY 2026-2027 1st Semester, 2026-08-17 to 2026-12-22) unless CAL_WINDOW_FROM / CAL_WINDOW_TO say otherwise.
+export const DEFAULT_WINDOW = Object.freeze({ from: '2026-08-17', to: '2026-12-22' });
 
 export function calendarWindow(env = process.env) {
   const from = env.CAL_WINDOW_FROM;
@@ -36,13 +37,7 @@ export function calendarWindow(env = process.env) {
   return ok ? { from, to } : { ...DEFAULT_WINDOW };
 }
 
-/** EB5 switch (default OFF): while off, `effect` and ONLINE entries are not sent to FMS. */
-export const effectEnabled = (env = process.env) => String(env.CAL_EFFECT_ENABLED ?? '').toLowerCase() === 'true';
-
 const affectsClasses = (entry) => entry.applies_to !== 'WORK';
-
-/** Whether FMS may receive this entry now (EB5 AC1: with the switch off an ONLINE entry is not sent, SUSPENDED is). */
-export const sendableToFms = (entry, effectOn) => effectOn || !(affectsClasses(entry) && entry.class_mode === 'ONLINE');
 
 /** The dates an entry produces messages for: its own date, or every occurrence inside the window when recurring. */
 export function occurrenceDates(entry, window) {
@@ -66,12 +61,13 @@ export function intervalOf(entry, date) {
 }
 
 /**
- * One cal-1.0 body (no messageId: the pull route sends it without one, the push adds it).
- * `effect` appears only while the switch is on; it carries a value only when classes are affected and the entry is
- * campus-wide (C42), otherwise null. `mode` is always null ("all classes").
+ * One cal-1.0 body (no messageId: the pull route sends it without one, the push adds it). Used for SMS only; FMS
+ * receives schema 3 (buildFmsMessage below).
+ * `effect` carries a value only when classes are affected and the entry is campus-wide (C42), otherwise null.
+ * `mode` is always null ("all classes").
  * A REMOVE of an entry that never had a valid interval carries interval null (identity is all the receiver needs).
  */
-export function buildEntry({ entry, date, changeKind, effectOn }) {
+export function buildEntry({ entry, date, changeKind }) {
   let interval = null;
   try {
     interval = intervalOf(entry, date);
@@ -90,10 +86,86 @@ export function buildEntry({ entry, date, changeKind, effectOn }) {
     appliesTo: appliesToList(entry.applies_to),
     interval,
     mode: null,
+    effect: affectsClasses(entry) && !entry.office_id ? entry.class_mode : null,
   };
-  if (effectOn) body.effect = affectsClasses(entry) && !entry.office_id ? entry.class_mode : null;
   return body;
 }
 
 /** The push message: the entry body plus the unique messageId (the sync row's own ID, so every retry repeats it). */
 export const buildMessage = ({ messageId, ...rest }) => ({ messageId, ...buildEntry(rest) });
+
+// ---- FMS calendar schema 3 ----
+// The contract FMS locked (faculty-ms #287, #437): `fms-cccms-calendar-candidate-v3-1`. FMS parses it strictly, so an
+// unknown or missing field rejects the whole message. SMS keeps cal-1.0 above.
+//
+// FMS keys every declaration to one FMS Academic Term ID (`sms:<dataset>:term:<native-id>`, from the FMS/SMS reference
+// mapping). CCMS cannot derive it, so the operator sets FMS_TERM_ID; the calendar window (CAL_WINDOW_FROM/TO) is that
+// term's dates. Nothing is queued for or served to FMS until FMS_TERM_ID is set.
+// shortcut: one FMS term per deployment; add a term_dates -> FMS term ID mapping when FMS needs more than one term.
+
+export const FMS_SCHEMA_VERSION = 3;
+
+/** The FMS term this deployment serves, or null when FMS_TERM_ID is not set. */
+export function fmsTarget(env = process.env) {
+  const termId = env.FMS_TERM_ID?.trim();
+  if (!termId) return null;
+  return {
+    termId,
+    window: calendarWindow(env),
+    // The message-format revision FMS records as provenance. FMS compares it when the same entity revision arrives
+    // again (push, then pull), so it must not change per deploy: change it only when the message content changes.
+    artifactRevision: env.CAL_ARTIFACT_REVISION?.trim() || 'ccms-fms-calendar-v3',
+  };
+}
+
+export const inFmsTerm = (target, date) => date >= target.window.from && date <= target.window.to;
+
+// FMS refuses control characters, empty text and more than 200 characters in every text field.
+const fmsText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f\u007f-\u009f]+/gu, ' ').trim().slice(0, max);
+
+/** ISO instant with seconds precision (FMS refuses milliseconds). */
+export const fmsInstant = (value) => new Date(value).toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+/** A stable UUID for a pulled entry (a pull has no sync row): the same entity revision always gets the same ID. */
+export function fmsPullMessageId(entityId, revision, changeKind) {
+  const hex = createHash('sha256').update(`ccms-fms-pull:${entityId}:${revision}:${changeKind}`).digest('hex');
+  const variant = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+/**
+ * One FMS schema 3 message. A REMOVE carries declaration null (FMS needs only the identity and the higher revision).
+ * `mode` is [] ("all classes", stated explicitly). `effect` is always sent: FMS applies SUSPENDED and holds ONLINE
+ * for review, so nothing is held back. WORK-only entries carry effect "".
+ */
+export function buildFmsMessage({ messageId, entry, date, changeKind, target, sourceTimestamp }) {
+  const entityId = entityIdOf(entry, date);
+  let declaration = null;
+  if (changeKind !== CHANGE_KIND.REMOVE) {
+    const { start, end, allDay } = intervalOf(entry, date);
+    declaration = {
+      occurrenceId: entityId,
+      ...(entry.is_recurring ? { seriesId: entry.exception_id } : {}),
+      appliesTo: appliesToList(entry.applies_to),
+      scope: entry.office_id ? 'OFFICE' : 'CAMPUS',
+      interval: { startsAt: start, endsAt: end, timeZone: 'Asia/Manila', wholeDay: allDay },
+      mode: [],
+      effect: affectsClasses(entry) ? (entry.class_mode ?? '') : '',
+      entryType: entry.exception_type,
+      date,
+      description: fmsText(entry.description, 200) || entry.exception_type,
+      officeId: entry.office_id ?? null,
+    };
+  }
+  return {
+    schemaVersion: FMS_SCHEMA_VERSION,
+    messageId,
+    entityId,
+    entityRevision: entry.revision,
+    changeKind,
+    sourceTimestamp: fmsInstant(sourceTimestamp),
+    scope: { termId: target.termId },
+    provenance: { artifactRevision: target.artifactRevision, synthetic: false },
+    declaration,
+  };
+}

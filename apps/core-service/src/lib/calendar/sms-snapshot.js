@@ -57,7 +57,7 @@ export async function buildTermSnapshot(manager, term, { syncId = randomUUID(), 
     const entry = toEngineEntry(row);
     for (const date of occurrencesInRange(entry, term.start_date, term.end_date)) {
       try {
-        items.push(toItem(buildEntry({ entry, date, changeKind: CHANGE_KIND.UPSERT, effectOn: true })));
+        items.push(toItem(buildEntry({ entry, date, changeKind: CHANGE_KIND.UPSERT })));
       } catch (err) {
         if (!(err instanceof IncompleteEntryError)) throw err;
         skipped.push(entry.exception_id);
