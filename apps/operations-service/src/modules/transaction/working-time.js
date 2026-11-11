@@ -6,15 +6,17 @@ const minutesOf = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3,
 
 /**
  * CC051: is this instant (Asia/Manila) inside working time for the office? Core knows the schedule, holidays, suspensions and
- * non-working weekdays; its /is-working-day answer for the Manila date gives the window of that day (null when closed).
+ * non-working weekdays. Its working intervals exclude lunch and part-day suspensions.
  * The opening time counts, the closing time does not.
  */
 export async function isWithinWorkingTime(core, { officeId, at }) {
   const [date, clock] = toManilaDateTime(at).split(' ');
-  const day = await core.isWorkingDay(date, officeId);
+  const day = await core.isWorkingDay(date, officeId, { includeIntervals: true });
   if (!day.is_working_day) return false;
   const minute = minutesOf(clock.slice(0, 5));
-  return minute >= minutesOf(day.window.opening_time) && minute < minutesOf(day.window.closing_time);
+  // Older Core deployments return only the opening/closing window.
+  const intervals = day.working_intervals ?? [day.window];
+  return intervals.some(({ opening_time, closing_time }) => minute >= minutesOf(opening_time) && minute < minutesOf(closing_time));
 }
 
 /**

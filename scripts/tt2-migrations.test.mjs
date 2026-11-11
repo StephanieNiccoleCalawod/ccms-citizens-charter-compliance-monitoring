@@ -61,6 +61,7 @@ describe('Operations TT2 migration', () => {
   test('applies once, shows as applied, reruns without change; existing rows start at version 0 and keep their data', async () => {
     const url = await emptyDatabase('ops');
     assert.equal(cli('operations', url, ['run']).code, 0);
+    assert.match(cli('operations', url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
     assert.match(cli('operations', url, ['revert']).out, new RegExp(`Reverted: ${OPS}`));
     // A database at the previous migration with existing records.
     await q(url, TX('00000000-0000-4000-8000-000000000001', null));
@@ -84,6 +85,7 @@ describe('Operations TT2 migration', () => {
   test('revert is refused while it would lose events or versions, unless explicitly allowed', async () => {
     const url = await emptyDatabase('ops_loss');
     assert.equal(cli('operations', url, ['run']).code, 0);
+    assert.match(cli('operations', url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
     await q(url, TX('00000000-0000-4000-8000-000000000002', 1));
     let refused = cli('operations', url, ['revert']);
     assert.equal(refused.code, 1);
@@ -103,6 +105,7 @@ describe('Operations TT2 migration', () => {
   test('an incompatible pre-existing column or a partial table is refused without repair', async () => {
     const url = await emptyDatabase('ops_bad');
     assert.equal(cli('operations', url, ['run']).code, 0);
+    assert.match(cli('operations', url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
     assert.equal(cli('operations', url, ['revert']).code, 0);
     await q(url, 'ALTER TABLE transactions ADD COLUMN analytics_event_version bigint');
     let before = await fingerprint(url);

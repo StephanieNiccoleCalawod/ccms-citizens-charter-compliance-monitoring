@@ -6,7 +6,7 @@
 
 import { ROLES } from 'ccms-shared/roles';
 
-export const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_FILE_BYTES = 4 * 1024 * 1024; // 4 MB
 export const MAX_RECORDS = 10_000;
 export const ACCEPTED_EXTENSIONS = ['.csv', '.xlsx'];
 export const ACCEPT_ATTRIBUTE = '.csv,.xlsx';

@@ -20,10 +20,10 @@ export default function ImportHistory({ history }) {
           head={
             <tr>
               <Th>Date &amp; time</Th>
-              <Th>Imported by</Th>
               <Th align="right">Processed</Th>
               <Th align="right">Added</Th>
               <Th align="right">Updated</Th>
+              <Th align="right">Unchanged</Th>
               <Th>Status</Th>
             </tr>
           }
@@ -38,10 +38,10 @@ export default function ImportHistory({ history }) {
             items.map((row) => (
               <tr key={row.id} className="tr-row">
                 <td className="td">{formatDateTime(row.at) || '-'}</td>
-                <td className="td">{row.by ?? '-'}</td>
                 <td className="td text-right">{n(row.processed)}</td>
                 <td className="td text-right">{n(row.added)}</td>
                 <td className="td text-right">{n(row.updated)}</td>
+                <td className="td text-right">{n(Math.max(0, row.processed - row.added - row.updated))}</td>
                 <td className="td">
                   {row.failed ? <span className="font-semibold text-red-700">Failed</span> : <span className="font-semibold text-emerald-700">{row.status ? row.status[0] + row.status.slice(1).toLowerCase() : 'Completed'}</span>}
                 </td>

@@ -69,7 +69,7 @@ export async function importHolidays(dataSource, { year, dryRun = false, fetchIm
       continue;
     }
     if (!dryRun) {
-      const created = await createException(dataSource, actor, entry);
+      const created = await createException(dataSource, actor, { ...entry, reason_category: 'HOLIDAY_PROCLAMATION' });
       campusEntries.push(created);
     }
     result.added.push({ date: entry.exception_date, description: entry.description });

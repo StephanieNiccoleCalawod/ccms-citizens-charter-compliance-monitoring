@@ -155,4 +155,52 @@ export const ForecastRun = new EntitySchema({
   },
 });
 
-export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun, AnalyticsOutboxEvent];
+export const RegistryImport = new EntitySchema({
+  name: 'RegistryImport',
+  tableName: 'registry_imports',
+  columns: {
+    importId: { name: 'import_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'registry_imports_pkey' },
+    rows: { type: 'int' },
+    added: { type: 'int' },
+    updated: { type: 'int' },
+    unchanged: { type: 'int' },
+    createdAt: { name: 'created_at', type: 'timestamptz', createDate: true },
+  },
+  checks: [{
+    name: 'registry_imports_counts_check',
+    expression: 'rows > 0 AND added >= 0 AND updated >= 0 AND unchanged >= 0 AND rows = added + updated + unchanged',
+  }],
+});
+
+export const RegistryPerson = new EntitySchema({
+  name: 'RegistryPerson',
+  tableName: 'registry_people',
+  columns: {
+    studentNumber: { name: 'student_number', type: 'varchar', length: 30, primary: true, primaryKeyConstraintName: 'registry_people_pkey' },
+    fullName: { name: 'full_name', type: 'varchar', length: 200 },
+    program: { type: 'varchar', length: 20 },
+    yearLevel: { name: 'year_level', type: 'smallint', nullable: true },
+    status: { type: 'varchar', length: 8 },
+    validUntil: { name: 'valid_until', type: 'date', nullable: true },
+    email: { type: 'varchar', length: 254, nullable: true },
+    lastImportId: { name: 'last_import_id', type: 'uuid' },
+    createdAt: { name: 'created_at', type: 'timestamptz', createDate: true },
+    updatedAt: { name: 'updated_at', type: 'timestamptz', updateDate: true },
+  },
+  foreignKeys: [{
+    name: 'registry_people_last_import_id_fkey',
+    target: 'RegistryImport',
+    columnNames: ['lastImportId'],
+    referencedColumnNames: ['importId'],
+  }],
+  checks: [
+    { name: 'registry_people_program_check', expression: "program ~ '^[A-Z0-9-]{2,20}$'" },
+    {
+      name: 'registry_people_status_check',
+      expression: "(status = 'ENROLLED' AND valid_until IS NOT NULL AND year_level IS NOT NULL AND year_level BETWEEN 1 AND 6) OR (status = 'ALUMNI' AND year_level IS NULL)",
+    },
+  ],
+});
+
+export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun,
+  AnalyticsOutboxEvent, RegistryImport, RegistryPerson];

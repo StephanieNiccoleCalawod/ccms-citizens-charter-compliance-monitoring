@@ -155,7 +155,8 @@ describe('every save modal on the six pages reports its result the same way (sou
     assert.ok(read('src/app/services/page.js').includes('return once(async () => {'));
     assert.ok(read('src/app/services/[id]/page.js').includes('return once(async () => {'));
     assert.ok(read('src/app/calendar/Holidays.js').includes('if (!canWrite || saving) return;'));
-    assert.ok(read('src/components/transactions/StartTransactionForm.js').includes('if (submittingRef.current || locked) return;'));
+    const start = read('src/components/transactions/StartTransactionForm.js');
+    assert.match(start, /async function sendStart\(body\)\s*{\s*if \(submittingRef\.current\) return;\s*submittingRef\.current = true;/);
   });
   it('the confirmations that change data also report: deactivate, reactivate, reset, delete', () => {
     assert.ok(read('src/app/accounts/page.js').includes('was deactivated and signed out.') && read('src/app/accounts/page.js').includes('was reactivated.'));

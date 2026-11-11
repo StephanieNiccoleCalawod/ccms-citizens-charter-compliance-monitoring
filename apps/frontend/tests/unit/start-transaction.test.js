@@ -311,7 +311,7 @@ describe('the screen\'s own guards (source checks, not a browser)', () => {
 
   it('blocks a second submission while one is running, and the button says so', () => {
     assert.match(page, /const submittingRef = useRef\(false\)/);
-    assert.match(page, /if \(submittingRef\.current \|\| locked\) return;/);
+    assert.match(page, /if \(submittingRef\.current \|\| locked \|\| outsideDraft\) return;/);
     assert.match(page, /submittingRef\.current = true;/);
     // the button is the shared SubmitButton: busy while sending (spinner and "Creating…"), disabled while not ready
     assert.ok(page.includes('busy={submitting}'));

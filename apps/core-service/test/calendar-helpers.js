@@ -43,7 +43,9 @@ export const req = (method, path, { token, body, headers, key } = {}) =>
       ...(key ? { 'x-service-key': key } : {}),
       ...headers,
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : JSON.stringify(
+      method === 'POST' && path === '/exceptions' ? { reason_category: 'OTHER', ...body } : body,
+    ),
   });
 
 export const ctx = (id) => ({ params: Promise.resolve({ id }) });

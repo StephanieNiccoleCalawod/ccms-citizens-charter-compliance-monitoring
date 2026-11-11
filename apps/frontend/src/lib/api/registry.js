@@ -1,13 +1,9 @@
 // CC043: Student and Alumni Registry as the browser calls it, through the gateway:
 // /api/operations/registry/* arrives at the Operations service as /api/registry/*.
 //
-// BACKEND DEPENDENCY (not implemented in this repository when this file was written): the Operations service has no
-// registry routes yet. This file is the frontend side of the boundary, and the only place that knows the request shape:
 //   POST /api/operations/registry/imports   multipart/form-data: file (CSV or XLSX), dryRun ("true" | "false")
 //   GET  /api/operations/registry/imports   the import history
 //   GET  /api/operations/registry/summary   totals by status and by program
-// Until those exist the screen shows "not available yet". The answers are read by registry-import.js, which tolerates
-// missing fields instead of inventing values.
 //
 // Demo mode (NEXT_PUBLIC_REGISTRY_DEMO=true, development builds only) swaps in an in-browser stand-in so the screen can be
 // shown without the service. It is never used otherwise.

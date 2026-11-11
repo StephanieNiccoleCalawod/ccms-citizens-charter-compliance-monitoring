@@ -1,5 +1,4 @@
-// CC043: Student and Alumni Registry import (frontend only). The registry service does not exist yet, so the API calls are checked
-// against a fake fetcher and the in-browser demo stand-in; the screens are checked from source (there is no browser here).
+// CC043 frontend checks use a fake fetcher and the in-browser demo. The Operations routes have separate database tests.
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -40,10 +39,13 @@ describe('file validation before upload', () => {
     assert.match(validateRegistryFile({ name: 'a.pdf', size: 10 }).message, /Unsupported file type/);
     assert.match(validateRegistryFile({ name: 'a', size: 10 }).message, /Unsupported file type/);
     assert.match(validateRegistryFile({ name: 'a.csv', size: 0 }).message, /empty/);
-    const big = validateRegistryFile({ name: 'a.csv', size: MAX_FILE_BYTES + 1 });
+    const limit = 4 * 1024 * 1024;
+    const big = validateRegistryFile({ name: 'a.csv', size: limit + 1 });
     assert.equal(big.ok, false);
-    assert.match(big.message, /limit is 5\.00 MB/);
-    assert.equal(validateRegistryFile({ name: 'a.csv', size: MAX_FILE_BYTES }, 'h\nr').ok, true, 'exactly 5 MB is allowed');
+    assert.match(big.message, /limit is 4\.00 MB/);
+    assert.equal(validateRegistryFile({ name: 'a.csv', size: limit }, 'h\nr').ok, true, 'exactly 4 MB is allowed');
+    assert.equal(validateRegistryFile({ name: 'a.xlsx', size: limit }).ok, true);
+    assert.equal(validateRegistryFile({ name: 'a.xlsx', size: limit + 1 }).ok, false);
   });
 
   it('counts CSV records without the header, blank lines or quoted line breaks, and refuses more than 10,000', () => {
@@ -60,7 +62,7 @@ describe('file validation before upload', () => {
   it('formats sizes', () => {
     assert.equal(formatBytes(512), '512 B');
     assert.equal(formatBytes(2048), '2.0 KB');
-    assert.equal(formatBytes(MAX_FILE_BYTES), '5.00 MB');
+    assert.equal(formatBytes(MAX_FILE_BYTES), '4.00 MB');
   });
 });
 
@@ -168,8 +170,10 @@ describe('acceptance checks against the demo stand-in', () => {
     const demo = createDemoFetcher();
     await importRegistry(csvFile(buildDemoValidCsv(100)), { dryRun: false }, demo);
     const again = normalizeCheck(await checkRegistryFile(csvFile(buildDemoValidCsv(120)), demo));
-    assert.deepEqual([again.added, again.updated], [20, 100]);
-    await importRegistry(csvFile(buildDemoValidCsv(120)), { dryRun: false }, demo);
+    assert.deepEqual([again.added, again.updated], [20, 0]);
+    const amended = csvFile(buildDemoValidCsv(120, { nameSuffix: ' updated' }));
+    const changed = await importRegistry(amended, { dryRun: false }, demo);
+    assert.deepEqual([changed.added, changed.updated], [20, 100]);
     assert.equal(normalizeSummary(await getRegistrySummary(demo)).total, 120);
     assert.equal(normalizeHistory(await listRegistryImports(demo)).length, 2);
   });
@@ -178,8 +182,8 @@ describe('acceptance checks against the demo stand-in', () => {
     const demo = createDemoFetcher();
     const messages = normalizeCheck(await checkRegistryFile(csvFile(buildDemoInvalidCsv()), demo)).errors.map((e) => e.message).join('\n');
     assert.match(messages, /valid_until is required for ENROLLED/);
-    assert.match(messages, /Duplicate student number/);
-    await assert.rejects(importRegistry(csvFile('student_number,full_name\n1,a'), { dryRun: false }, demo), /Missing required column/);
+    assert.match(messages, /Student number is repeated/);
+    await assert.rejects(importRegistry(csvFile('student_number,full_name\n1,a'), { dryRun: false }, demo), /template columns in order/);
   });
 });
 

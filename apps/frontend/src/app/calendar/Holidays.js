@@ -30,7 +30,6 @@ import {
   reasonFormFrom,
   reasonProblems,
   reasonStored,
-  reasonSupportedBy,
   referenceCounter,
   referenceError,
 } from '../../lib/ui/suspension-reason.js';
@@ -80,7 +79,6 @@ export default function Holidays({ canWrite = false, onChanged }) {
   const formDirty = useFormDirty(form);
   // CC058: set when a save came back without the reason fields, i.e. the calendar service did not keep them (see lib/ui/suspension-reason.js).
   const [reasonNotice, setReasonNotice] = useState(false);
-  const reasonKept = reasonSupportedBy(state.items);
 
   const from = dateString(month.year, month.month, 1);
   const to = dateString(month.year, month.month, daysInMonth(month.year, month.month));
@@ -690,11 +688,6 @@ export default function Holidays({ canWrite = false, onChanged }) {
                       <p id="reference-help" className="mt-1 text-xs text-slate-500">Optional. For example the memorandum number. Up to {REFERENCE_MAX} characters.</p>
                       <FieldError id="reference-error">{fieldErrors.reference}</FieldError>
                     </div>
-                    {!reasonKept ? (
-                      <p className="text-xs text-slate-500 sm:col-span-2" data-testid="reason-support-note">
-                        The calendar service has not been updated to keep these two fields yet. They are sent with the entry, but may not be saved until it is.
-                      </p>
-                    ) : null}
                   </div>
                 ) : null}
                 <div>
