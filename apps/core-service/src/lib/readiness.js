@@ -117,7 +117,7 @@ async function calendar(ds) {
   const [tomb] = await ds.query('SELECT count(*)::int AS n FROM calendar_exceptions WHERE removed_at IS NOT NULL');
   checks.push(result('calendar.tombstones', 'Removed entries are kept as tombstones', 'INFO', `${tomb.n} kept`));
   const terms = await ds.query('SELECT term_name, start_date::text AS start_date, end_date::text AS end_date FROM term_dates ORDER BY start_date');
-  checks.push(result('calendar.terms', 'Terms (compare with the FMS range 2026-08-17 to 2026-12-12)', 'INFO', list(terms, (t) => `${t.term_name} ${t.start_date}..${t.end_date}`) || 'no terms entered'));
+  checks.push(result('calendar.terms', 'Terms (compare with the FMS term 2026-08-17 to 2026-12-22)', 'INFO', list(terms, (t) => `${t.term_name} ${t.start_date}..${t.end_date}`) || 'no terms entered'));
   return checks;
 }
 

@@ -12,8 +12,12 @@ export const OFFICE_B = randomUUID();
 // Declared up front (null) so runBoundarySuite can be given the object before before() fills it in.
 export const tokens = { superAdmin: null, executive: null, officeHeadA: null, officeStaffA: null };
 
+// The FMS Academic Term the calendar is sent for (FMS schema 3). Tests that need it unset delete it themselves.
+export const FMS_TERM_ID = 'sms:ccms-test:term:2026-1S';
+
 export async function setupTestEnv() {
   process.env.SERVICE_KEY = SERVICE_KEY;
+  process.env.FMS_TERM_ID = FMS_TERM_ID;
   const keys = await createTestKeys();
   setDefaultVerifier(keys.verifier);
   const testDb = await createTestDatabase({ entities, afterSync });

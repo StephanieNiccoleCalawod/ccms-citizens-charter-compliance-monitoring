@@ -1,10 +1,11 @@
-// EB3-EB5 and C42: calendar message cal-1.0 (envelope, revisions, tombstones, part-day end, effect switch, one-office rule).
+// EB3-EB5 and C42: the calendar message FMS receives (schema 3: envelope, revisions, tombstones, part-day end, effect,
+// FMS term) and the one-office rule.
 import { strict as assert } from 'node:assert';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { DELETE as deleteRoute, PUT as putRoute } from '../src/app/api/exceptions/[id]/route.js';
 import { POST as postRoute } from '../src/app/api/exceptions/route.js';
 import { PUT as putSchedule } from '../src/app/api/schedule/route.js';
-import { CHARTER_DAYS, OFFICE_A, ctx, req, setupTestEnv, tokens } from './calendar-helpers.js';
+import { CHARTER_DAYS, FMS_TERM_ID, OFFICE_A, ctx, req, setupTestEnv, tokens } from './calendar-helpers.js';
 
 let env;
 before(async () => {
@@ -13,12 +14,9 @@ before(async () => {
   await env.ds.query(`INSERT INTO catalogue_settings (id) VALUES (1) ON CONFLICT DO NOTHING`);
   await env.ds.query(`UPDATE catalogue_settings SET applies_to_enabled = true`);
 });
-after(async () => {
-  delete process.env.CAL_EFFECT_ENABLED;
-  await env?.teardown();
-});
+after(async () => env?.teardown());
 beforeEach(async () => {
-  delete process.env.CAL_EFFECT_ENABLED;
+  process.env.FMS_TERM_ID = FMS_TERM_ID;
   await env.ds.query('DELETE FROM sync_log');
   await env.ds.query('DELETE FROM calendar_exceptions');
 });
@@ -36,23 +34,39 @@ const holiday = (date, extra = {}) => ({ exception_date: date, exception_type: '
 const queued = async (consumer = 'FMS') =>
   (await env.ds.query(`SELECT sync_id, payload FROM sync_log WHERE consumer_system = $1 ORDER BY created_at, sync_id`, [consumer])).map((r) => ({ syncId: r.sync_id, ...r.payload }));
 
-describe('EB3: cal-1.0 envelope', () => {
-  it('every message carries messageId, schemaVersion, entityId, entityRevision, changeKind and an explicit appliesTo', async () => {
+describe('EB3: FMS schema 3 envelope', () => {
+  it('every message carries the schema 3 envelope and a complete declaration', async () => {
     const { body } = await add(holiday('2026-10-07'));
-    const [msg] = await queued();
-    assert.equal(msg.messageId, msg.syncId);
-    assert.equal(msg.schemaVersion, 'cal-1.0');
-    assert.equal(msg.entityId, body.exception.exception_id);
-    assert.equal(msg.entityRevision, 1);
-    assert.equal(msg.changeKind, 'UPSERT');
-    assert.deepEqual(msg.appliesTo, ['CLASSES', 'WORK']);
-    assert.deepEqual(msg.interval, { start: '2026-10-07T00:00:00+08:00', end: '2026-10-07T24:00:00+08:00', allDay: true });
+    const [{ syncId, ...message }] = await queued();
+    assert.match(message.sourceTimestamp, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    assert.deepEqual(message, {
+      schemaVersion: 3,
+      messageId: syncId,
+      entityId: body.exception.exception_id,
+      entityRevision: 1,
+      changeKind: 'UPSERT',
+      sourceTimestamp: message.sourceTimestamp,
+      scope: { termId: FMS_TERM_ID },
+      provenance: { artifactRevision: 'ccms-fms-calendar-v3', synthetic: false },
+      declaration: {
+        occurrenceId: body.exception.exception_id,
+        appliesTo: ['CLASSES', 'WORK'],
+        scope: 'CAMPUS',
+        interval: { startsAt: '2026-10-07T00:00:00+08:00', endsAt: '2026-10-07T24:00:00+08:00', timeZone: 'Asia/Manila', wholeDay: true },
+        mode: [],
+        effect: 'SUSPENDED',
+        entryType: 'REGULAR_HOLIDAY',
+        date: '2026-10-07',
+        description: 'Holiday',
+        officeId: null,
+      },
+    });
   });
 
   it('WORK is sent as ["WORK"] and CLASSES as ["CLASSES"]', async () => {
     await add(holiday('2026-10-07', { applies_to: 'WORK' }));
     await add(holiday('2026-10-08', { applies_to: 'CLASSES', class_mode: 'SUSPENDED' }));
-    const byDate = Object.fromEntries((await queued()).map((m) => [m.date, m.appliesTo]));
+    const byDate = Object.fromEntries((await queued()).map((m) => [m.declaration.date, m.declaration.appliesTo]));
     assert.deepEqual(byDate['2026-10-07'], ['WORK']);
     assert.deepEqual(byDate['2026-10-08'], ['CLASSES']);
   });
@@ -76,6 +90,7 @@ describe('EB3: cal-1.0 envelope', () => {
     assert.equal(last.changeKind, 'REMOVE');
     assert.equal(last.entityId, id);
     assert.equal(last.entityRevision, 2);
+    assert.equal(last.declaration, null);
   });
 
   it('a removed entry no longer counts for the engine, and its date can be entered again', async () => {
@@ -100,7 +115,27 @@ describe('EB3: cal-1.0 envelope', () => {
     const id = (await add(holiday('2026-10-07', { is_recurring: true }))).body.exception.exception_id;
     const msgs = (await queued()).filter((m) => m.entityId.startsWith(id));
     assert.deepEqual(msgs.map((m) => m.entityId), [`${id}@2026-10-07`]);
-    assert.equal(msgs[0].date, '2026-10-07');
+    assert.equal(msgs[0].declaration.date, '2026-10-07');
+    assert.equal(msgs[0].declaration.occurrenceId, `${id}@2026-10-07`);
+    assert.equal(msgs[0].declaration.seriesId, id);
+  });
+
+  it('FMS receives only dates of its term; SMS still gets the rest', async () => {
+    await add(holiday('2027-01-01'));
+    assert.deepEqual(await queued('FMS'), []);
+    assert.equal((await queued('AUDIT')).length, 1);
+  });
+
+  it('nothing is queued for FMS until FMS_TERM_ID is set', async () => {
+    delete process.env.FMS_TERM_ID;
+    await add(holiday('2026-10-07'));
+    assert.deepEqual(await queued('FMS'), []);
+    assert.equal((await queued('AUDIT')).length, 1);
+  });
+
+  it('control characters in a description are sent as spaces', async () => {
+    await add(holiday('2026-10-07', { description: 'Line one\nLine two' }));
+    assert.equal((await queued())[0].declaration.description, 'Line one Line two');
   });
 });
 
@@ -108,7 +143,7 @@ describe('EB4: part-day end time', () => {
   it('a 1:00-5:00 PM suspension sends both times and allDay false', async () => {
     await add({ exception_date: '2026-10-07', exception_type: 'SUSPENSION', description: 'Power', suspended_from: '13:00', suspended_until: '17:00' });
     const [msg] = await queued();
-    assert.deepEqual(msg.interval, { start: '2026-10-07T13:00:00+08:00', end: '2026-10-07T17:00:00+08:00', allDay: false });
+    assert.deepEqual(msg.declaration.interval, { startsAt: '2026-10-07T13:00:00+08:00', endsAt: '2026-10-07T17:00:00+08:00', timeZone: 'Asia/Manila', wholeDay: false });
   });
 
   it('a part-day entry without an end is refused under the end-time field', async () => {
@@ -130,29 +165,25 @@ describe('EB4: part-day end time', () => {
   });
 });
 
-describe('EB5: effect switch (default off)', () => {
-  const online = () => add(holiday('2026-10-07', { applies_to: 'CLASSES', class_mode: 'ONLINE' }));
-
-  it('with the switch off an ONLINE entry is not sent to FMS, a SUSPENDED one is', async () => {
-    await online();
+describe('EB5: effect (FMS schema 3 always carries it)', () => {
+  it('ONLINE and SUSPENDED entries are both sent with their effect (FMS holds ONLINE for review)', async () => {
+    await add(holiday('2026-10-07', { applies_to: 'CLASSES', class_mode: 'ONLINE' }));
     await add(holiday('2026-10-08', { applies_to: 'CLASSES', class_mode: 'SUSPENDED' }));
-    const fms = await queued('FMS');
-    assert.deepEqual(fms.map((m) => m.date), ['2026-10-08']);
-    assert.ok(fms.every((m) => !('effect' in m)));
-  });
-
-  it('with the switch on both are sent with their effect', async () => {
-    process.env.CAL_EFFECT_ENABLED = 'true';
-    await online();
-    await add(holiday('2026-10-08', { applies_to: 'CLASSES', class_mode: 'SUSPENDED' }));
-    const effects = Object.fromEntries((await queued('FMS')).map((m) => [m.date, m.effect]));
+    const effects = Object.fromEntries((await queued('FMS')).map((m) => [m.declaration.date, m.declaration.effect]));
     assert.deepEqual(effects, { '2026-10-07': 'ONLINE', '2026-10-08': 'SUSPENDED' });
   });
 
-  it('a WORK-only entry never carries an effect value', async () => {
-    process.env.CAL_EFFECT_ENABLED = 'true';
+  it('a WORK-only entry carries an empty effect', async () => {
     await add(holiday('2026-10-07', { applies_to: 'WORK' }));
-    assert.equal((await queued('FMS'))[0].effect, null);
+    assert.equal((await queued('FMS'))[0].declaration.effect, '');
+  });
+
+  it('an office entry is sent with scope OFFICE and its officeId', async () => {
+    await add(holiday('2026-10-07', { office_id: OFFICE_A }));
+    const [msg] = await queued('FMS');
+    assert.equal(msg.declaration.scope, 'OFFICE');
+    assert.equal(msg.declaration.officeId, OFFICE_A);
+    assert.deepEqual(msg.declaration.appliesTo, ['WORK']);
   });
 });
 

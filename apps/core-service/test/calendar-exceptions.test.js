@@ -314,7 +314,7 @@ describe('holidays and suspensions (CC015)', () => {
 
   it('each change queues one FMS row and one Audit row', async () => {
     await env.ds.query('DELETE FROM sync_log');
-    const { body } = await add(holiday('2027-07-01'));
+    const { body } = await add(holiday('2026-10-07')); // inside FMS term (2026-08-17 to 2026-12-22)
     let rows = await env.ds.query('SELECT consumer_system, event_type FROM sync_log ORDER BY consumer_system');
     assert.deepEqual(rows, [
       { consumer_system: 'AUDIT', event_type: 'CALENDAR_EXCEPTION_ADDED' },

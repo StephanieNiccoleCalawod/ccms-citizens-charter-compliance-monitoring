@@ -65,9 +65,10 @@ describe('TT7 class/work calendar contract', () => {
     // EB16: SMS receives the cal-1.0 message with the explicit appliesTo and the class effect.
     const toSms = deliveries.filter((d) => d.url === 'https://sms.test/calendar' && d.payload.schemaVersion === 'cal-1.0');
     assert.ok(toSms.some((d) => d.payload.entityRevision === 2 && JSON.stringify(d.payload.appliesTo) === '["CLASSES","WORK"]' && d.payload.effect === 'ONLINE'));
-    // EB5 AC1: with the effect switch off, an ONLINE entry is not sent to FMS.
+    // FMS schema 3: an ONLINE entry is sent with its effect (FMS holds it for review; nothing is held back).
     const [online] = await env.ds.query("SELECT exception_id FROM calendar_exceptions WHERE class_mode = 'ONLINE' AND removed_at IS NULL");
-    assert.equal(deliveries.filter((d) => d.url === 'https://fms.test/calendar' && d.payload.entityId === online.exception_id).length, 0);
+    const toFms = deliveries.filter((d) => d.url === 'https://fms.test/calendar' && d.payload.entityId === online.exception_id);
+    assert.ok(toFms.some((d) => d.payload.schemaVersion === 3 && d.payload.declaration?.effect === 'ONLINE'));
   });
   it('migration leaves entry identities and values intact when repeated', async () => {
     const rows = await env.ds.query('SELECT * FROM calendar_exceptions ORDER BY exception_id');

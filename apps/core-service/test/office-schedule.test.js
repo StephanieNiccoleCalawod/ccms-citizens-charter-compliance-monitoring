@@ -419,7 +419,7 @@ describe('FMS and SCMS never hear about an office schedule', () => {
     assert.deepEqual(consumers, ['AUDIT:WORKING_HOURS_UPDATED']);
   });
 
-  it('the cal-1.0 pull answer is identical before and after office schedule changes', async () => {
+  it('the FMS pull answer is identical before and after office schedule changes', async () => {
     const before = await pull();
     assert.equal(before.status, 200);
     await put(WEEK, 0);
@@ -429,7 +429,7 @@ describe('FMS and SCMS never hear about an office schedule', () => {
     const after = await pull();
     assert.deepEqual(during.body, before.body);
     assert.deepEqual(after.body, before.body);
-    assert.equal(before.body.schemaVersion, 'cal-1.0');
+    assert.equal(before.body.schemaVersion, 3);
     assert.doesNotMatch(JSON.stringify(after.body), /lunch|office_schedule|opens_at|closes_at/i);
   });
 
