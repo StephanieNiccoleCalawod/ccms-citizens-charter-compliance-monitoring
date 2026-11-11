@@ -306,7 +306,14 @@ These are correct new-behavior fixes — the patch intentionally changed the que
 
 1. **Drain or invalidate old FMS cal-1.0 queue rows.** Any `sync_log` row with `consumer_system = 'FMS'` and `status IN ('PENDING', 'FAILED')` that carries a `cal-1.0` payload must be cleared before `FMS_TERM_ID` is set. Options:
    - Wait until all PENDING rows dispatch and are acknowledged/failed, then mark remaining FAILED rows as SUPERSEDED manually.
-   - Directly: `UPDATE sync_log SET status = 'SUPERSEDED' WHERE consumer_system = 'FMS' AND status IN ('PENDING','FAILED');`
+   - Directly (targets only cal-1.0 rows; run before setting `FMS_TERM_ID` and record the row count as evidence):
+     ```sql
+     UPDATE sync_log
+     SET status = 'SUPERSEDED'
+     WHERE consumer_system = 'FMS'
+       AND status IN ('PENDING', 'FAILED')
+       AND payload->>'schemaVersion' = 'cal-1.0';
+     ```
 
 2. **Set `FMS_TERM_ID`** in `apps/core-service/.env.local` (local) or the deployment secrets (Vercel/hosted). Obtain the correct value from the FMS team — it looks like `sms:<dataset>:term:<native-id>`.
 
@@ -324,7 +331,7 @@ No database migrations are needed. The `sync_log` table's existing schema accomm
 
 1. **Dev/local:** Set `FMS_TERM_ID`, run `npm run mocks`, exercise the push dispatcher and the pull endpoint.
 2. **Staging/QA:** Drain old FMS rows, set `FMS_TERM_ID` to the QA term, verify FMS mock or real FMS staging accepts the messages.
-3. **Production:** Follow `docs/database-migrations.md` drain procedure; set `FMS_TERM_ID`; monitor `GET /api/sync/status` for FMS push errors.
+3. **Production:** Follow the drain procedure in `docs/database-migrations.md` section 5 (FMS cal-1.0 queue drain); set `FMS_TERM_ID`; monitor `GET /api/sync/status` for FMS push errors.
 
 ### Items requiring FMS team confirmation
 
