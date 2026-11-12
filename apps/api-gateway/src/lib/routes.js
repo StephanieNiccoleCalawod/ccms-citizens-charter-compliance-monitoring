@@ -41,7 +41,8 @@ export const PUBLIC_API = {
   identity: ['/api/auth/', '/api/health'],
   catalogue: ['/api/public/', '/api/health'],
   calendar: ['/api/health'],
-  logs: ['/api/health'],
+  // CC032/CC033: a citizen files a complaint and checks its status without an account. Exactly these two paths; the service rate limits them.
+  logs: ['/api/complaints', '/api/complaints/status', '/api/health'],
   analytics: ['/api/health'],
   reports: ['/api/health'],
   operations: ['/api/health'],

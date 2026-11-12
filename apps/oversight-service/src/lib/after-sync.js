@@ -64,6 +64,7 @@ export async function afterSync(dataSource) {
   await migrateSprint4Oversight(dataSource);
   await auditLogRules(dataSource);
   await analyticsRules(dataSource);
+  await complaintRules(dataSource);
   // Sprint 6 TT1 (keep identical to migrations/1794528400000-Tt1AnalyticsTombstones.js).
   await dataSource.query(PURGE_FUNCTION_SQL);
 
@@ -77,6 +78,7 @@ export async function afterSync(dataSource) {
     await runner.query('SELECT pg_advisory_lock(43436, 2)');
     await auditLogGrants(runner);
     await analyticsGrants(runner);
+    await complaintGrants(runner);
   } finally {
     await runner.query('SELECT pg_advisory_unlock(43436, 2)').catch(() => {});
     await runner.release();
@@ -106,6 +108,20 @@ export async function analyticsGrants(dataSource) {
   await dataSource.query(`GRANT SELECT, INSERT, UPDATE ON analytics_backfill_state TO ${LOGS_WRITER_ROLE}`);
   // Sprint 6 TT1: SELECT on the tombstones and EXECUTE on the seeded-only purge function. Never DELETE on the projection.
   for (const sql of PURGE_GRANTS_SQL) await dataSource.query(sql);
+}
+
+// CC032/CC033 (keep identical to migrations/sql/1794600000000-Cc032Complaints.up.sql).
+async function complaintRules(dataSource) {
+  await dataSource.query('CREATE INDEX IF NOT EXISTS complaints_office_created_idx ON complaints (office_id, created_at DESC)');
+}
+
+// Runtime access, after auditLogGrants (which first revokes everything from the runtime roles).
+//   ccms_logs_writer    SELECT, INSERT on complaints (no UPDATE until staff handling, Sprint 7); counters need SELECT, INSERT, UPDATE, DELETE
+//   ccms_oversight_app  SELECT on complaints
+export async function complaintGrants(dataSource) {
+  await dataSource.query(`GRANT SELECT, INSERT ON complaints TO ${LOGS_WRITER_ROLE}`);
+  await dataSource.query(`GRANT SELECT ON complaints TO ${OVERSIGHT_APP_ROLE}`);
+  await dataSource.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON rate_limit_hits TO ${LOGS_WRITER_ROLE}`);
 }
 
 async function auditLogRules(dataSource) {

@@ -136,3 +136,14 @@ cancelled and auto-closed by start date (the feed keeps `ended_at` empty for the
 On-time rate = on time / (on time + late), one decimal, `null` when the divisor is 0. An auto-closed transaction counts as
 Late inside the rate and is shown separately as `late_auto_closed` (K27). Per-staff figures are never returned to the Executive (403);
 Office Staff get only their own row; Office Head and Office Staff are limited to their office.
+
+## Complaints (Sprint 6 CC032 / CC033)
+
+Public, no account, no CAPTCHA. Tables `complaints` and `rate_limit_hits` (migration `1794600000000-Cc032Complaints`, run as the schema owner; grants: `ccms_logs_writer` SELECT/INSERT on complaints and the counters, `ccms_oversight_app` SELECT on complaints).
+
+| Route | What |
+| --- | --- |
+| `POST /api/complaints` | `{office_id, category, description (≤2000), tracking_no?, name?, email?}`. 201 `{reference, status: "RECEIVED", email_sent}`. 400 for a missing/invalid field or an inactive office (Core is asked with `SERVICE_KEY`); 429 above 5 per client address per hour (`COMPLAINT_RATE_LIMIT`, `COMPLAINT_RATE_WINDOW_SECONDS`); 503 when Core cannot confirm the office. The reference is emailed when an email was given and SMTP is configured; a mail failure never loses the complaint. |
+| `GET /api/complaints/status?ref=` | `{reference, status}` only. Unknown or malformed reference: the same 404 `COMPLAINT_NOT_FOUND`. Rate limited (public limits). |
+
+The gateway lets exactly these two paths through without a token (`/api/logs/complaints`, `/api/logs/complaints/status`). Name and email are stored in `complaints` only, never in the audit log. Categories (`COMPLAINT_CATEGORIES`) are PROPOSED from RA 11032 Sec. 21 plus Other and must be checked against the law and PUP's Feedback and Complaints Mechanism (CC032 AC5). Staff handling is Sprint 7.

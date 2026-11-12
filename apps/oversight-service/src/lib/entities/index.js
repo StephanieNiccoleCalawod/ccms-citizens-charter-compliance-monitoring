@@ -1,3 +1,4 @@
+import { RateLimitHit } from 'ccms-shared';
 import { EntitySchema } from 'typeorm';
 
 // ---- Logs (ERD section 8, with the Sprint 4 approvals of 10/18, Decision G15) ----
@@ -103,4 +104,24 @@ export const AnalyticsTombstone = new EntitySchema({
   },
 });
 
-export const entities = [AuditLog, AnalyticsTransaction, AnalyticsBackfillState, AnalyticsTombstone];
+// Sprint 6 CC032/CC033: a complaint filed without an account. The citizen's name and email are optional and stay in this table
+// only (never in the audit log). status is RECEIVED until staff handling exists (Sprint 7). No foreign keys: the office is Core's.
+export const Complaint = new EntitySchema({
+  name: 'Complaint',
+  tableName: 'complaints',
+  columns: {
+    complaintId: { name: 'complaint_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'complaints_pkey' },
+    reference: { type: 'varchar', length: 20 },
+    officeId: { name: 'office_id', type: 'uuid' },
+    category: { type: 'varchar', length: 40 },
+    description: { type: 'varchar', length: 2000 },
+    trackingNo: { name: 'tracking_no', type: 'varchar', length: 60, nullable: true },
+    complainantName: { name: 'complainant_name', type: 'varchar', length: 200, nullable: true },
+    complainantEmail: { name: 'complainant_email', type: 'varchar', length: 254, nullable: true },
+    status: { type: 'varchar', length: 20 },
+    createdAt: { name: 'created_at', type: 'timestamptz', default: () => 'now()' },
+  },
+  uniques: [{ name: 'complaints_reference_uq', columns: ['reference'] }],
+});
+
+export const entities = [AuditLog, AnalyticsTransaction, AnalyticsBackfillState, AnalyticsTombstone, Complaint, RateLimitHit];
