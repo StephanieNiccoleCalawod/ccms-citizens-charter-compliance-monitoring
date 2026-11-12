@@ -18,6 +18,14 @@
       "schedule": "30 1 * * *"
     },
     {
+      "path": "/api/jobs/acknowledgement-emails",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/jobs/acknowledgement-emails/retry",
+      "schedule": "0 17 * * *"
+    },
+    {
       "path": "/api/jobs/forecast",
       "schedule": "0 18 * * *"
     }

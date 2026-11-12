@@ -31,8 +31,8 @@ export function kickAnalytics() {
 }
 
 /**
- * CC049: tries the queued acknowledgement emails once, after the Start response. Same cron job as the receipts is the
- * safety net. Never sends anything itself when the idempotent transport is not configured.
+ * CC049: tries the queued acknowledgement emails after the Start response.
+ * Scheduled acknowledgement runs pick up pending emails and retry transient failures within the provider window.
  */
 export function kickAcknowledgements() {
   afterResponse(async () => (await import('../jobs/receipt-emails.js')).runAcknowledgementEmails());
