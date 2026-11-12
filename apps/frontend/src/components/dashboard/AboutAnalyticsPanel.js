@@ -1,5 +1,8 @@
+import { seededHistoryDisclosure } from '../../lib/ui/seeded-history.js';
+
 /** Section 6: collapsed by default and visually quiet, so it never competes with the figures. */
 export default function AboutAnalyticsPanel({ sample }) {
+  const disclosure = seededHistoryDisclosure();
   return (
     <details className="rounded-xl border border-[#EAE3D9] bg-[#FBF8F3] px-4 py-3 text-sm text-slate-700" data-testid="insights-about">
       <summary className="cursor-pointer font-semibold text-slate-800">About these analytics</summary>
@@ -15,6 +18,8 @@ export default function AboutAnalyticsPanel({ sample }) {
             {sample ? ' Development data is illustrative until the Sprint 6 analytics services are available: the numbers are samples, not real measurements, and the sentences are not verified findings.' : ''}
           </dd>
         </div>
+        {/* K16: the single disclosure line about the fictional history (period and go-live date from settings). */}
+        {disclosure ? <div data-testid="seeded-history-disclosure"><dd>{disclosure}</dd></div> : null}
       </dl>
     </details>
   );

@@ -270,7 +270,7 @@ describe('the Transactions page matches the other CCMS admin pages (source check
     assert.ok(page.includes('<ClearFiltersButton') && page.includes('<AddTransactionButton'));
     for (const name of ['status', 'office_id', 'counter_id']) assert.ok(page.includes(`onChange={choose('${name}')}`), name);
     // the Service filter is the searchable dropdown, and it applies through the same applyNow as the others
-    assert.ok(page.includes('<SearchableSelect\n              id="tx-service"'));
+    assert.match(page, /<SearchableSelect\r?\n {14}id="tx-service"/);
     assert.ok(page.includes("onChange={(value) => applyNow({ ...draft, service_id: value })}"));
     assert.ok(page.includes('listMinWidth={420}'));
     assert.ok(page.includes('clearable={false}'), 'no X button inside the filter: "All services" is the first choice');

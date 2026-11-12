@@ -4,7 +4,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import { createCoreClient } from '../src/modules/transaction/core-client.js';
 import { startTransaction } from '../src/modules/transaction/start.js';
 import { isWithinWorkingTime } from '../src/modules/transaction/working-time.js';
-import { OFFICE_A, SERVICE_A, USERS, at, resetData, seedCoreServices, setupTestEnv, staff } from './helpers.js';
+import { NOT_IN_REGISTRY, OFFICE_A, SERVICE_A, USERS, at, resetData, seedCoreServices, setupTestEnv, staff } from './helpers.js';
 
 let env;
 before(async () => {
@@ -18,7 +18,7 @@ beforeEach(async () => {
   await resetData(env.ds);
 });
 
-const body = (over = {}) => ({ service_id: SERVICE_A, client_type: 'STUDENT', requirements_confirmed: true, ...over });
+const body = (over = {}) => ({ service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, requirements_confirmed: true, ...over });
 const startAt = (whenMs, over = {}) => startTransaction(env.ds, { core: createCoreClient(), now: () => new Date(whenMs) }, staff(USERS.staffA), body(over));
 const count = async () => (await env.ds.query('SELECT count(*)::int AS n FROM transactions'))[0].n;
 const rowOf = async (id) => (await env.ds.query('SELECT started_outside_hours, is_backdated FROM transactions WHERE transaction_id = $1', [id]))[0];

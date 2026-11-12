@@ -40,3 +40,12 @@ export const importRegistry = (file, { dryRun }, fetcher = apiFetch) => fetcher(
 export const checkRegistryFile = (file, fetcher = apiFetch) => importRegistry(file, { dryRun: true }, fetcher);
 export const listRegistryImports = (fetcher = apiFetch) => fetcher(REGISTRY_IMPORTS_API);
 export const getRegistrySummary = (fetcher = apiFetch) => fetcher(REGISTRY_SUMMARY_API);
+
+// CC044: GET /api/operations/registry/search?q=&status= (Office Staff, Office Head, Super Admin; 30 per minute per user).
+// status: STUDENT (enrolled) or ALUMNI. Results never include the registry email. Never cached.
+export const REGISTRY_SEARCH_API = `${REGISTRY_API}/search`;
+export function searchRegistry(q, status, fetcher = apiFetch) {
+  const params = new URLSearchParams({ q });
+  if (status) params.set('status', status);
+  return fetcher(`${REGISTRY_SEARCH_API}?${params}`);
+}

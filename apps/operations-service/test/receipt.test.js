@@ -6,7 +6,7 @@ import { POST as completeRoute } from '../src/app/api/transactions/[id]/complete
 import { POST as startRoute } from '../src/app/api/transactions/route.js';
 import { createMailer, buildMessage, mailerConfig } from '../src/lib/mailer.js';
 import { RECEIPT_MAX_ATTEMPTS, buildReceipt, manilaStamp, runReceiptJob, sendReceipt } from '../src/modules/transaction/receipt.js';
-import { SERVICE_A, at, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
+import { NOT_IN_REGISTRY, SERVICE_A, at, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
 
 let env;
 before(async () => {
@@ -59,11 +59,11 @@ describe('the receipt email content', () => {
 
 describe('sending (CC024-T3)', () => {
   it('AC2: a completed transaction with an email is marked PENDING in the same step; with no email it is never PENDING', async () => {
-    const started = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', requirements_confirmed: true, client_email: 'juan@example.com' } }));
+    const started = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, requirements_confirmed: true, client_email: 'juan@example.com' } }));
     const done = await call(completeRoute, req('POST', `/transactions/${started.body.transaction_id}/complete`, { token: tokens.officeStaffA }), ctx(started.body.transaction_id));
     assert.equal(done.status, 200);
     assert.equal(done.body.receipt_email_status, 'PENDING');
-    const noEmail = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA2, body: { service_id: SERVICE_A, client_type: 'STUDENT', requirements_confirmed: true } }));
+    const noEmail = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA2, body: { service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, requirements_confirmed: true } }));
     const doneNoEmail = await call(completeRoute, req('POST', `/transactions/${noEmail.body.transaction_id}/complete`, { token: tokens.officeStaffA2 }), ctx(noEmail.body.transaction_id));
     assert.equal(doneNoEmail.body.receipt_email_status, 'NONE');
     const mailer = fakeMailer();

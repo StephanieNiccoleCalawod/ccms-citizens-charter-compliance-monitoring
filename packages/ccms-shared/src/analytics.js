@@ -386,14 +386,16 @@ export function isSeededTrackingNo(trackingNo) {
 /**
  * The only transactions columns the producer and the export read. Client reference/email, every reason column, staff
  * names/positions, service/office names and receipt columns are deliberately absent.
- * CC044: when the registry capture adds transactions.registry_status / registry_miss_reason (a reason CODE column),
- * append both names here; snapshotFromTransactionRow already uses them when present.
+ * CC044: transactions.registry_status / registry_miss_reason (a reason CODE column) are read (migration
+ * 1794528100000-Cc044RegistryAtStart must run before this code is deployed).
  */
 export const ANALYTICS_SOURCE_COLUMNS = Object.freeze([
   'transaction_id', 'tracking_no', 'office_id', 'service_id', 'service_code', 'service_classification', 'client_type',
   'standard_duration_days', 'standard_duration_hours', 'standard_duration_minutes', 'started_at', 'ended_at', 'status',
   'elapsed_working_minutes', 'is_compliant', 'variance_minutes', 'held_minutes', 'is_backdated', 'started_outside_hours',
   'outcome', 'started_by', 'ended_by', 'counter_id', 'analytics_event_version',
+  // CC044: status and reason CODE only. Never registry_student_number or registry_miss_note.
+  'registry_status', 'registry_miss_reason',
 ]);
 
 const isoOrNull = (value) => (value === null || value === undefined ? null : new Date(value).toISOString());

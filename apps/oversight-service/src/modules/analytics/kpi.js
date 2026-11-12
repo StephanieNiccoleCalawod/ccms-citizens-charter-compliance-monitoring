@@ -1,12 +1,23 @@
 import { Errors, assertOfficeAccess, isOfficeBound, isUuid, isValidManilaDate, officeFilter, toManilaDate } from 'ccms-shared';
 
 const GROUP_FIELDS = Object.freeze({ office: 'office_id', service: 'service_id' });
-const emptyCounts = () => ({ received: 0, backdated: 0, started_outside_hours: 0 });
+const NOT_IN_REGISTRY = new Set(['NOT_FOUND', 'EXPIRED']);
+const MISS_REASONS = ['OLDER_ALUMNI', 'NEW_ENROLLEE', 'RETURNING_STUDENT', 'NAME_DIFFERS', 'OTHER'];
+const emptyCounts = () => ({
+  received: 0, backdated: 0, started_outside_hours: 0,
+  // CC044 (K5): "Not in registry" = NOT_FOUND or EXPIRED, per office and per reason code.
+  not_in_registry: 0,
+  not_in_registry_by_reason: Object.fromEntries(MISS_REASONS.map((reason) => [reason, 0])),
+});
 
 function countStart(counts, row) {
   counts.received += 1;
   if (row.is_backdated === true) counts.backdated += 1;
   else if (row.started_outside_hours === true) counts.started_outside_hours += 1;
+  if (NOT_IN_REGISTRY.has(row.registry_status)) {
+    counts.not_in_registry += 1;
+    if (Object.hasOwn(counts.not_in_registry_by_reason, row.registry_miss_reason)) counts.not_in_registry_by_reason[row.registry_miss_reason] += 1;
+  }
 }
 
 /** CC051 start figures for TT3. These figures use the Manila date of started_at. */
@@ -54,7 +65,7 @@ export async function getStartKpis(dataSource, actor, query, now = new Date()) {
   if (!['total', 'office', 'service'].includes(groupBy)) throw Errors.validation('Group the figures by total, office, or service.');
 
   const rows = await dataSource.query(
-    `SELECT started_at, office_id, service_id, is_backdated, started_outside_hours
+    `SELECT started_at, office_id, service_id, is_backdated, started_outside_hours, registry_status, registry_miss_reason
      FROM analytics_transactions
      WHERE started_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila')
        AND started_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila')

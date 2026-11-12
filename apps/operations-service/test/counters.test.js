@@ -130,6 +130,7 @@ describe('counters (TT5-T3)', () => {
     assert.equal(off.status, 409);
     await env.ds.query(`UPDATE transactions SET status = 'CANCELLED', cancel_reason = 'x', hold_started_at = NULL WHERE counter_id = $1`, [c.counter_id]);
     assert.equal((await rename(c.counter_id, { office_id: OFFICE_A, label: 'Window Busy 2' })).status, 200);
+    await env.ds.query('DELETE FROM transaction_emails');
     await env.ds.query('DELETE FROM transactions');
   });
 

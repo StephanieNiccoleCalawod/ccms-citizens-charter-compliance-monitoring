@@ -9,6 +9,76 @@ export const CLIENT_TYPES = [
   { value: 'EXTERNAL', label: 'External' },
 ];
 
+// ---- CC047: client types per service ----
+
+/**
+ * The client types the chosen service allows, as CLIENT_TYPES entries in their usual order. `standard` is Core's standard
+ * lookup (authoritative); `service` is the picker's catalogue row. A field missing from an older Core means all four;
+ * a malformed one offers nothing (the server refuses the Start anyway), so a restriction is never bypassed here.
+ */
+export function allowedClientTypeOptions(standard, service) {
+  const source = standard && Object.hasOwn(standard, 'allowed_client_types') ? standard.allowed_client_types
+    : service && Object.hasOwn(service, 'allowed_client_types') ? service.allowed_client_types : undefined;
+  if (source === undefined) return CLIENT_TYPES;
+  if (!Array.isArray(source)) return [];
+  return CLIENT_TYPES.filter((t) => source.includes(t.value));
+}
+
+// ---- CC044: registry at Start (Student and Alumni) ----
+
+export const REGISTRY_TYPES = Object.freeze({ STUDENT: 'STUDENT', ALUMNI: 'ALUMNI' });
+export const usesRegistry = (clientType) => Object.hasOwn(REGISTRY_TYPES, clientType);
+export const REGISTRY_NOTE_MAX = 200;
+export const REGISTRY_REASONS = [
+  { value: 'OLDER_ALUMNI', label: 'Older alumni (graduated before the registry)' },
+  { value: 'NEW_ENROLLEE', label: 'New enrollee' },
+  { value: 'RETURNING_STUDENT', label: 'Returning student' },
+  { value: 'NAME_DIFFERS', label: 'Name differs from the registry' },
+  { value: 'OTHER', label: 'Other (describe)' },
+];
+export const registryReasonLabel = (value) => REGISTRY_REASONS.find((r) => r.value === value)?.label ?? value;
+export const REGISTRY_STATUS_LABELS = { MATCHED: 'In registry', EXPIRED: 'Registry record expired', NOT_FOUND: 'Not in registry' };
+
+/** The registry part of the form. choice: 'none' (nothing chosen yet) | 'match' | 'not_found'. */
+export const EMPTY_REGISTRY = Object.freeze({ choice: 'none', record: null, reason: '', note: '' });
+
+/** A letter count of at least 3, or a digit (a student number), is searchable (the server rule). */
+export const isSearchable = (text) => {
+  const value = String(text ?? '').trim();
+  return value.length > 0 && ((value.match(/\p{L}/gu) ?? []).length >= 3 || /\d/.test(value));
+};
+
+/** Is a reason needed for this registry state? (an expired pick, or "Not in the registry") */
+export const registryNeedsReason = (registry) => registry.choice === 'not_found'
+  || (registry.choice === 'match' && (registry.record?.is_expired === true || registry.serverNeedsReason === true));
+
+/** Early feedback for the registry part; the server decides again against the current registry. */
+export function registryErrors(clientType, registry) {
+  const errors = {};
+  if (!usesRegistry(clientType)) return errors;
+  if (registry.choice === 'none') errors.registry = 'Find the client in the registry, or choose "Not in the registry".';
+  if (registryNeedsReason(registry)) {
+    if (!registry.reason) errors.registry_miss_reason = 'Choose a reason.';
+    const note = registry.note.trim();
+    if (registry.reason === 'OTHER' && !note) errors.registry_miss_note = 'Describe the reason.';
+    if (note.length > REGISTRY_NOTE_MAX) errors.registry_miss_note = `The note must be ${REGISTRY_NOTE_MAX} characters or fewer.`;
+  }
+  return errors;
+}
+
+/** The registry fields of POST /transactions. Never a registry status: the server works it out. */
+export function registryBody(clientType, registry) {
+  if (!usesRegistry(clientType)) return {};
+  const body = {};
+  if (registry.choice === 'match' && registry.record) body.registry_student_number = registry.record.student_number;
+  if (registry.choice === 'not_found') body.registry_not_found = true;
+  if (registryNeedsReason(registry) || (registry.choice === 'match' && registry.reason)) {
+    if (registry.reason) body.registry_miss_reason = registry.reason;
+    if (registry.note.trim()) body.registry_miss_note = registry.note.trim();
+  }
+  return body;
+}
+
 export const STATUS_LABELS = {
   IN_PROGRESS: 'In progress',
   ON_HOLD: 'Pending', // display label only: the stored status value stays ON_HOLD
@@ -30,6 +100,7 @@ export const MESSAGES = {
   service: 'Choose a service.',
   standardMissing: 'The service standard has not loaded, so the transaction cannot be started.',
   clientType: 'Choose the client type.',
+  clientTypeNotAllowed: 'This service is not available to this client type.',
   email: 'Enter a valid email address, or leave it empty.',
   emailLong: `Email must be ${EMAIL_MAX} characters or fewer.`,
   reference: `Client reference must be ${REFERENCE_MAX} characters or fewer.`,
@@ -91,6 +162,7 @@ export function startErrors({ form, standard, items, checks, countersEnabled }) 
   if (!form.service_id) errors.service = MESSAGES.service;
   else if (!standard) errors.standard = MESSAGES.standardMissing;
   if (!CLIENT_TYPES.some((t) => t.value === form.client_type)) errors.client_type = MESSAGES.clientType;
+  else if (standard && !allowedClientTypeOptions(standard).some((t) => t.value === form.client_type)) errors.client_type = MESSAGES.clientTypeNotAllowed;
   const reference = form.client_reference.trim();
   if (reference.length > REFERENCE_MAX) errors.client_reference = MESSAGES.reference;
   const email = form.client_email.trim();
@@ -115,12 +187,18 @@ export function buildStartBody({ form, countersEnabled }) {
   return body;
 }
 
-const FIELD_OF = { service_id: 'service', client_type: 'client_type', client_reference: 'client_reference', client_email: 'client_email', requirements_confirmed: 'requirements', counter_id: 'counter', started_at: 'started_at', ended_at: 'ended_at', backdate_reason: 'backdate_reason' };
+const FIELD_OF = { service_id: 'service', client_type: 'client_type', client_reference: 'client_reference', client_email: 'client_email', requirements_confirmed: 'requirements', counter_id: 'counter', started_at: 'started_at', ended_at: 'ended_at', backdate_reason: 'backdate_reason', registry: 'registry', registry_miss_reason: 'registry_miss_reason', registry_miss_note: 'registry_miss_note' };
 
 /** A failed start as { kind, fieldErrors, message }. kind: validation, open, counter_busy, inactive, standard, unavailable, forbidden, auth, notfound, network, server. */
 export function startErrorResult(err) {
   const status = err?.status;
   const code = err?.code;
+  // CC044: the server found the picked record expired or gone; the user adds a reason and starts again.
+  if (status === 400 && err.code === 'REGISTRY_REASON_REQUIRED') {
+    return { kind: 'registry_reason', fieldErrors: { registry_miss_reason: err.details?.registry_miss_reason ?? err.message }, message: null, registryStatus: err.details?.registry_status ?? null };
+  }
+  if (status === 400 && err.code === 'CLIENT_TYPE_NOT_ALLOWED') return { kind: 'validation', fieldErrors: { client_type: MESSAGES.clientTypeNotAllowed }, message: null };
+  if (status === 503 && err.code === 'REGISTRY_UNAVAILABLE') return { kind: 'registry_unavailable', fieldErrors: { registry: err.message }, message: err.message };
   if (status === 400 && err.details && typeof err.details === 'object') {
     const fieldErrors = {};
     for (const [field, text] of Object.entries(err.details)) if (FIELD_OF[field] && typeof text === 'string') fieldErrors[FIELD_OF[field]] = text;

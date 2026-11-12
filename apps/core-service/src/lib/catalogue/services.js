@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ROLES, Errors, assertOfficeAccess, isOfficeBound, isUniqueViolation, isUuid, recordAudit } from 'ccms-shared';
+import { CLIENT_TYPE_LIST, ROLES, Errors, assertOfficeAccess, isOfficeBound, isUniqueViolation, isUuid, recordAudit } from 'ccms-shared';
 import {
   CLASSIFICATIONS,
   CODE_TAKEN,
@@ -25,7 +25,7 @@ import { allocateServiceCode } from './service-codes.js';
 const SERVICE_SELECT = `
   SELECT s.service_id, s.office_id, o.office_code, o.office_name, s.service_code, s.service_name,
          s.classification, s.service_scope, s.transaction_types, s.measurement_type, s.processing_steps, s.fees,
-         s.who_may_avail, s.is_active,
+         s.who_may_avail, s.allowed_client_types, s.is_active,
          s.created_at, s.updated_at,
          cs.standard_id AS cs_standard_id, cs.version_no AS cs_version_no,
          cs.duration_days AS cs_duration_days, cs.duration_hours AS cs_duration_hours,
@@ -53,6 +53,8 @@ export function toServiceDto(row) {
     processing_steps: row.processing_steps ?? null,
     fees: row.fees ?? null,
     who_may_avail: row.who_may_avail ?? null,
+    // CC047: who may avail, in canonical order. The authenticated catalogue only; the public view does not carry it.
+    allowed_client_types: row.allowed_client_types ?? [...CLIENT_TYPE_LIST],
     is_active: row.is_active,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -166,6 +168,7 @@ export async function createService(dataSource, actor, body, { ipAddress, truste
         processingSteps: fields.processingSteps ?? null,
         fees: fields.fees ?? null,
         whoMayAvail: fields.whoMayAvail ?? null,
+        allowedClientTypes: fields.allowedClientTypes ?? [...CLIENT_TYPE_LIST],
         isActive: true,
       });
       const created = await loadServiceDto(manager, serviceId);
@@ -206,6 +209,7 @@ export async function updateService(dataSource, actor, id, body, { ipAddress, tr
       const processingSteps = fields.processingSteps === undefined ? before.processing_steps : fields.processingSteps;
       const fees = fields.fees === undefined ? before.fees : fields.fees;
       const whoMayAvail = fields.whoMayAvail === undefined ? before.who_may_avail : fields.whoMayAvail;
+      const allowedClientTypes = fields.allowedClientTypes === undefined ? before.allowed_client_types : fields.allowedClientTypes;
 
       const unchanged =
         office.office_id === before.office_id &&
@@ -217,7 +221,9 @@ export async function updateService(dataSource, actor, id, body, { ipAddress, tr
         fields.transactionTypes.every((type, index) => type === before.transaction_types[index]) &&
         processingSteps === before.processing_steps &&
         fees === before.fees &&
-        whoMayAvail === before.who_may_avail;
+        whoMayAvail === before.who_may_avail &&
+        allowedClientTypes.length === before.allowed_client_types.length &&
+        allowedClientTypes.every((type, index) => type === before.allowed_client_types[index]);
       if (unchanged) return before;
 
       await assertUnique(manager, { officeId: office.office_id, serviceCode, serviceNameKey }, id);
@@ -234,6 +240,7 @@ export async function updateService(dataSource, actor, id, body, { ipAddress, tr
           processingSteps,
           fees,
           whoMayAvail,
+          allowedClientTypes,
         },
       );
       const after = await loadServiceDto(manager, id);

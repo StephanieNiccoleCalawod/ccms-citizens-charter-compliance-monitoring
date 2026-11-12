@@ -8,6 +8,8 @@ const FIELD_BY_TYPE = Object.freeze({
 const FIXED_NAMES = Object.freeze({
   working_hours: 'Campus working hours', transaction_settings: 'Transaction settings',
   catalogue_settings: 'Institution and calendar settings',
+  // Sprint 6 TT1: the one summary entry per historical-records import or removal run (K16).
+  historical_import: 'Historical records import',
 });
 const ADMIN_TYPES = new Set([...Object.keys(FIELD_BY_TYPE), ...Object.keys(FIXED_NAMES), 'servicestandard', 'service_standard']);
 export const isSafeAuditText = (value) => typeof value === 'string' && value.trim().length > 0

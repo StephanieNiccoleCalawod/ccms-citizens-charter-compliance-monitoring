@@ -19,11 +19,18 @@ import { getServiceDetail, getServiceStandard, listOpenTransactions, listSelecta
 import { BACKDATE_MESSAGES, BACKDATE_REASON_MAX, EMPTY_PAST, backdateErrors, isAmbiguousWrite, manilaDateOf, pastStandardMessage, withBackdate } from '../../lib/ui/backdate.js';
 import { COMPLIANCE_LABELS, complianceState, describeElapsed, describeVariance } from '../../lib/ui/complete-transaction.js';
 import StatusBadge from '../ui/StatusBadge.js';
+import RegistryPicker from './RegistryPicker.js';
 import { formatDate, formatDateTime } from '../../lib/ui/date-format.js';
 import { officeName } from '../../lib/ui/names.js';
 import {
-  CLIENT_TYPES,
   EMAIL_MAX,
+  EMPTY_REGISTRY,
+  REGISTRY_STATUS_LABELS,
+  allowedClientTypeOptions,
+  registryBody,
+  registryErrors,
+  registryReasonLabel,
+  usesRegistry,
   EMPTY_START_FORM,
   REFERENCE_MAX,
   allConfirmed,
@@ -39,8 +46,8 @@ import {
 } from '../../lib/ui/start-transaction.js';
 
 // The element to focus for each field error, so a keyboard or screen-reader user lands on the first problem.
-const FIELD_ID = { started_at: 'start-past-start', ended_at: 'start-past-end', backdate_reason: 'start-past-reason', service: 'start-service', client_type: 'start-client-type', client_reference: 'start-reference', client_email: 'start-email', counter: 'start-counter', requirements: 'start-requirements' };
-const FIELD_ORDER = ['service', 'standard', 'started_at', 'ended_at', 'backdate_reason', 'client_type', 'client_reference', 'client_email', 'requirements', 'counter'];
+const FIELD_ID = { started_at: 'start-past-start', ended_at: 'start-past-end', backdate_reason: 'start-past-reason', service: 'start-service', client_type: 'start-client-type', registry: 'start-registry', registry_miss_reason: 'start-registry-reason', registry_miss_note: 'start-registry-note', client_reference: 'start-reference', client_email: 'start-email', counter: 'start-counter', requirements: 'start-requirements' };
+const FIELD_ORDER = ['service', 'standard', 'started_at', 'ended_at', 'backdate_reason', 'client_type', 'registry', 'registry_miss_reason', 'registry_miss_note', 'client_reference', 'client_email', 'requirements', 'counter'];
 
 // A titled block of the form: a card on the page, and in the modal a plain block with a thin divider (no card borders), like the
 // other CCMS modal forms.
@@ -70,6 +77,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
   const [services, setServices] = useState({ loading: true, items: [], error: null });
   const [settings, setSettings] = useState({ loaded: false, countersEnabled: false, error: null });
   const [form, setForm] = useState({ ...EMPTY_START_FORM });
+  const [registry, setRegistry] = useState({ ...EMPTY_REGISTRY }); // CC044: cleared whenever the service or client type changes
   const [standard, setStandard] = useState({ state: 'idle', data: null, kind: null, message: null }); // idle | loading | ready | blocked
   const [documents, setDocuments] = useState({ state: 'idle', items: [], message: null }); // idle | loading | ready | failed
   const [checks, setChecks] = useState({});
@@ -142,7 +150,9 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     setBanner(null);
     setFieldErrors({});
     setChecks({});
-    setForm((f) => ({ ...f, service_id: serviceId, counter_id: '' }));
+    // CC047/CC044: a new service may allow other client types, so the client type and the registry choice start over.
+    setForm((f) => ({ ...f, service_id: serviceId, counter_id: '', client_type: '' }));
+    setRegistry({ ...EMPTY_REGISTRY });
     const service = services.items.find((s) => s.service_id === serviceId);
     if (!service) {
       latestService.current += 1;
@@ -159,6 +169,18 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     setForm((f) => ({ ...f, [name]: e.target.value }));
     setFieldErrors((errors) => ({ ...errors, [name]: undefined }));
   };
+
+  // CC044: a new client type means a new registry choice (Student and Alumni search different lists).
+  function chooseClientType(e) {
+    setForm((f) => ({ ...f, client_type: e.target.value }));
+    setRegistry({ ...EMPTY_REGISTRY });
+    setFieldErrors((errors) => ({ ...errors, client_type: undefined, registry: undefined, registry_miss_reason: undefined, registry_miss_note: undefined }));
+  }
+
+  function changeRegistry(next) {
+    setRegistry(next);
+    setFieldErrors((errors) => ({ ...errors, registry: undefined, registry_miss_reason: undefined, registry_miss_note: undefined }));
+  }
 
   // The standard of the day of the typed start, from Core (the date is exactly what the person typed; nothing is worked out here).
   async function loadPastStandard(serviceId, startedAt) {
@@ -216,7 +238,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
   }
 
   // What the modal needs to know: is there anything to lose, and is a request running.
-  const dirty = Boolean(form.service_id || form.client_type || form.client_reference || form.client_email || form.counter_id || past.enabled || Object.keys(checks).length);
+  const dirty = Boolean(form.service_id || form.client_type || form.client_reference || form.client_email || form.counter_id || past.enabled || Object.keys(checks).length || registry.choice !== 'none');
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
@@ -249,7 +271,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     event.preventDefault();
     if (submittingRef.current || locked || outsideDraft) return;
     setBanner(null);
-    const errors = { ...startErrors({ form, standard: past.enabled ? pastStandard.data : standard.data, items, checks, countersEnabled }), ...backdateErrors(past, Date.now()) };
+    const errors = { ...startErrors({ form, standard: past.enabled ? pastStandard.data : standard.data, items, checks, countersEnabled }), ...registryErrors(form.client_type, registry), ...backdateErrors(past, Date.now()) };
     if (past.enabled && errors.started_at) delete errors.standard; // the missing start is the real reason; say that one
     setFieldErrors(errors);
     if (Object.keys(errors).length) {
@@ -257,7 +279,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
       notify.error(saveFailureMessage({ status: 400, details: errors }));
       return;
     }
-    await sendStart(withBackdate(buildStartBody({ form, countersEnabled }), past));
+    await sendStart(withBackdate({ ...buildStartBody({ form, countersEnabled }), ...registryBody(form.client_type, registry) }, past));
   }
 
   async function sendStart(body) {
@@ -279,6 +301,8 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
       }
       setOutsideDraft(null);
       const { kind, fieldErrors: fields, message: baseMessage } = startErrorResult(err);
+      // CC044: the picked record expired or left the registry since the search: ask for the reason, keep everything else.
+      if (kind === 'registry_reason') setRegistry((r) => ({ ...r, serverNeedsReason: true }));
       const message = past.enabled && kind === 'standard' ? pastStandardMessage(err) ?? baseMessage : baseMessage;
       if (past.enabled && isAmbiguousWrite(err)) setLock({ checked: false, state: 'idle', records: [] });
       setFieldErrors(fields);
@@ -303,6 +327,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     latestService.current += 1;
     setResult(null);
     setForm({ ...EMPTY_START_FORM });
+    setRegistry({ ...EMPTY_REGISTRY });
     setChecks({});
     setFieldErrors({});
     setBanner(null);
@@ -358,6 +383,15 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
                 <dd className="text-sm text-slate-800" data-testid="backdated">Yes{result.backdate_reason ? <span className="block whitespace-pre-line text-xs text-slate-600" data-testid="backdate-reason">{result.backdate_reason}</span> : null}</dd>
               </div>
             ) : null}
+            {result.registry_status && result.registry_status !== 'NONE' ? (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Registry</dt>
+                <dd className="text-sm text-slate-800" data-testid="registry-status">
+                  {REGISTRY_STATUS_LABELS[result.registry_status] ?? result.registry_status}
+                  {result.registry_miss_reason ? <span className="block text-xs text-slate-600">{registryReasonLabel(result.registry_miss_reason)}</span> : null}
+                </dd>
+              </div>
+            ) : null}
             {result.started_outside_hours === true ? (
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Started outside working hours</dt>
@@ -387,6 +421,11 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
               Start another transaction
             </button>
             {result.transaction_id ? (
+              <Link href={`/transactions/${result.transaction_id}/acknowledgement`} className="btn-secondary" data-testid="acknowledgement-link">
+                Print acknowledgement
+              </Link>
+            ) : null}
+            {result.transaction_id ? (
               <Link href={`/transactions/${result.transaction_id}`} className="btn-secondary">
                 View transaction
               </Link>
@@ -398,6 +437,8 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
   }
 
   const std = standard.data;
+  // CC047: only the client types the service allows (Core's answer for the start date, else the catalogue row).
+  const clientTypeOptions = allowedClientTypeOptions(past.enabled ? pastStandard.data ?? std : std, selected);
   return (
     <form className={embedded ? 'flex min-h-0 flex-1 flex-col' : 'space-y-4'} noValidate onSubmit={submit} aria-label="Start a transaction">
       {/* In the modal this is the only part that scrolls; the actions below stay put in their own footer. */}
@@ -616,16 +657,21 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
         <div className="grid max-w-md gap-4">
           <div>
             <label className="label" htmlFor="start-client-type">Client type<RequiredMark /></label>
-            <select id="start-client-type" className="input select-chevron" value={form.client_type} onChange={set('client_type')} required aria-invalid={fieldErrors.client_type ? true : undefined} aria-describedby={fieldErrors.client_type ? 'start-client-type-error' : undefined}>
-              <option value="">Select a client type</option>
-              {CLIENT_TYPES.map((t) => (
+            <select id="start-client-type" className="input select-chevron" value={form.client_type} onChange={chooseClientType} required disabled={!form.service_id} aria-invalid={fieldErrors.client_type ? true : undefined} aria-describedby={fieldErrors.client_type ? 'start-client-type-error' : undefined}>
+              <option value="">{form.service_id ? 'Select a client type' : 'Choose a service first'}</option>
+              {clientTypeOptions.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
+            {form.service_id && clientTypeOptions.length < 4 && clientTypeOptions.length > 0 ? <p className="mt-1 text-xs text-slate-500">This service is for {clientTypeOptions.map((t) => t.label).join(', ')} clients only.</p> : null}
             <FieldError id="start-client-type-error">{fieldErrors.client_type}</FieldError>
           </div>
+          {usesRegistry(form.client_type) ? (
+            <RegistryPicker key={`${form.service_id}|${form.client_type}`} clientType={form.client_type} value={registry} onChange={changeRegistry} errors={fieldErrors} disabled={submitting} />
+          ) : null}
           <div>
             <label className="label" htmlFor="start-email">Client email (optional)</label>
+            {registry.choice === 'match' && !registry.record?.is_expired ? <p className="mb-1 text-xs text-slate-500">Leave it empty to use the email in the registry, if it has one.</p> : null}
             <input id="start-email" type="email" className="input" value={form.client_email} onChange={set('client_email')} maxLength={EMAIL_MAX} autoComplete="off" aria-invalid={fieldErrors.client_email ? true : undefined} aria-describedby={fieldErrors.client_email ? 'start-email-error' : undefined} />
             <FieldError id="start-email-error">{fieldErrors.client_email}</FieldError>
           </div>

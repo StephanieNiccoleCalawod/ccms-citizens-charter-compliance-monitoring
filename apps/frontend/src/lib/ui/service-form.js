@@ -35,6 +35,8 @@ export const EMPTY_SERVICE_FORM = {
   procedure_steps: [],
   fees: '',
   who_may_avail: '',
+  // CC047: who may start this service; at least one. New services allow all four.
+  allowed_client_types: ['STUDENT', 'ALUMNI', 'EMPLOYEE', 'EXTERNAL'],
   duration_days: '0',
   duration_hours: '0',
   duration_minutes: '0',
@@ -56,7 +58,22 @@ export function serviceToForm(service) {
     ...procedureFields(service.processing_steps),
     fees: service.fees ?? '',
     who_may_avail: service.who_may_avail ?? '',
+    // An older Core without the field: all four (what it enforces). Kept as stored otherwise.
+    allowed_client_types: Array.isArray(service.allowed_client_types) ? [...service.allowed_client_types] : [...EMPTY_SERVICE_FORM.allowed_client_types],
   };
+}
+
+/** CC047: the client-type checkboxes, in the canonical order. */
+export const ALLOWED_CLIENT_TYPE_OPTIONS = [
+  { value: 'STUDENT', label: 'Student' },
+  { value: 'ALUMNI', label: 'Alumni' },
+  { value: 'EMPLOYEE', label: 'Employee' },
+  { value: 'EXTERNAL', label: 'External' },
+];
+/** Toggles one type, keeping the canonical order. */
+export function toggleClientType(list, value) {
+  const next = list.includes(value) ? list.filter((t) => t !== value) : [...list, value];
+  return ALLOWED_CLIENT_TYPE_OPTIONS.map((t) => t.value).filter((t) => next.includes(t));
 }
 
 // ---- Required documents on the Add Service form ----
@@ -99,6 +116,7 @@ export function formToBody(form, isNew) {
     processing_steps: procedureForBody(form),
     fees: blank(form.fees) ? null : form.fees,
     who_may_avail: blank(form.who_may_avail) ? null : form.who_may_avail,
+    allowed_client_types: [...form.allowed_client_types],
   };
   if (isNew) {
     body.service_abbr = form.service_abbr.trim().toUpperCase();
@@ -160,6 +178,7 @@ export function validateServiceForm(form, isNew) {
   if (form.transaction_types.length === 0) errors.transaction_types = 'Select at least one transaction type.';
   if (form.fees.length > FEES_MAX) errors.fees = `Fees must be ${FEES_MAX} characters or fewer.`;
   if (form.who_may_avail.length > WHO_MAY_AVAIL_MAX) errors.who_may_avail = `Who may avail must be ${WHO_MAY_AVAIL_MAX} characters or fewer.`;
+  if (!Array.isArray(form.allowed_client_types) || form.allowed_client_types.length === 0) errors.allowed_client_types = 'Select at least one client type.';
   const procedure = procedureProblem(form);
   if (procedure) errors.processing_steps = procedure;
   if (isNew) {
@@ -202,7 +221,7 @@ export function mapServiceErrors(details, shownFields, { isNew = false } = {}) {
 
 export const SERVICE_FORM_FIELDS = [
   'office_id', 'service_abbr', 'service_name', 'classification', 'service_scope', 'transaction_types', 'processing_steps',
-  'fees', 'who_may_avail', 'documents', 'duration_days', 'duration_hours', 'duration_minutes', 'duration', 'effective_from', 'charter_reference',
+  'fees', 'who_may_avail', 'allowed_client_types', 'documents', 'duration_days', 'duration_hours', 'duration_minutes', 'duration', 'effective_from', 'charter_reference',
 ];
 
 // ---- Service code built by the system (CC007) ----

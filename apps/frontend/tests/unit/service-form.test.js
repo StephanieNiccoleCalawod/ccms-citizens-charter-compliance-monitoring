@@ -66,6 +66,8 @@ describe('edit request', () => {
       processing_steps: null,
       fees: 'PHP 100',
       who_may_avail: 'Line one\n\nLine three',
+      // CC047: a service read from a Core without the field allows all four types, and saving keeps that.
+      allowed_client_types: ['STUDENT', 'ALUMNI', 'EMPLOYEE', 'EXTERNAL'],
     });
   });
   it('never sends the service code or the abbreviation, so a moved service keeps its code', () => {

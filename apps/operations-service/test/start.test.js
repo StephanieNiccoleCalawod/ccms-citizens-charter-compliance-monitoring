@@ -8,7 +8,7 @@ import { GET as getTransactionRoute } from '../src/app/api/transactions/[id]/rou
 import { POST as startRoute } from '../src/app/api/transactions/route.js';
 import { createCoreClient } from '../src/modules/transaction/core-client.js';
 import { startTransaction } from '../src/modules/transaction/start.js';
-import { OFFICE_A, OFFICE_B, SERVICE_A, SERVICE_B, USERS, call, ctx, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
+import { NOT_IN_REGISTRY, OFFICE_A, OFFICE_B, SERVICE_A, SERVICE_B, USERS, call, ctx, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
 
 let env;
 before(async () => {
@@ -21,7 +21,7 @@ beforeEach(async () => {
   await resetData(env.ds);
 });
 
-const body = (over = {}) => ({ service_id: SERVICE_A, client_type: 'STUDENT', client_reference: '2023-00123-QC-0', client_email: 'juan@example.com', requirements_confirmed: true, ...over });
+const body = (over = {}) => ({ service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, client_reference: '2023-00123-QC-0', client_email: 'juan@example.com', requirements_confirmed: true, ...over });
 const start = (over = {}, token = tokens.officeStaffA) => call(startRoute, req('POST', '/transactions', { token, body: body(over) }));
 const rowCount = async () => (await env.ds.query('SELECT count(*)::int AS n FROM transactions'))[0].n;
 const lastSeq = async () => (await env.ds.query('SELECT coalesce(max(last_seq), 0)::int AS n FROM tracking_sequences'))[0].n;
@@ -111,7 +111,7 @@ describe('CC021 start with the standard snapshot', () => {
     assert.equal(long.status, 400);
     assert.ok(long.body.error.details.client_reference);
     assert.equal(await rowCount(), 0);
-    const bare = await start({ client_reference: undefined, client_email: undefined, client_type: 'EXTERNAL' });
+    const bare = await start({ client_reference: undefined, client_email: undefined, client_type: 'EXTERNAL', registry_not_found: undefined, registry_miss_reason: undefined });
     assert.equal(bare.status, 201);
     assert.equal(bare.body.client_email, null);
     assert.equal(bare.body.client_reference, null);

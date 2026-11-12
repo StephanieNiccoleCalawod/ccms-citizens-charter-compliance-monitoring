@@ -57,14 +57,22 @@ after(async () => {
   await ovs?.drop();
 });
 beforeEach(async () => {
-  for (const table of ['analytics_outbox', 'audit_outbox', 'transactions', 'tracking_sequences']) await ops.dataSource.query(`DELETE FROM ${table}`);
+  for (const table of ['analytics_outbox', 'audit_outbox', 'transaction_emails', 'transactions', 'tracking_sequences']) await ops.dataSource.query(`DELETE FROM ${table}`);
   await ops.dataSource.query('UPDATE transaction_settings SET hold_enabled = true');
   await ovs.dataSource.query('DELETE FROM analytics_transactions');
   await ovs.dataSource.query('DELETE FROM analytics_backfill_state');
 });
 
 const deps = (iso) => ({ core: createCoreClient({ baseUrl: `${core.url}/api`, serviceKey: SERVICE_KEY }), identity: null, now: () => new Date(iso) });
-const body = { service_id: SERVICE, client_type: 'STUDENT', client_reference: '2023-00001-CM-0', client_email: 'e2e@example.test', requirements_confirmed: true };
+const body = {
+  service_id: SERVICE,
+  client_type: 'STUDENT',
+  client_reference: '2023-00001-CM-0',
+  client_email: 'e2e@example.test',
+  requirements_confirmed: true,
+  registry_not_found: true,
+  registry_miss_reason: 'NEW_ENROLLEE',
+};
 // Delivery goes straight to the real Oversight route handler (service key in the request, as in production).
 const toOversight = (url, init) => ingestRoute(new Request(url, init));
 const deliver = () => dispatchAnalyticsOutbox(ops.dataSource, { oversightUrl: 'http://oversight.test', serviceKey: SERVICE_KEY, fetchImpl: toOversight });

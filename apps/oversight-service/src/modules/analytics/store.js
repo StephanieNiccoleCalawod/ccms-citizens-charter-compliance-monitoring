@@ -1,4 +1,5 @@
 import { isSeededTrackingNo, latestSnapshotPerTransaction } from 'ccms-shared';
+import { SEED_PURGE_LOCK } from '../../../migrations/1794528400000-Tt1AnalyticsTombstones.js';
 
 // TT2: the one write path into analytics_transactions, used by the live ingest (POST /api/analytics-events) and by the
 // backfill. Input snapshots are already validated by the shared contract.
@@ -49,6 +50,8 @@ const UPSERT_SQL = `
   INSERT INTO analytics_transactions (${NAMES.join(', ')}, received_at)
   SELECT ${NAMES.map((n) => `x.${n}`).join(', ')}, now()
     FROM jsonb_to_recordset($1::jsonb) AS x(${COLUMNS.map(([n, t]) => `${n} ${t}`).join(', ')})
+   -- Sprint 6 TT1: a removed seeded row is never restored by a late or replayed event or a backfill page.
+   WHERE NOT EXISTS (SELECT 1 FROM analytics_tombstones t WHERE t.transaction_id = x.transaction_id)
    ORDER BY x.transaction_id
   ON CONFLICT (transaction_id) DO UPDATE
      SET ${UPDATABLE.map((n) => `${n} = EXCLUDED.${n}`).join(', ')}, received_at = now()
@@ -58,15 +61,24 @@ const UPSERT_SQL = `
 const rowsOf = (result) => (Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result);
 
 /**
- * Applies validated snapshots with `manager` (a DataSource or an open transaction's manager): one statement, atomic.
+ * Applies validated snapshots with `manager` (a DataSource or an open transaction's manager): one upsert, atomic.
  * Returns { applied, ignored } where ignored counts snapshots that were not stored (same or older version than the
- * stored row, or a lower version of a transaction that appears again in the same batch).
+ * stored row, a lower version of a transaction that appears again in the same batch, or a tombstoned seeded row).
+ *
+ * Sprint 6 TT1: a batch containing a seeded row first takes SEED_PURGE_LOCK in shared mode, inside a database
+ * transaction, so it never overlaps purge_seeded_analytics() (exclusive). The upsert, and its tombstone check, then run in
+ * a later statement whose snapshot includes any purge that committed while this batch waited.
  */
 export async function applyAnalyticsSnapshots(manager, snapshots) {
   if (!snapshots.length) return { applied: 0, ignored: 0 };
   const { latest, superseded } = latestSnapshotPerTransaction(snapshots);
   const records = latest.map((snapshot) => ({ ...pick(snapshot), is_seeded: isSeededTrackingNo(snapshot.tracking_no) }));
-  const written = rowsOf(await manager.query(UPSERT_SQL, [JSON.stringify(records)]));
+  const write = async (m) => {
+    if (records.some((r) => r.is_seeded)) await m.query('SELECT pg_advisory_xact_lock_shared($1, $2)', SEED_PURGE_LOCK);
+    return rowsOf(await m.query(UPSERT_SQL, [JSON.stringify(records)]));
+  };
+  // A transaction-scoped lock needs a transaction: open one when the caller did not.
+  const written = manager.queryRunner?.isTransactionActive ? await write(manager) : await manager.transaction(write);
   return { applied: written.length, ignored: superseded + (latest.length - written.length) };
 }
 

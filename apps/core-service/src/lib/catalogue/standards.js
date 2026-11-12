@@ -185,7 +185,7 @@ export async function listStandards(dataSource, user, serviceId) {
 export async function getStandardAsOf(dataSource, serviceId, asOf, viewer = null) {
   const rows = await dataSource.query(
     `SELECT s.service_id, s.office_id, o.office_code, o.office_name, s.service_code, s.service_name,
-            s.classification, s.is_active,
+            s.classification, s.is_active, s.allowed_client_types,
             st.standard_id, st.duration_days, st.duration_hours, st.duration_minutes
        FROM services s
        JOIN offices o ON o.office_id = s.office_id
@@ -214,5 +214,7 @@ export async function getStandardAsOf(dataSource, serviceId, asOf, viewer = null
     office_code: row.office_code,
     office_name: row.office_name,
     classification: row.classification,
+    // CC047: Operations refuses a Start for any other client type (400) using this authoritative list.
+    allowed_client_types: row.allowed_client_types,
   };
 }

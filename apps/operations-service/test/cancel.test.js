@@ -5,7 +5,7 @@ import { runBoundarySuite } from 'ccms-shared/testing';
 import { POST as cancelRoute } from '../src/app/api/transactions/[id]/cancel/route.js';
 import { POST as completeRoute } from '../src/app/api/transactions/[id]/complete/route.js';
 import { POST as startRoute } from '../src/app/api/transactions/route.js';
-import { OFFICE_A, SERVICE_A, USERS, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
+import { NOT_IN_REGISTRY, OFFICE_A, SERVICE_A, USERS, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
 
 let env;
 before(async () => {
@@ -91,12 +91,12 @@ describe('CC025 cancel', () => {
   });
 
   it('cancelling frees the staff\'s open slot', async () => {
-    const started = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', requirements_confirmed: true } }));
+    const started = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, requirements_confirmed: true } }));
     assert.equal(started.status, 201);
-    const blocked = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', requirements_confirmed: true } }));
+    const blocked = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, requirements_confirmed: true } }));
     assert.equal(blocked.status, 409);
     assert.equal((await cancel(started.body.transaction_id)).status, 200);
-    const again = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', requirements_confirmed: true } }));
+    const again = await call(startRoute, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, requirements_confirmed: true } }));
     assert.equal(again.status, 201);
   });
 

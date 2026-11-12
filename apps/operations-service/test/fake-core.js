@@ -126,6 +126,8 @@ export async function startFakeCore({ serviceKey = 'test-service-key-0123456789'
         office_code: service.office_code,
         office_name: state.offices.get(service.office_id)?.office_name ?? service.office_name,
         classification: service.classification,
+        // CC047: only sent when the test sets it, so the default stays an "older Core" without the field.
+        ...(Object.hasOwn(service, 'allowed_client_types') ? { allowed_client_types: service.allowed_client_types } : {}),
       });
     }
     if (req.method === 'GET' && url.pathname === '/api/is-working-day') {

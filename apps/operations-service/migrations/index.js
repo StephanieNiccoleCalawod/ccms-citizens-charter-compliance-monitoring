@@ -7,12 +7,15 @@ import { Cc051OutsideHours1794300200000 } from './1794300200000-Cc051OutsideHour
 import { Cc038ForecastRuns1794300300000 } from './1794300300000-Cc038ForecastRuns.js';
 import { Tt2AnalyticsOutbox1794355200000 } from './1794355200000-Tt2AnalyticsOutbox.js';
 import { Cc043Registry1794441600000 } from './1794441600000-Cc043Registry.js';
+import { Cc044RegistryAtStart1794528100000 } from './1794528100000-Cc044RegistryAtStart.js';
+import { Cc049TransactionEmails1794528200000 } from './1794528200000-Cc049TransactionEmails.js';
+import { Tt1SeedProvenance1794528300000 } from './1794528300000-Tt1SeedProvenance.js';
 
 // Ordered migrations. Naming: <13-digit epoch ms>-<Name>.js exporting class <Name><timestamp>. Append only: never edit
 // or reorder a migration that may have run on the hosted database; add a new one instead.
 export const migrations = [OperationsBaseline1793491200000, Cc050TransactionOutcome1794182400000, Cc046StartedByPosition1794225600000,
   Cc046StarterName1794300100000, Cc051OutsideHours1794300200000, Cc038ForecastRuns1794300300000, Tt2AnalyticsOutbox1794355200000,
-  Cc043Registry1794441600000];
+  Cc043Registry1794441600000, Cc044RegistryAtStart1794528100000, Cc049TransactionEmails1794528200000, Tt1SeedProvenance1794528300000];
 
 export const baseline = {
   allowedExtras: { ...JSON.parse(readFileSync(new URL('./integration-schema.json', import.meta.url), 'utf8')),

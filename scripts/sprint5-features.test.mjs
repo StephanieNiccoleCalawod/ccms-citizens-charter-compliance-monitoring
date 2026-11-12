@@ -70,7 +70,9 @@ describe('CC043 registry API with the numbered Operations migrations', () => {
   let staffToken;
   let executiveToken;
   before(async () => {
-    db = await database(operationsEntities, operationsMigrations);
+    const registryIndex = operationsMigrations.findIndex(({ name }) => name === 'Cc043Registry1794441600000');
+    assert.notEqual(registryIndex, -1, 'CC043 migration is registered');
+    db = await database(operationsEntities, operationsMigrations.slice(0, registryIndex + 1));
     await db.runMigrations(migrateOptions);
     setDataSource(db);
     const keys = await createTestKeys();
@@ -239,8 +241,8 @@ test('CC051 KPI counts use Manila start dates and enforce office scope', async (
     { office_id: office, started_at: '2026-10-06T16:00:00Z', started_outside_hours: true },
     { office_id: other, started_at: '2026-10-06T07:00:00Z', started_outside_hours: true },
   ];
-  const { totals } = computeKpis(rows, { officeId: office, from: '2026-10-06', to: '2026-10-06' });
-  assert.deepEqual(totals, { received: 2, backdated: 1, started_outside_hours: 1 });
+  const { totals: { received, backdated, started_outside_hours } } = computeKpis(rows, { officeId: office, from: '2026-10-06', to: '2026-10-06' });
+  assert.deepEqual({ received, backdated, started_outside_hours }, { received: 2, backdated: 1, started_outside_hours: 1 });
   await assert.rejects(
     getStartKpis({ query: () => assert.fail('Cross-office reads must stop before querying') },
       { role: ROLES.OFFICE_HEAD, officeId: office }, new URLSearchParams({ office_id: other })),

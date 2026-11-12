@@ -39,7 +39,7 @@ describe('the password field (source checks, not a browser)', () => {
   const page = read('src/app/accounts/page.js');
   it('the eye button is a real button that only switches the input type, with a label that changes', () => {
     assert.ok(field.includes('type={visible ? \'text\' : \'password\'}'));
-    assert.ok(field.includes('<button\n          type="button"'));
+    assert.match(field, /<button\r?\n {10}type="button"/);
     assert.ok(field.includes("aria-label={visible ? 'Hide password' : 'Show password'}"));
     assert.ok(field.includes('aria-pressed={visible}') && field.includes('aria-controls={id}'));
     assert.ok(field.includes('<EyeIcon off={visible} />'));

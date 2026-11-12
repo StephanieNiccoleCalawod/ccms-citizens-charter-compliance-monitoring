@@ -24,6 +24,7 @@
     "check:time": "ccms-check-time src scripts",
     "test": "node --test \"test/**/*.test.js\"",
     "db:sync": "node --env-file-if-exists=.env.local scripts/sync-db.js",
+    "seed:transactions": "node --env-file-if-exists=.env.local scripts/seed-transactions.js",
     "ci": "npm run lint && npm run check:time && npm test && npm run build"
   },
   "dependencies": {
