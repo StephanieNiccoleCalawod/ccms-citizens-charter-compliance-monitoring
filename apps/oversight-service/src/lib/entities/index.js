@@ -124,4 +124,33 @@ export const Complaint = new EntitySchema({
   uniques: [{ name: 'complaints_reference_uq', columns: ['reference'] }],
 });
 
-export const entities = [AuditLog, AnalyticsTransaction, AnalyticsBackfillState, AnalyticsTombstone, Complaint, RateLimitHit];
+
+// Sprint 7 CC029/CC030/CC031: an office's accomplishment report for a period. figures is the KPI module's answer for the office
+// (total plus one entry per service, with service and office names kept as they were when generated); once PUBLISHED it is frozen.
+// The CHECK, the partial unique indexes and the grants are created in after-sync / migrations/1794700000000-Cc029Reports.js.
+// No foreign keys: every ID belongs to another service, or points at another version of the same report.
+export const Report = new EntitySchema({
+  name: 'Report',
+  tableName: 'reports',
+  columns: {
+    reportId: { name: 'report_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'reports_pkey' },
+    officeId: { name: 'office_id', type: 'uuid' },
+    officeName: { name: 'office_name', type: 'varchar', length: 200, nullable: true },
+    periodType: { name: 'period_type', type: 'varchar', length: 12 },
+    periodFrom: { name: 'period_from', type: 'date' },
+    periodTo: { name: 'period_to', type: 'date' },
+    version: { type: 'int' },
+    status: { type: 'varchar', length: 12 },
+    figures: { type: 'jsonb' },
+    generatedBy: { name: 'generated_by', type: 'uuid' },
+    generatedAt: { name: 'generated_at', type: 'timestamptz', default: () => 'now()' },
+    publishedBy: { name: 'published_by', type: 'uuid', nullable: true },
+    publishedByName: { name: 'published_by_name', type: 'varchar', length: 200, nullable: true },
+    publishedAt: { name: 'published_at', type: 'timestamptz', nullable: true },
+    supersedeReason: { name: 'supersede_reason', type: 'varchar', length: 500, nullable: true },
+    supersedesReportId: { name: 'supersedes_report_id', type: 'uuid', nullable: true },
+  },
+});
+
+
+export const entities = [AuditLog, AnalyticsTransaction, AnalyticsBackfillState, AnalyticsTombstone, Complaint, RateLimitHit, Report];

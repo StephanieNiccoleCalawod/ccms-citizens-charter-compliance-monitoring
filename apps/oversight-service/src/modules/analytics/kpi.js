@@ -173,17 +173,11 @@ export function assertKpiScope(actor, { officeId, groupBy }) {
   if (isOfficeBound(actor.role)) assertOfficeAccess(actor, officeId);
 }
 
-export async function getKpis(dataSource, actor, query, now = new Date()) {
-  const get = (name) => (typeof query?.get === 'function' ? query.get(name) : query?.[name]) || undefined;
-  const officeId = get('office_id') || get('officeId') || officeFilter(actor);
-  const serviceId = get('service_id') || get('serviceId') || null;
-  const groupBy = get('group_by') ?? get('groupBy') ?? 'total';
-  if (officeId && !isUuid(officeId)) throw Errors.validation('Choose a valid office.');
-  if (serviceId && !isUuid(serviceId)) throw Errors.validation('Choose a valid service.');
-  if (!GROUP_BY.includes(groupBy)) throw Errors.validation('Group the figures by total, office, service, or staff.');
-  assertKpiScope(actor, { officeId, groupBy });
-  const period = resolvePeriod(query, now);
-
+/**
+ * The SQL and the figures, with no permission check (the caller has already decided who may ask). Shared by getKpis and the report
+ * module, so a report figure is the KPI figure. `period` is { from, to } as resolvePeriod returns it.
+ */
+export async function loadKpis(dataSource, { officeId = null, serviceId = null, groupBy = 'total', period, now = new Date() }) {
   const rows = await dataSource.query(
     // Started in the period, completed in it, or open now; computeKpis sorts them out.
     `SELECT ${COLUMNS}
@@ -199,7 +193,20 @@ export async function getKpis(dataSource, actor, query, now = new Date()) {
      ORDER BY office_id, service_id, started_at, transaction_id`,
     [period.from, period.to, officeId, serviceId],
   );
-  const figures = computeKpis(rows, { officeId, serviceId, from: period.from, to: period.to, groupBy, now });
+  return computeKpis(rows, { officeId, serviceId, from: period.from, to: period.to, groupBy, now });
+}
+
+export async function getKpis(dataSource, actor, query, now = new Date()) {
+  const get = (name) => (typeof query?.get === 'function' ? query.get(name) : query?.[name]) || undefined;
+  const officeId = get('office_id') || get('officeId') || officeFilter(actor);
+  const serviceId = get('service_id') || get('serviceId') || null;
+  const groupBy = get('group_by') ?? get('groupBy') ?? 'total';
+  if (officeId && !isUuid(officeId)) throw Errors.validation('Choose a valid office.');
+  if (serviceId && !isUuid(serviceId)) throw Errors.validation('Choose a valid service.');
+  if (!GROUP_BY.includes(groupBy)) throw Errors.validation('Group the figures by total, office, service, or staff.');
+  assertKpiScope(actor, { officeId, groupBy });
+  const period = resolvePeriod(query, now);
+  const figures = await loadKpis(dataSource, { officeId, serviceId, groupBy, period, now });
   // Office Staff see only their own row of a per-staff table.
   if (groupBy === 'staff' && actor.role === ROLES.OFFICE_STAFF) figures.groups = figures.groups.filter((g) => g.user_id === actor.id);
   return {

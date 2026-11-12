@@ -65,6 +65,7 @@ export async function afterSync(dataSource) {
   await auditLogRules(dataSource);
   await analyticsRules(dataSource);
   await complaintRules(dataSource);
+  await reportRules(dataSource);
   // Sprint 6 TT1 (keep identical to migrations/1794528400000-Tt1AnalyticsTombstones.js).
   await dataSource.query(PURGE_FUNCTION_SQL);
 
@@ -79,6 +80,7 @@ export async function afterSync(dataSource) {
     await auditLogGrants(runner);
     await analyticsGrants(runner);
     await complaintGrants(runner);
+    await reportGrants(runner);
   } finally {
     await runner.query('SELECT pg_advisory_unlock(43436, 2)').catch(() => {});
     await runner.release();
@@ -122,6 +124,28 @@ export async function complaintGrants(dataSource) {
   await dataSource.query(`GRANT SELECT, INSERT ON complaints TO ${LOGS_WRITER_ROLE}`);
   await dataSource.query(`GRANT SELECT ON complaints TO ${OVERSIGHT_APP_ROLE}`);
   await dataSource.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON rate_limit_hits TO ${LOGS_WRITER_ROLE}`);
+}
+
+// CC029/CC030/CC031 (keep identical to migrations/sql/1794700000000-Cc029Reports.up.sql).
+async function reportRules(dataSource) {
+  await addConstraint(
+    dataSource,
+    'reports',
+    'reports_values_ck',
+    "CHECK (version >= 1 AND status IN ('DRAFT', 'PUBLISHED', 'SUPERSEDED') AND period_type IN ('weekly', 'monthly', 'half_year', 'annual', 'custom') AND period_from <= period_to AND ((status = 'DRAFT') = (published_at IS NULL)) AND (status = 'DRAFT' OR published_by IS NOT NULL))",
+  );
+  await dataSource.query("CREATE UNIQUE INDEX IF NOT EXISTS reports_one_draft_uq ON reports (office_id, period_type, period_from, period_to) WHERE status = 'DRAFT'");
+  await dataSource.query("CREATE UNIQUE INDEX IF NOT EXISTS reports_one_published_uq ON reports (office_id, period_type, period_from, period_to) WHERE status = 'PUBLISHED'");
+  await dataSource.query('CREATE UNIQUE INDEX IF NOT EXISTS reports_version_uq ON reports (office_id, period_type, period_from, period_to, version)');
+  await dataSource.query('CREATE INDEX IF NOT EXISTS reports_office_period_idx ON reports (office_id, period_from DESC)');
+}
+
+// Runtime access to reports. Runs after auditLogGrants (which first revokes everything from the runtime roles).
+//   ccms_logs_writer    SELECT, INSERT, UPDATE (generate, publish, supersede). Never DELETE.
+//   ccms_oversight_app  SELECT
+export async function reportGrants(dataSource) {
+  await dataSource.query(`GRANT SELECT, INSERT, UPDATE ON reports TO ${LOGS_WRITER_ROLE}`);
+  await dataSource.query(`GRANT SELECT ON reports TO ${OVERSIGHT_APP_ROLE}`);
 }
 
 async function auditLogRules(dataSource) {

@@ -147,3 +147,17 @@ Public, no account, no CAPTCHA. Tables `complaints` and `rate_limit_hits` (migra
 | `GET /api/complaints/status?ref=` | `{reference, status}` only. Unknown or malformed reference: the same 404 `COMPLAINT_NOT_FOUND`. Rate limited (public limits). |
 
 The gateway lets exactly these two paths through without a token (`/api/logs/complaints`, `/api/logs/complaints/status`). Name and email are stored in `complaints` only, never in the audit log. Categories (`COMPLAINT_CATEGORIES`) are PROPOSED from RA 11032 Sec. 21 plus Other and must be checked against the law and PUP's Feedback and Complaints Mechanism (CC032 AC5). Staff handling is Sprint 7.
+
+## Reports (Sprint 7 CC029 / CC030 / CC031)
+
+An office's accomplishment report for a period: `reports` table (migration `1794700000000-Cc029Reports`, run as the schema owner, with the exact grants: `ccms_logs_writer` SELECT/INSERT/UPDATE, `ccms_oversight_app` SELECT, no DELETE).
+
+| Route | Who | What |
+| --- | --- | --- |
+| `POST /api/reports` `{officeId, periodType?, from?, to?, date?}` | Super Admin (any office), Office Head (own) | Creates the draft for the office and period, or refreshes it. `periodType`: `weekly`, `monthly`, `half_year` (default), `annual`, `custom`. Figures are the KPI module's (total plus one entry per service). 409 `REPORT_ALREADY_PUBLISHED` when the period is already published. 503 `CORE_UNAVAILABLE` (nothing saved) when Core cannot give the names. |
+| `POST /api/reports/:id/publish` `{confirm: true}` | same | Freezes the draft; audit `REPORT_PUBLISHED`. A second publish is 409 `REPORT_NOT_A_DRAFT`. |
+| `POST /api/reports/:id/new-version` `{reason}` | same | A draft n+1 with fresh figures; publishing it marks n SUPERSEDED (still readable). 409 `REPORT_DRAFT_EXISTS` when one is already open. |
+| `GET /api/reports`, `GET /api/reports/:id` | Super Admin, Executive, Office Head | Super Admin: all, drafts too. Executive: published and superseded, every office, no names of people. Office Head: own office, drafts too. Office Staff: 403 until switch 4 (CC056). |
+| `GET /api/reports/:id/export.csv` | same as read | UTF-8 with BOM, one row per service plus a total row, MM/DD/YYYY. |
+
+New variable: `CORE_URL` (office and service names are kept inside the report when it is generated, so a published report never changes when something is renamed). Names are asked of Core with the caller's own token; a service Core does not list for that person (for example a switched-off one for an Office Head) shows as "Service (name not available)".
