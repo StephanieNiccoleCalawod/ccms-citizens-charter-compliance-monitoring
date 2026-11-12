@@ -2,16 +2,13 @@
 
 import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
+import KpiHome from '../../components/home/KpiHome.js';
 
-// Placeholder landing page for Office Head and Office Staff until the office screens arrive.
+// Office Home (CC036): the office's tiles for a period, the per-staff table for the Office Head, the own row for Office Staff.
 export default function OfficeHome() {
   return (
-    <AppShell title="Office Home" subtitle="Your office's work will appear here." allowedRoles={[ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]}>
-      {(user) => (
-        <div className="card p-6">
-          <p className="text-sm text-slate-700">Welcome, {user.fullName}. The office screens are coming in a later sprint.</p>
-        </div>
-      )}
+    <AppShell title="Office Home" subtitle="How your office is doing against the Citizen's Charter." allowedRoles={[ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]}>
+      {(user) => <KpiHome user={user} />}
     </AppShell>
   );
 }
