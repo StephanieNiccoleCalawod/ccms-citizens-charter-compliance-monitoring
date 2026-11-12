@@ -177,7 +177,11 @@ describe('Complaints through the routes (real database, runtime role)', () => {
     const w = roleUrl(env.url, 'ccms_logs_writer');
     const r = roleUrl(env.url, 'ccms_oversight_app');
     await assert.rejects(as(w, 'DELETE FROM complaints'), (e) => e.code === '42501');
-    await assert.rejects(as(w, `UPDATE complaints SET status = 'X'`), (e) => e.code === '42501');
+    // CC034: staff handling updates complaints, but the status rules are enforced by the database (a check constraint), and nothing is deleted.
+    const row = (await env.ds.query(`INSERT INTO complaints (complaint_id, reference, office_id, category, description, status) VALUES (gen_random_uuid(), 'CMP-20261113-GRANTS', gen_random_uuid(), 'OTHER', 'x', 'RECEIVED') RETURNING complaint_id`))[0];
+    await assert.rejects(as(w, `UPDATE complaints SET status = 'X' WHERE complaint_id = $1`, [row.complaint_id]), (e) => e.code === '23514');
+    await assert.rejects(as(w, `UPDATE complaints SET status = 'RESOLVED', resolved_at = now() WHERE complaint_id = $1`, [row.complaint_id]), (e) => e.code === '23514'); // no reply, and not acknowledged
+    await env.ds.query('DELETE FROM complaints WHERE complaint_id = $1', [row.complaint_id]);
     await assert.rejects(as(r, 'SELECT 1 FROM rate_limit_hits'), (e) => e.code === '42501');
     await assert.rejects(as(r, `INSERT INTO complaints (complaint_id, reference, office_id, category, description, status) VALUES (gen_random_uuid(), 'CMP-20261113-AAAAAA', gen_random_uuid(), 'OTHER', 'x', 'RECEIVED')`), (e) => e.code === '42501');
     assert.equal((await as(r, 'SELECT count(*)::int AS n FROM complaints')).rows[0].n, 0);

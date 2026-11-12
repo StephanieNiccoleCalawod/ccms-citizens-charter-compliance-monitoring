@@ -30,4 +30,20 @@ describe('public complaint routes', () => {
       assert.equal(staff.status, 401);
     });
   });
+
+  it('CC034: the staff list passes with a token and the token reaches Oversight, which checks it itself', async () => {
+    const before = stack.seen.logs.length;
+    await withGateway({ tokenCheck: async () => ({ ok: true, status: 200 }) }, async (base) => {
+      const list = await fetch(`${base}/api/logs/complaints?status=RECEIVED`, { headers: { authorization: 'Bearer a.b.c' } });
+      assert.equal(list.status, 200);
+      const one = await fetch(`${base}/api/logs/complaints/11111111-1111-4111-8111-111111111111`, { headers: { authorization: 'Bearer a.b.c' } });
+      assert.equal(one.status, 200);
+      const ack = await fetch(`${base}/api/logs/complaints/11111111-1111-4111-8111-111111111111/acknowledge`, { method: 'POST', headers: { authorization: 'Bearer a.b.c' } });
+      assert.equal(ack.status, 200);
+    });
+    const got = stack.seen.logs.slice(before);
+    assert.equal(got.length, 3);
+    for (const hit of got) assert.equal(hit.headers.authorization, 'Bearer a.b.c');
+    assert.equal(got[0].url, '/api/complaints?status=RECEIVED');
+  });
 });

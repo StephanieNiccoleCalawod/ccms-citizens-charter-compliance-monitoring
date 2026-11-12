@@ -115,13 +115,20 @@ export async function analyticsGrants(dataSource) {
 // CC032/CC033 (keep identical to migrations/sql/1794600000000-Cc032Complaints.up.sql).
 async function complaintRules(dataSource) {
   await dataSource.query('CREATE INDEX IF NOT EXISTS complaints_office_created_idx ON complaints (office_id, created_at DESC)');
+  // Sprint 7 CC034 (keep identical to migrations/sql/1794800000000-Cc034ComplaintHandling.up.sql).
+  await addConstraint(
+    dataSource,
+    'complaints',
+    'complaints_status_ck',
+    "CHECK (status IN ('RECEIVED', 'ACKNOWLEDGED', 'RESOLVED') AND ((status = 'RECEIVED') = (acknowledged_at IS NULL)) AND ((status = 'RESOLVED') = (resolved_at IS NOT NULL)) AND (status <> 'RESOLVED' OR (reply IS NOT NULL AND char_length(btrim(reply)) >= 1)))",
+  );
 }
 
 // Runtime access, after auditLogGrants (which first revokes everything from the runtime roles).
-//   ccms_logs_writer    SELECT, INSERT on complaints (no UPDATE until staff handling, Sprint 7); counters need SELECT, INSERT, UPDATE, DELETE
+//   ccms_logs_writer    SELECT, INSERT, UPDATE on complaints (UPDATE for staff handling, Sprint 7; never DELETE); counters need SELECT, INSERT, UPDATE, DELETE
 //   ccms_oversight_app  SELECT on complaints
 export async function complaintGrants(dataSource) {
-  await dataSource.query(`GRANT SELECT, INSERT ON complaints TO ${LOGS_WRITER_ROLE}`);
+  await dataSource.query(`GRANT SELECT, INSERT, UPDATE ON complaints TO ${LOGS_WRITER_ROLE}`);
   await dataSource.query(`GRANT SELECT ON complaints TO ${OVERSIGHT_APP_ROLE}`);
   await dataSource.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON rate_limit_hits TO ${LOGS_WRITER_ROLE}`);
 }

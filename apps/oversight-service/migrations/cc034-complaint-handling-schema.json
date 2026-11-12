@@ -1,0 +1,10 @@
+{
+  "column:complaints.acknowledged_at": "timestamp with time zone",
+  "column:complaints.acknowledged_by": "uuid",
+  "column:complaints.due_at": "timestamp with time zone",
+  "column:complaints.reply": "character varying(2000)",
+  "column:complaints.resolved_at": "timestamp with time zone",
+  "column:complaints.resolved_by": "uuid",
+  "constraint:complaints.complaints_status_ck": "CHECK ((((status)::text = ANY ((ARRAY['RECEIVED'::character varying, 'ACKNOWLEDGED'::character varying, 'RESOLVED'::character varying])::text[])) AND (((status)::text = 'RECEIVED'::text) = (acknowledged_at IS NULL)) AND (((status)::text = 'RESOLVED'::text) = (resolved_at IS NOT NULL)) AND (((status)::text <> 'RESOLVED'::text) OR ((reply IS NOT NULL) AND (char_length(btrim((reply)::text)) >= 1)))))",
+  "grant:complaints.ccms_logs_writer.UPDATE": ""
+}

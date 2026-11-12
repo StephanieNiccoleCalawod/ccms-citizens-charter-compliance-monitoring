@@ -120,6 +120,13 @@ export const Complaint = new EntitySchema({
     complainantEmail: { name: 'complainant_email', type: 'varchar', length: 254, nullable: true },
     status: { type: 'varchar', length: 20 },
     createdAt: { name: 'created_at', type: 'timestamptz', default: () => 'now()' },
+    // Sprint 7 CC034: staff handling. due_at = 5 working days after filing (Core /deadline); the CHECK is in after-sync / migrations.
+    dueAt: { name: 'due_at', type: 'timestamptz', nullable: true },
+    acknowledgedAt: { name: 'acknowledged_at', type: 'timestamptz', nullable: true },
+    acknowledgedBy: { name: 'acknowledged_by', type: 'uuid', nullable: true },
+    resolvedAt: { name: 'resolved_at', type: 'timestamptz', nullable: true },
+    resolvedBy: { name: 'resolved_by', type: 'uuid', nullable: true },
+    reply: { type: 'varchar', length: 2000, nullable: true },
   },
   uniques: [{ name: 'complaints_reference_uq', columns: ['reference'] }],
 });
