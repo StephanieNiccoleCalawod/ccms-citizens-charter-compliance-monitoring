@@ -329,7 +329,7 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
                 </svg>
               </>
             }
-            items={[{ label: signOutControl.busy ? 'Signing out…' : 'Sign out', disabled: signOutControl.busy, onSelect: signOutControl.request }]}
+            items={[{ label: 'My account', href: '/account' }, { label: signOutControl.busy ? 'Signing out…' : 'Sign out', disabled: signOutControl.busy, onSelect: signOutControl.request }]}
           />
         </header>
 

@@ -22,6 +22,11 @@ export function logsNav(role) {
   return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Logs', href: '/logs' } : null;
 }
 
+/** Settings > Roles and permissions (CC056) is for Super Admin only: the four staff switches and the role matrix. The Identity service also answers 403 to everyone else. */
+export function rolesNav(role) {
+  return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Roles and permissions', href: '/settings/roles' } : null;
+}
+
 /** The Student and Alumni Registry import (CC043) is for Super Admin only: nobody else gets the menu item (the page and the services check the role too). */
 export function registryNav(role) {
   return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Registry', href: '/registry' } : null;
@@ -59,5 +64,5 @@ export function appNavForRole(role) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
   const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
-  return [...shared, transactionsNav(role), lateRisk, transactionSettingsNav(role), registryNav(role), logsNav(role)].filter(Boolean);
+  return [...shared, transactionsNav(role), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
 }
