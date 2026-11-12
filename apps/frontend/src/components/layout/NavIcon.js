@@ -49,6 +49,7 @@ const ICON_BY_HREF = {
   '/logs': 'list',
   '/registry': 'users',
   '/transactions': 'receipt',
+  '/late-risk': 'list',
 };
 
 export default function NavIcon({ href }) {

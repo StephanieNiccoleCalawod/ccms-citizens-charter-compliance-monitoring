@@ -265,5 +265,32 @@ export const SeededTransaction = new EntitySchema({
   },
 });
 
+export const LateRiskRun = new EntitySchema({
+  name: 'LateRiskRun', tableName: 'late_risk_runs',
+  columns: {
+    runId: { name: 'run_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'late_risk_runs_pkey', default: () => 'gen_random_uuid()' },
+    createdAt: { name: 'created_at', type: 'timestamptz', default: () => 'now()' },
+    status: { type: 'varchar', length: 24 },
+    rows: { type: 'int' },
+    trainingRows: { name: 'training_rows', type: 'int' },
+    holdoutRows: { name: 'holdout_rows', type: 'int' },
+    lateCases: { name: 'late_cases', type: 'int' },
+    excludedRows: { name: 'excluded_rows', type: 'int' },
+    metrics: { type: 'jsonb', nullable: true },
+    coefficients: { type: 'jsonb', nullable: true },
+  },
+  indices: [{ name: 'late_risk_runs_created_idx', columns: ['createdAt', 'runId'] }],
+});
+
+export const LateRiskScoreCache = new EntitySchema({
+  name: 'LateRiskScoreCache', tableName: 'late_risk_score_cache',
+  columns: {
+    officeId: { name: 'office_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'late_risk_score_cache_pkey' },
+    scoredAt: { name: 'scored_at', type: 'timestamptz' },
+    runId: { name: 'run_id', type: 'uuid', nullable: true },
+    payload: { type: 'jsonb' },
+  },
+});
+
 export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun,
-  AnalyticsOutboxEvent, RegistryImport, RegistryPerson, TransactionEmail, SeedRun, SeededTransaction];
+  AnalyticsOutboxEvent, RegistryImport, RegistryPerson, TransactionEmail, SeedRun, SeededTransaction, LateRiskRun, LateRiskScoreCache];

@@ -74,6 +74,7 @@ describe('cron routes (TT1-T2, TC4-OPS-003)', () => {
       '/api/jobs/auto-close',
       '/api/jobs/compute-pending',
       '/api/jobs/forecast',
+      '/api/jobs/late-risk',
       '/api/jobs/outbox',
       '/api/jobs/receipt-emails',
     ]);

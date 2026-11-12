@@ -28,6 +28,10 @@
     {
       "path": "/api/jobs/forecast",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/jobs/late-risk",
+      "schedule": "0 19 * * *"
     }
   ]
 }

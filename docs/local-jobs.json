@@ -66,6 +66,11 @@
           "historicalSchedule": "0 18 * * *"
         },
         {
+          "path": "/api/jobs/late-risk",
+          "method": "GET",
+          "historicalSchedule": "0 19 * * *"
+        },
+        {
           "path": "/api/jobs/analytics-outbox",
           "method": "GET",
           "historicalSchedule": null
