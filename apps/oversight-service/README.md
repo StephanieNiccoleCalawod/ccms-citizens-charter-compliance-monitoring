@@ -122,3 +122,17 @@ job route. New variables: `OPERATIONS_SERVICE_URL`, `CRON_SECRET`. Details: [../
   `actor_role = 'system'`. There are no foreign keys (user and office are plain IDs from other services).
 - Schema changes are numbered migrations in `migrations/` (TT1). `src/lib/after-sync.js` (constraints, indexes, grants) is used by
   the local `db:sync` and, for the grants, by the baseline; `npm run test:safety` at the root checks that both build the same schema.
+
+## KPI module (Sprint 5 TT3)
+
+`GET /api/analytics/kpis` is the one source of compliance figures for reports, the dashboards and Insights
+(`src/modules/analytics/kpi.js`, a pure `computeKpis` plus `getKpis`). Query: `office_id`, `service_id`,
+`group_by=total|office|service|staff` (`groupBy` and `officeId` are also accepted), and a period: `period=weekly|monthly|half_year|annual|custom`
+with `date` (any day inside the wanted period, default today), or `from` and `to` for a custom range. The default is the current
+half-year. All boundaries are Manila dates (`period.js`).
+
+Counting basis (also returned as `basis`): received counts by start date; results (on time, late, times, outcomes) by end date;
+cancelled and auto-closed by start date (the feed keeps `ended_at` empty for them); pending is every open transaction now.
+On-time rate = on time / (on time + late), one decimal, `null` when the divisor is 0. An auto-closed transaction counts as
+Late inside the rate and is shown separately as `late_auto_closed` (K27). Per-staff figures are never returned to the Executive (403);
+Office Staff get only their own row; Office Head and Office Staff are limited to their office.

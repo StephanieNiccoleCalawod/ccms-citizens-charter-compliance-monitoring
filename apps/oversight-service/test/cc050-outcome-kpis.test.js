@@ -92,7 +92,7 @@ describe('CC050 outcome totals through getStartKpis (stand-in data source)', () 
     assert.match(calls[0].sql, /\bstatus\b/);
     assert.match(calls[0].sql, /\boutcome\b/);
     assert.match(calls[0].sql, /ended_at >=/);
-    assert.doesNotMatch(calls[0].sql, /disapproval|hold_reason|cancel_reason|backdate_reason|started_by|staff/i);
+    assert.doesNotMatch(calls[0].sql, /disapproval|hold_reason|cancel_reason|backdate_reason/i);
     assert.deepEqual(answer.totals.outcomes, { completed: 7, granted: 3, disapproved: 3, not_recorded: 1 });
   });
 
