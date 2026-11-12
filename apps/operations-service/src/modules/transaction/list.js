@@ -1,8 +1,8 @@
 import { ROLES, Errors, endOfManilaDay, fromManila, isUuid, isValidManilaDate } from 'ccms-shared';
 import { STATUS_LIST } from './constants.js';
 import { TRANSACTION_SELECT, loadTransactionRow, notFound } from './db.js';
-import { toTransactionDto } from './dto.js';
-import { assertCanAccess } from './access.js';
+import { transactionDtoFor } from './dto.js';
+import { assertCanRead } from './access.js';
 
 /** page / page_size from query parameters (defaults 1 / 20, size at most 100): the same shape as GET /services. */
 export function parsePaging(params, { defaultSize = 20, maxSize = 100 } = {}) {
@@ -31,9 +31,11 @@ const likePattern = (text) => `${text.replace(/[%_\\]/g, '\\$&')}%`;
  *   Super Admin    every office; office_id narrows it
  *   Office Head    the office in the token; another office_id is a 403
  *   Office Staff   their own records (started_by); another office_id is a 403
- *   Executive      403 (the route does not let them in)
+ *   Executive      every office, read-only (CC027 / K14); office_id narrows it. The counter filter is refused (403): the
+ *                  counter is not part of the Executive view. Each item is the Executive allowlist (dto.js).
  * Dates are Manila dates (from 00:00 to 23:59:59 of `to`); q is a tracking number or its start; newest first.
- * The list never carries the client's email or reference (they are on the detail page only).
+ * The list never carries the client's email or reference (they are on the detail page only), and never any field outside
+ * the Executive allowlist when the caller is an Executive.
  */
 export async function listTransactions(dataSource, user, params) {
   const { page, pageSize } = parsePaging(params);
@@ -67,6 +69,9 @@ export async function listTransactions(dataSource, user, params) {
     if (!user.officeId || (officeId && officeId.toLowerCase() !== String(user.officeId).toLowerCase())) throw Errors.forbidden();
     if (user.role === ROLES.OFFICE_HEAD) add('t.office_id = ?::uuid', user.officeId);
     else add('t.started_by = ?::uuid', user.id);
+  } else if (user.role === ROLES.EXECUTIVE) {
+    if (counterId) throw Errors.forbidden();
+    if (officeId) add('t.office_id = ?::uuid', officeId);
   } else {
     throw Errors.forbidden();
   }
@@ -84,13 +89,13 @@ export async function listTransactions(dataSource, user, params) {
     `${TRANSACTION_SELECT}${whereSql} ORDER BY t.started_at DESC, t.transaction_id DESC LIMIT $${values.length - 1} OFFSET $${values.length}`,
     values,
   );
-  return { items: rows.map((row) => toTransactionDto(row, { detail: false })), page, page_size: pageSize, total };
+  return { items: rows.map((row) => transactionDtoFor(user, row, { detail: false })), page, page_size: pageSize, total };
 }
 
-/** GET /transactions/:id. Outside the caller's scope: 403 and no data. */
+/** GET /transactions/:id. Outside the caller's scope: 403 and no data. An Executive gets the allowlisted view of any office's. */
 export async function getTransaction(dataSource, user, id) {
   const row = isUuid(id) ? await loadTransactionRow(dataSource, id) : null;
   if (!row) throw notFound();
-  assertCanAccess(user, row);
-  return toTransactionDto(row);
+  assertCanRead(user, row);
+  return transactionDtoFor(user, row);
 }

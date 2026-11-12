@@ -7,9 +7,10 @@ export { landingForRole, navForRole } from 'ccms-shared/nav';
 export { ROLE_LABELS } from 'ccms-shared/roles';
 
 /**
- * Transaction Settings is a settings icon in the header of the Transactions page (Super Admin, Office Head and Office Staff), so
- * those roles get no sidebar item for it. Executive has no Transactions page, so keeps the item with the reference pages. Every
- * role can open /settings (read-only unless Super Admin; the Operations service enforces that).
+ * Transaction Settings is a settings icon in the header of the Transactions page, so Super Admin, Office Head and Office Staff
+ * get no sidebar item for it. Executive keeps the item with the reference pages: their Transactions page is read-only (CC027 / K14)
+ * and they reach the settings, read-only, from the sidebar as before. Every role can open /settings (read-only unless Super Admin;
+ * the Operations service enforces that).
  */
 export function transactionSettingsNav(role) {
   if (role === ROLES.SUPER_ADMIN || role === ROLES.OFFICE_HEAD || role === ROLES.OFFICE_STAFF) return null;
@@ -26,15 +27,22 @@ export function registryNav(role) {
   return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Registry', href: '/registry' } : null;
 }
 
+/** Roles with the Transactions list and detail. Executive is read-only (CC027 / K14): no start, hold, resume, complete or cancel. */
+export const TRANSACTION_PAGE_ROLES = Object.freeze([ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE]);
+/** Roles that may start or act on a transaction (the Add Transaction page and the acknowledgement slip, which names the officer). */
+export const TRANSACTION_OPERATOR_ROLES = Object.freeze([ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]);
+
 /**
- * The Transactions list is for Super Admin, Office Head and Office Staff. Starting a transaction is no longer a menu item: it is the
- * "+ Add Transaction" button on that page, which opens /transactions/new (that page is limited to the same roles).
- * The Transactions list is for the same roles. The menu item is only a convenience: the Operations service decides which
- * rows each role may see (and answers 403 to Executive), so hiding the item is not the security boundary.
+ * The Transactions menu item. Starting a transaction is not a menu item: it is the "+ Add Transaction" button on that page, which
+ * opens /transactions/new (operators only). The menu item is only a convenience: the Operations service decides which rows each
+ * role may see and which fields an Executive gets, so hiding or showing the item is not the security boundary.
  */
 export function transactionsNav(role) {
-  return role === ROLES.SUPER_ADMIN || role === ROLES.OFFICE_HEAD || role === ROLES.OFFICE_STAFF ? { section: 'Main', label: 'Transactions', href: '/transactions' } : null;
+  return TRANSACTION_PAGE_ROLES.includes(role) ? { section: 'Main', label: 'Transactions', href: '/transactions' } : null;
 }
+
+/** CC027 / K14: the Executive reads transactions but never acts on them, and never sees staff, client or counter details. */
+export const isTransactionReadOnly = (role) => role === ROLES.EXECUTIVE;
 
 /** The menu item that is the current page: the longest address that matches (so /transactions/new and a transaction's page keep Transactions current). */
 export function activeNavHref(items, pathname) {

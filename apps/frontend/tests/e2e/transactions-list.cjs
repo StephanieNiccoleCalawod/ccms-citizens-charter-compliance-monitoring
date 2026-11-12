@@ -130,12 +130,14 @@ const trackings = (page) => page.getByTestId('tx-row').evaluateAll((rows) => row
   }
   {
     const { page, ctx, log } = await mocked(browser, 'executive');
+    // REPLACED UNDER K14 (CC027 change), for reads only: the Executive now has a read-only list (see cc050-cc027.cjs).
     await page.goto(`${BASE}/transactions`, { waitUntil: 'load', timeout: 90000 });
-    await page.getByText('Your role does not have access to this page.').waitFor({ timeout: 60000 });
-    ok('executive: access denied, no Transactions menu item, no Add Transaction button, no request for transactions at all', (await page.getByRole('link', { name: 'Transactions', exact: true }).count()) === 0 && (await page.getByTestId('add-transaction').count()) === 0 && !log.all.some((l) => /operations\/transactions/.test(l)));
+    await page.getByTestId('tx-row').first().waitFor({ timeout: 60000 });
+    ok('executive (K14): the Transactions menu item and the list are shown, with no Add Transaction button and no counter request', (await page.getByRole('link', { name: 'Transactions', exact: true }).count()) >= 1 && (await page.getByTestId('add-transaction').count()) === 0 && !log.all.some((l) => /operations\/counters/.test(l)));
+    const before = log.all.length;
     await page.goto(`${BASE}/transactions/new`, { waitUntil: 'load', timeout: 90000 });
     await page.getByText('Your role does not have access to this page.').waitFor({ timeout: 60000 });
-    ok('executive: opening /transactions/new directly is refused too (the route, not the button, is the control)', (await page.locator('#start-service').count()) === 0 && !log.all.some((l) => /catalogue\/services|operations\/transactions/.test(l)));
+    ok('executive: opening /transactions/new directly is still refused (the route, not the button, is the control)', (await page.locator('#start-service').count()) === 0 && !log.all.slice(before).some((l) => /catalogue\/services|POST .*operations\/transactions/.test(l)));
     await ctx.close();
   }
 

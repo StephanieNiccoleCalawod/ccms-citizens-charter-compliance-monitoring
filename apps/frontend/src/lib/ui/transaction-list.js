@@ -11,6 +11,13 @@ export const TRACKING_MAX = 60;
 export const EMPTY_TX_FILTERS = Object.freeze({ status: '', service_id: '', counter_id: '', office_id: '', q: '' });
 export const FILTER_KEYS = Object.keys(EMPTY_TX_FILTERS);
 
+/**
+ * CC027 (K14): the filters a read-only (Executive) list may send. The counter is not part of the Executive view and the service
+ * refuses that filter (403), so one carried in an old address is dropped instead of breaking the page. Office stays: an Executive
+ * reads every office and may narrow to one.
+ */
+export const readOnlyFilters = (filters) => ({ ...filters, counter_id: '' });
+
 export const LIST_MESSAGES = {
   trackingLong: `The tracking number must be ${TRACKING_MAX} characters or fewer.`,
   sessionEnded: 'Your session has ended. Please sign in again.',

@@ -22,15 +22,17 @@ import { OFFICES_API } from '../../lib/api/catalogue.js';
 import { listCounters } from '../../lib/api/operations.js';
 import { listSelectableServices, listTransactionPage } from '../../lib/api/transactions.js';
 import { apiFetch } from '../../lib/auth/session.js';
-import { COMPLIANCE_LABELS, complianceState } from '../../lib/ui/complete-transaction.js';
+import { COMPLIANCE_LABELS, complianceState, outcomeLabel } from '../../lib/ui/complete-transaction.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 import { splitDateTime } from '../../lib/ui/audit-log.js';
-import { EMPTY_TX_FILTERS, STATUS_OPTIONS, TRACKING_MAX, emptyMessage, filterErrors, filtersToSearch, hasFilters, listErrorResult, searchToFilters } from '../../lib/ui/transaction-list.js';
+import { EMPTY_TX_FILTERS, STATUS_OPTIONS, TRACKING_MAX, emptyMessage, filterErrors, filtersToSearch, hasFilters, listErrorResult, readOnlyFilters, searchToFilters } from '../../lib/ui/transaction-list.js';
+import { TRANSACTION_PAGE_ROLES, isTransactionReadOnly } from '../../lib/auth/permissions.js';
 import { statusLabel } from '../../lib/ui/start-transaction.js';
 import SearchableSelect from '../../components/forms/SearchableSelect.js';
 import { officeName } from '../../lib/ui/names.js';
 
 const COLUMNS = 9;
+const READ_ONLY_COLUMNS = COLUMNS - 1; // no Counter column (CC027 / K14)
 const EMPTY_PAGE = { items: [], total: 0, page: 1 };
 
 /** A date and time from the API as two lines (MM/DD/YYYY over the 12-hour time), like the Audit Logs table; "-" when there is none. */
@@ -44,12 +46,21 @@ function DateTimeCell({ value }) {
   );
 }
 
-/** Role-scoped list: the service decides which rows this person may see; filters, order and paging are all the service's. */
+/**
+ * Role-scoped list: the service decides which rows this person may see; filters, order and paging are all the service's.
+ * CC027 (K14): an Executive reads every office but acts on nothing: no Add Transaction, no counter filter or column, and the
+ * detail is read-only. The service sends an Executive only the allowlisted fields; this screen only stops asking for the rest.
+ */
 function TransactionList({ user }) {
   const isSuperAdmin = user.role === ROLES.SUPER_ADMIN;
+  const readOnly = isTransactionReadOnly(user.role);
+  const campusWide = isSuperAdmin || readOnly; // may choose any office in the Office filter
   // Where the list starts: the filters and page in the address (so Back from a transaction returns to the same view).
   const address = useSearchParams().toString();
-  const [start] = useState(() => searchToFilters(address));
+  const [start] = useState(() => {
+    const parsed = searchToFilters(address);
+    return readOnly ? { ...parsed, filters: readOnlyFilters(parsed.filters) } : parsed;
+  });
   const [draft, setDraft] = useState(start.filters);
   const [applied, setApplied] = useState(start.filters);
   const [pageSize, setPageSize] = useState(start.pageSize);
@@ -76,6 +87,7 @@ function TransactionList({ user }) {
     } catch (err) {
       if (id !== latest.current) return;
       const { message, fieldErrors: fields } = listErrorResult(err);
+      if (err?.status === 401 || err?.status === 403) setSelectedId(null); // access changed: nothing loaded earlier stays open
       setFieldErrors(fields);
       setState({ loading: false, ...EMPTY_PAGE, error: message ?? 'Please correct the highlighted filters.' });
     }
@@ -102,7 +114,7 @@ function TransactionList({ user }) {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- first load of the list the address bar describes
     run(start.filters, start.page, start.pageSize);
-    Promise.allSettled([listSelectableServices(), listCounters(undefined), isSuperAdmin ? apiFetch(OFFICES_API) : Promise.resolve(null)]).then(([services, counters, offices]) => {
+    Promise.allSettled([listSelectableServices(), readOnly ? Promise.resolve(null) : listCounters(undefined), campusWide ? apiFetch(OFFICES_API) : Promise.resolve(null)]).then(([services, counters, offices]) => {
       if (cancelled) return;
       setOptions({
         services: services.status === 'fulfilled' ? services.value : [],
@@ -115,7 +127,7 @@ function TransactionList({ user }) {
       latest.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once: the starting view never changes
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, readOnly, campusWide]);
 
   // Applies these filters now: a dropdown as soon as it changes, the tracking number on Enter or when the field is left.
   function applyNow(next) {
@@ -167,7 +179,8 @@ function TransactionList({ user }) {
     })),
   ];
   const filtered = hasFilters(applied);
-  const showCounter = options.counters.length > 0;
+  const showCounter = !readOnly && options.counters.length > 0;
+  const columns = readOnly ? READ_ONLY_COLUMNS : COLUMNS;
 
   return (
     <div className="space-y-4">
@@ -204,7 +217,7 @@ function TransactionList({ user }) {
             />
             {fieldError('service_id')}
           </div>
-          {isSuperAdmin ? (
+          {campusWide ? (
             <div className="w-full sm:w-48">
               <label className="label" htmlFor="tx-office">Office</label>
               <select id="tx-office" className="input select-chevron" value={draft.office_id} onChange={choose('office_id')} aria-invalid={fieldErrors.office_id ? true : undefined} aria-describedby={describedBy('office_id')}>
@@ -229,7 +242,7 @@ function TransactionList({ user }) {
               <ClearFiltersButton onClick={clear} disabled={state.loading} />
             </div>
           ) : null}
-          <AddTransactionButton className="w-full justify-center sm:ml-auto sm:mt-[21px] sm:w-auto" onClick={() => setAddOpen(true)} />
+          {readOnly ? null : <AddTransactionButton className="w-full justify-center sm:ml-auto sm:mt-[21px] sm:w-auto" onClick={() => setAddOpen(true)} />}
         </div>
       </form>
 
@@ -244,7 +257,7 @@ function TransactionList({ user }) {
               <Th className="whitespace-nowrap">Tracking number</Th>
               <Th className="min-w-40">Service</Th>
               <Th className="min-w-36">Office</Th>
-              <Th className="whitespace-nowrap">Counter</Th>
+              {readOnly ? null : <Th className="whitespace-nowrap">Counter</Th>}
               <Th className="whitespace-nowrap">Status</Th>
               <Th className="whitespace-nowrap">Started</Th>
               <Th className="whitespace-nowrap">Ended</Th>
@@ -254,12 +267,13 @@ function TransactionList({ user }) {
           }
         >
           {state.loading && state.items.length === 0 ? (
-            <TableState colSpan={COLUMNS} kind="loading">Loading transactions...</TableState>
+            <TableState colSpan={columns} kind="loading">Loading transactions...</TableState>
           ) : state.items.length === 0 ? (
-            <TableState colSpan={COLUMNS}>{emptyMessage({ error: state.error, filtered })}</TableState>
+            <TableState colSpan={columns}>{emptyMessage({ error: state.error, filtered })}</TableState>
           ) : (
             state.items.map((t) => {
               const result = complianceState(t);
+              const decision = outcomeLabel(t); // CC050: Granted / Disapproved / Not recorded, completed rows only
               return (
                 <tr key={t.transaction_id} className="tr-row" data-testid="tx-row">
                   <td className="td">
@@ -271,8 +285,11 @@ function TransactionList({ user }) {
                     <span className="block font-semibold text-slate-900">{t.service_name}</span>
                   </td>
                   <td className="td"><span className="block font-semibold text-slate-900">{officeName(t)}</span></td>
-                  <td className="td">{t.counter_label || '-'}</td>
-                  <td className="td whitespace-nowrap"><StatusBadge variant={String(t.status).toLowerCase()}>{statusLabel(t.status)}</StatusBadge></td>
+                  {readOnly ? null : <td className="td">{t.counter_label || '-'}</td>}
+                  <td className="td whitespace-nowrap">
+                    <StatusBadge variant={String(t.status).toLowerCase()}>{statusLabel(t.status)}</StatusBadge>
+                    {decision ? <span className="mt-1 block text-xs text-slate-600" data-testid="tx-outcome">{decision}</span> : null}
+                  </td>
                   <td className="td whitespace-nowrap"><DateTimeCell value={t.started_at} /></td>
                   <td className="td whitespace-nowrap"><DateTimeCell value={t.ended_at} /></td>
                   <td className="td">{result === 'none' ? '-' : <StatusBadge variant={result}>{COMPLIANCE_LABELS[result]}</StatusBadge>}</td>
@@ -304,7 +321,7 @@ function TransactionList({ user }) {
       >
         {selectedId !== null ? (
           <TransactionDetail
-            key={selectedId}
+            key={`${user.role}:${selectedId}`}
             id={selectedId}
             role={user.role}
             embedded
@@ -324,7 +341,7 @@ function TransactionList({ user }) {
         dirty={addDirty}
         onClose={addBusy ? undefined : closeAdd}
       >
-        {addOpen ? <StartTransactionForm key="add" user={user} embedded onCreated={handleCreated} onCancel={closeAdd} onDirtyChange={setAddDirty} onBusyChange={setAddBusy} /> : null}
+        {addOpen && !readOnly ? <StartTransactionForm key="add" user={user} embedded onCreated={handleCreated} onCancel={closeAdd} onDirtyChange={setAddDirty} onBusyChange={setAddBusy} /> : null}
       </Modal>
 
       <ConfirmDialog
@@ -375,7 +392,7 @@ export default function TransactionsPage() {
     <AppShell
       title="Transactions"
       subtitle="Newest first. You only see the transactions your role allows. Dates are Manila calendar days (Asia/Manila)."
-      allowedRoles={[ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]}
+      allowedRoles={TRANSACTION_PAGE_ROLES}
       headerRight={<SettingsLink />}
     >
       {(user) => (

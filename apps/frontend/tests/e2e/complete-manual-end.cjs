@@ -1,4 +1,5 @@
 // Browser regression test for completing an open transaction, with and without an end time entered by hand (CC023/CC026).
+// CC050: every completion now chooses an outcome first; these flows choose Granted (the outcome flows are in cc050-outcome.cjs).
 // A plain Playwright script like smoke.cjs (no test runner). It needs only the frontend at BASE_URL (npm run dev): every
 // /api call is MOCKED with page routes and the session is a fake token, so no backend, credentials, transactions or audit
 // records are involved, and nothing real is completed. Any /api call that is not mocked fails the run.
@@ -39,14 +40,18 @@ async function mocked(browser, role, { complete } = {}) {
   return { page, ctx, log, state };
 }
 const btn = (page, name) => page.getByRole('button', { name, exact: true });
-const openDialog = async (page) => { await btn(page, 'Complete Transaction').click(); await page.getByRole('alertdialog').waitFor(); };
+const openDialog = async (page, outcome = 'granted') => {
+  await btn(page, 'Complete Transaction').click();
+  await page.getByRole('alertdialog').waitFor();
+  if (outcome) await page.check(`#complete-outcome-${outcome}`);
+};
 // What the service would answer (mocked): the page only displays it.
-const finish = (extra = {}) => (r, s, body) => { s.tx = tx({ status: 'COMPLETED', ended_at: body?.ended_at ? '2026-10-20T01:45:00.000Z' : '2026-10-24T03:00:00.000Z', is_backdated: Boolean(body), backdate_reason: body?.backdate_reason ?? null, ...extra }); return json(r, 200, s.tx); };
+const finish = (extra = {}) => (r, s, body) => { s.tx = tx({ status: 'COMPLETED', ended_at: body?.ended_at ? '2026-10-20T01:45:00.000Z' : '2026-10-24T03:00:00.000Z', is_backdated: Boolean(body?.ended_at), backdate_reason: body?.backdate_reason ?? null, ...extra }); return json(r, 200, s.tx); };
 
 (async () => {
   const browser = await chromium.launch();
 
-  // Ordinary completion is unchanged: no body, no manual fields until asked.
+  // Ordinary completion: only the chosen outcome is sent, no manual fields until asked.
   {
     const { page, ctx, log } = await mocked(browser, 'office_staff', { complete: finish({ elapsed_working_minutes: 30, is_compliant: true, variance_minutes: -30 }) });
     await openDialog(page);
@@ -56,7 +61,7 @@ const finish = (extra = {}) => (r, s, body) => { s.tx = tx({ status: 'COMPLETED'
     await openDialog(page);
     await btn(page, 'Confirm').click();
     await page.getByTestId('compliance-label').waitFor();
-    ok('ordinary: exactly one POST with no body, then Completed and Compliant from the server', log.completes.length === 1 && log.completes[0] === null && (await page.getByTestId('status').innerText()) === 'Completed' && (await page.getByTestId('compliance-label').innerText()) === 'Compliant');
+    ok('ordinary: exactly one POST with only { outcome: GRANTED }, then Completed and Compliant from the server', log.completes.length === 1 && JSON.stringify(log.completes[0]) === JSON.stringify({ outcome: 'GRANTED' }) && (await page.getByTestId('status').innerText()) === 'Completed' && (await page.getByTestId('compliance-label').innerText()) === 'Compliant');
     ok('ordinary: not shown as entered after the fact', (await page.getByTestId('backdated').count()) === 0);
     await ctx.close();
   }
@@ -70,7 +75,7 @@ const finish = (extra = {}) => (r, s, body) => { s.tx = tx({ status: 'COMPLETED'
     await page.fill('#complete-end-reason', '  Finished earlier, recorded now  ');
     await btn(page, 'Confirm').click();
     await page.getByTestId('compliance-label').waitFor();
-    ok(`manual end (${label}): one POST with exactly { ended_at (+08:00), backdate_reason (trimmed) }`, log.completes.length === 1 && JSON.stringify(log.completes[0]) === JSON.stringify({ ended_at: '2026-10-20T09:45:00+08:00', backdate_reason: 'Finished earlier, recorded now' }));
+    ok(`manual end (${label}): one POST with exactly { outcome, ended_at (+08:00), backdate_reason (trimmed) }`, log.completes.length === 1 && JSON.stringify(log.completes[0]) === JSON.stringify({ outcome: 'GRANTED', ended_at: '2026-10-20T09:45:00+08:00', backdate_reason: 'Finished earlier, recorded now' }));
     ok(`manual end (${label}): shows ${expectLabel}, Completed, the server's end time, the flag and the reason`, (await page.getByTestId('compliance-label').innerText()) === expectLabel && (await page.getByTestId('status').innerText()) === 'Completed' && (await page.getByTestId('ended-at').innerText()).includes('10/20/2026 9:45 AM') && (await page.getByTestId('backdated').innerText()).startsWith('Yes') && /Finished earlier/.test(await page.getByTestId('backdate-reason').innerText()));
     await ctx.close();
   }
@@ -105,7 +110,7 @@ const finish = (extra = {}) => (r, s, body) => { s.tx = tx({ status: 'COMPLETED'
     await page.uncheck('#complete-manual-end');
     await btn(page, 'Confirm').click();
     await page.getByTestId('status').filter({ hasText: 'Completed' }).waitFor();
-    ok('switching the option off sends an ordinary completion (no body)', log.completes.length === 1 && log.completes[0] === null);
+    ok('switching the option off sends an ordinary completion (the outcome only)', log.completes.length === 1 && JSON.stringify(log.completes[0]) === JSON.stringify({ outcome: 'GRANTED' }));
     await ctx.close();
   }
 
@@ -203,9 +208,10 @@ const finish = (extra = {}) => (r, s, body) => { s.tx = tx({ status: 'COMPLETED'
     await ctx.close();
   }
   {
+    // CC027 (K14) replaces the old Executive denial for reads only: the detail opens, read-only (see cc027-executive-read.cjs).
     const { page, ctx, log } = await mocked(browser, 'executive', { complete: finish() });
-    await page.getByText('Your role does not have access to this page.').waitFor({ timeout: 60000 });
-    ok('executive is still denied: no request to Operations', log.gets === 0 && log.completes.length === 0);
+    await page.getByTestId('tracking-no').waitFor({ timeout: 60000 });
+    ok('executive reads the detail but gets no Complete, Hold, Resume or Cancel, and sends no completion', (await btn(page, 'Complete Transaction').count()) === 0 && (await btn(page, 'Hold').count()) === 0 && (await btn(page, 'Resume').count()) === 0 && (await btn(page, 'Cancel Transaction').count()) === 0 && log.completes.length === 0);
     await ctx.close();
   }
 

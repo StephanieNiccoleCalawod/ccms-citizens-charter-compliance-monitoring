@@ -21,7 +21,7 @@
 //                                                              (tracking_no, status, ...). The server numbers it, takes the
 //                                                              standard itself and writes the audit entry.
 //     GET  /api/operations/transactions?status=&counter_id=   used only to name the open transaction after a 409 conflict
-//     GET  /api/operations/transactions/:id                   one transaction (Executive 403; Office Staff only their own, Office Head
+//     GET  /api/operations/transactions/:id                   one transaction (Executive: any office, allowlisted read-only view (K14); Office Staff only their own, Office Head
 //                                                              their office, Super Admin any). Carries status, hold_started_at,
 //                                                              hold_reason and held_minutes (working minutes, worked out by the server).
 //     POST /api/operations/transactions/:id/hold              { reason } (1-500 characters after trimming); needs hold_enabled on
@@ -113,7 +113,7 @@ export const TRANSACTION_PAGE_SIZE = 20;
 
 /**
  * One page of transactions. The service scopes the answer by role (the list is never filtered in the browser):
- * Super Admin all offices (office_id narrows), Office Head their office, Office Staff the ones they started; Executive 403.
+ * Super Admin all offices (office_id narrows), Office Head their office, Office Staff the ones they started; Executive every office, read-only, without staff, client or counter fields (K14; counter_id refused).
  * Filters use the service's own names: status, service_id, counter_id, office_id,
  * q (a tracking number or the start of one), page, page_size (at most 100). The answer is
  * { items, page, page_size, total }, newest start first (ORDER BY started_at DESC), without the client email or reference.

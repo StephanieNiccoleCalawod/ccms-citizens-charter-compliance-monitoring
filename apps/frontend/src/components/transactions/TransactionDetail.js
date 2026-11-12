@@ -3,6 +3,7 @@
 import { notify } from '../../lib/ui/notify.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { isTransactionReadOnly } from '../../lib/auth/permissions.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import Modal from '../modals/Modal.js';
@@ -10,7 +11,7 @@ import StatusBadge from '../ui/StatusBadge.js';
 import { getSettings } from '../../lib/api/operations.js';
 import { cancelTransaction, completeTransaction, getTransaction, holdTransaction, resumeTransaction } from '../../lib/api/transactions.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
-import { COMPLETE_MESSAGES, COMPLIANCE_LABELS, canComplete, complianceState, completeErrorResult, describeElapsed, describeVariance, mustResumeFirst, reconcileBanner } from '../../lib/ui/complete-transaction.js';
+import { COMPLETE_MESSAGES, COMPLIANCE_LABELS, DISAPPROVAL_REASON_MAX, EMPTY_OUTCOME, NOTICE_LABEL, OUTCOME_FIELDS, OUTCOME_LABELS, OUTCOMES, canComplete, chooseOutcome, completeErrorResult, completeRequestBody, complianceState, describeElapsed, describeVariance, mustResumeFirst, outcomeErrors, outcomeLabel, reconcileBanner } from '../../lib/ui/complete-transaction.js';
 import { EMPTY_MANUAL_END, completionBody, manualEndErrors } from '../../lib/ui/backdate.js';
 import { CANCEL_MESSAGES, CANCEL_REASON_MAX, cancelErrorResult, cancelReconcileBanner, canCancel, validateCancelReason } from '../../lib/ui/cancel-transaction.js';
 import { HOLD_REASON_MAX, canHold, canResume, formatHeldMinutes, holdActionError, loadErrorResult, validateHoldReason } from '../../lib/ui/hold-transaction.js';
@@ -30,11 +31,19 @@ const Item = ({ label, children, testId }) => (
 );
 
 /**
+ * CC027 (K14): an Executive reads transactions across offices but never acts on them. The service sends an Executive only an
+ * allowlisted view (no staff, client, registry, counter or free-text fields); this screen also shows no action, no acknowledgement
+ * slip and no section built on those fields. The service stays the authority for every direct request.
+ */
+export const isReadOnlyRole = isTransactionReadOnly;
+
+/**
  * One transaction with its actions (hold, resume, complete, cancel). Shown on its own page (backHref) and inside the Transactions
  * modal (embedded). `onChanged` is called when a re-read shows the transaction differs from what was first shown, so a list behind
  * it can refresh; `onBusyChange(true)` tells a wrapper an action is running, so it can refuse to close.
  */
 export default function TransactionDetail({ id, role, backHref, embedded = false, onChanged, onBusyChange }) {
+  const readOnly = isReadOnlyRole(role);
   const [tx, setTx] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [holdEnabled, setHoldEnabled] = useState(false); // stays false (Hold hidden) until the server says otherwise
@@ -44,6 +53,8 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
   const [completeDialog, setCompleteDialog] = useState(false);
   const [manualEnd, setManualEnd] = useState({ ...EMPTY_MANUAL_END }); // Enter end time manually: what the person typed (Manila time)
   const [manualErrors, setManualErrors] = useState({});
+  const [outcomeChoice, setOutcomeChoice] = useState({ ...EMPTY_OUTCOME }); // CC050: Granted or Disapproved, always chosen explicitly
+  const [outcomeFieldErrors, setOutcomeFieldErrors] = useState({}); // keyed by request field: outcome, disapproval_reason, disapproval_notice_given
   const [outcomeUnknown, setOutcomeUnknown] = useState(false); // a completion may or may not have been applied: read it back before any new attempt
   const [cancelDialog, setCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -92,9 +103,9 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loads the server's current answers once for this transaction
-    loadSettings();
+    if (!readOnly) loadSettings(); // Hold is never offered read-only, so its setting is not needed
     loadTransaction();
-  }, [loadSettings, loadTransaction]);
+  }, [loadSettings, loadTransaction, readOnly]);
 
   // Embedded (modal): tell the list behind it when a re-read shows this transaction is no longer what was first shown
   // (completed, cancelled, held or resumed here), and tell the wrapper while an action runs so the modal is not closed under it.
@@ -177,25 +188,41 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
     setBanner(null);
     setManualEnd({ ...EMPTY_MANUAL_END });
     setManualErrors({});
+    setOutcomeChoice({ ...EMPTY_OUTCOME }); // every opening starts with no decision: nothing carries over from an earlier attempt
+    setOutcomeFieldErrors({});
     setCompleteDialog(true);
   }
 
+  function closeCompleteDialog() {
+    setCompleteDialog(false);
+    setOutcomeChoice({ ...EMPTY_OUTCOME });
+    setOutcomeFieldErrors({});
+  }
+
+  function pickOutcome(outcome) {
+    setOutcomeChoice((choice) => chooseOutcome(choice, outcome)); // switching clears the hidden disapproval fields
+    setOutcomeFieldErrors({});
+  }
+
   async function confirmComplete() {
-    if (busyRef.current || !canComplete(tx)) return;
-    // Early feedback only; the service checks the end against the stored start and its own clock again.
+    if (busyRef.current || !canComplete(tx) || readOnly) return;
+    // Early feedback only; the service checks the outcome, and the end against the stored start and its own clock, again.
+    const earlyOutcome = outcomeErrors(outcomeChoice);
     const early = manualEndErrors(manualEnd, tx.started_at, Date.now());
-    if (Object.keys(early).length) {
+    if (Object.keys(early).length || Object.keys(earlyOutcome).length) {
       setManualErrors(early);
+      setOutcomeFieldErrors(earlyOutcome);
       return;
     }
     setManualErrors({});
+    setOutcomeFieldErrors({});
     busyRef.current = true;
     setBusy('complete');
     setBanner(null);
     try {
       unknownAction.current = 'complete';
-      await completeTransaction(id, undefined, completionBody(manualEnd));
-      setCompleteDialog(false);
+      await completeTransaction(id, undefined, completeRequestBody(outcomeChoice, completionBody(manualEnd)));
+      closeCompleteDialog();
       setOutcomeUnknown(false);
       const fresh = await loadTransaction(); // the server's answer is read back; nothing is shown before it confirms
       // The server confirmed, but if reading it back fails the page still shows the old state: withdraw Complete until it is checked.
@@ -203,11 +230,14 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
       report(fresh ? { variant: 'success', message: complianceState(fresh) === 'pending' ? COMPLETE_MESSAGES.pendingNote : 'The transaction has been completed.' } : { variant: 'warning', message: COMPLETE_MESSAGES.unknownStillUnclear });
     } catch (err) {
       const failure = completeErrorResult(err);
-      if (manualEnd.enabled && failure.kind === 'validation' && Object.keys(failure.fieldErrors ?? {}).length) {
-        setManualErrors(failure.fieldErrors); // the dialog stays open on the fields the service named; nothing was saved
+      if (failure.kind === 'validation' && Object.keys(failure.fieldErrors ?? {}).length) {
+        // The dialog stays open on the fields the service named; nothing was saved.
+        const named = failure.fieldErrors;
+        setOutcomeFieldErrors(Object.fromEntries(OUTCOME_FIELDS.filter((f) => named[f]).map((f) => [f, named[f]])));
+        setManualErrors(Object.fromEntries(['ended_at', 'backdate_reason'].filter((f) => named[f]).map((f) => [f, named[f]])));
         return;
       }
-      setCompleteDialog(false);
+      closeCompleteDialog();
       report({ variant: 'error', message: failure.message });
       if (failure.unknown) setOutcomeUnknown(true);
       if (failure.reload) {
@@ -309,7 +339,7 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
             <button type="button" className="btn-secondary" onClick={loadTransaction}>Try again</button>
           ) : null}
           {embedded ? null : <Link href={backHref} className="btn-secondary">Back to transactions</Link>}
-          {embedded ? null : <Link href="/transactions/new" className="btn-secondary">Start a transaction</Link>}
+          {embedded || readOnly ? null : <Link href="/transactions/new" className="btn-secondary">Start a transaction</Link>}
         </div>
       </div>
     );
@@ -319,6 +349,9 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
   const onHold = canResume(tx);
   const compliance = complianceState(tx);
   const starter = starterLabels(tx);
+  const outcomeText = outcomeLabel(tx); // null unless COMPLETED
+  const reasonError = outcomeFieldErrors.disapproval_reason;
+  const noticeError = outcomeFieldErrors.disapproval_notice_given;
   return (
     <div className="space-y-4">
       {embedded ? null : <Link href={backHref} className="inline-block text-sm font-semibold text-maroon-800 underline-offset-2 hover:underline">&larr; Back to transactions</Link>}
@@ -330,26 +363,31 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
         <p className="mt-1 text-sm text-slate-600">
           Status: <span className="font-semibold text-slate-900" data-testid="status">{statusLabel(tx.status)}</span>
         </p>
-        {/* CC049: the acknowledgement slip can be printed again at any time; it needs no email and no successful send. */}
-        <p className="mt-2">
-          <Link href={`/transactions/${tx.transaction_id}/acknowledgement`} className="text-sm font-semibold text-maroon-800 underline-offset-2 hover:underline" data-testid="acknowledgement-link">
-            Print acknowledgement
-          </Link>
-        </p>
+        {/* CC049: the acknowledgement slip can be printed again at any time; it needs no email and no successful send.
+            It carries the officer's details, so it is not offered read-only (CC027 / K14). */}
+        {readOnly ? null : (
+          <p className="mt-2">
+            <Link href={`/transactions/${tx.transaction_id}/acknowledgement`} className="text-sm font-semibold text-maroon-800 underline-offset-2 hover:underline" data-testid="acknowledgement-link">
+              Print acknowledgement
+            </Link>
+          </p>
+        )}
         <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <Item label="Service">{tx.service_name}</Item>
           <Item label="Office">{officeName(tx)}</Item>
           {/* CC046: the name and position copied when the transaction was started (not the account's current ones). */}
-          <Item label="Started by" testId="started-by">
-            <span className={starter.hasName ? 'block font-semibold text-slate-900' : 'block text-slate-500'} data-testid="started-by-name">{starter.name}</span>
-            <span className="block text-xs text-slate-600" data-testid="started-by-position">{starter.position}</span>
-          </Item>
+          {readOnly ? null : (
+            <Item label="Started by" testId="started-by">
+              <span className={starter.hasName ? 'block font-semibold text-slate-900' : 'block text-slate-500'} data-testid="started-by-name">{starter.name}</span>
+              <span className="block text-xs text-slate-600" data-testid="started-by-position">{starter.position}</span>
+            </Item>
+          )}
           <Item label="Standard saved with it">{formatStandardDuration({ duration_days: tx.standard_duration_days, duration_hours: tx.standard_duration_hours, duration_minutes: tx.standard_duration_minutes })}</Item>
           <Item label="Started">{formatDateTime(tx.started_at) || '-'} (Asia/Manila)</Item>
           <Item label="Elapsed time"><ElapsedTime transaction={tx} /></Item>
           <Item label="Client type">{clientTypeLabel(tx.client_type)}</Item>
           {/* CC044: the registry check made at Start. The private note is shown only here, to staff who may open the transaction. */}
-          {tx.registry_status && tx.registry_status !== 'NONE' ? (
+          {!readOnly && tx.registry_status && tx.registry_status !== 'NONE' ? (
             <Item label="Registry" testId="registry">
               <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${tx.registry_status === 'MATCHED' ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'}`} data-testid="registry-badge">
                 {REGISTRY_STATUS_LABELS[tx.registry_status] ?? tx.registry_status}
@@ -359,9 +397,12 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
               {tx.registry_miss_note ? <span className="block whitespace-pre-line text-xs text-slate-600" data-testid="registry-note">{tx.registry_miss_note}</span> : null}
             </Item>
           ) : null}
-          {tx.counter_label ? <Item label="Counter">{tx.counter_label}</Item> : null}
+          {!readOnly && tx.counter_label ? <Item label="Counter">{tx.counter_label}</Item> : null}
           <Item label="Time on hold so far (working time)" testId="held-minutes">{formatHeldMinutes(tx.held_minutes)}</Item>
           {tx.ended_at ? <Item label="Ended" testId="ended-at">{formatDateTime(tx.ended_at) || '-'} (Asia/Manila)</Item> : null}
+          {/* CC050: only a completed transaction has an outcome; one completed before outcomes existed reads "Not recorded".
+              The disapproval reason is not shown here: it stays a private record. */}
+          {outcomeText ? <Item label="Outcome" testId="outcome">{outcomeText}</Item> : null}
           {onHold ? <Item label="Pending since" testId="hold-started">{formatDateTime(tx.hold_started_at) || '-'} (Asia/Manila)</Item> : null}
           {tx.is_backdated === true ? <Item label="Entered after the fact" testId="backdated">Yes{tx.backdate_reason ? <span className="block whitespace-pre-line text-xs text-slate-600" data-testid="backdate-reason">{tx.backdate_reason}</span> : null}</Item> : null}
           {tx.status === 'CANCELLED' && tx.cancel_reason ? <Item label="Reason for cancelling" testId="cancel-reason">{tx.cancel_reason}</Item> : null}
@@ -384,11 +425,11 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
             ) : <p className="mt-2 text-sm text-slate-600">The result has not been computed yet.</p>}
           </div>
         ) : null}
-        {mustResumeFirst(tx) ? <p className="mt-4 text-sm text-slate-600" data-testid="resume-first">{COMPLETE_MESSAGES.onHold}</p> : null}
-        {outcomeUnknown ? (
+        {!readOnly && mustResumeFirst(tx) ? <p className="mt-4 text-sm text-slate-600" data-testid="resume-first">{COMPLETE_MESSAGES.onHold}</p> : null}
+        {!readOnly && outcomeUnknown ? (
           <div className="mt-4"><button type="button" className="btn-secondary" onClick={checkStatus} disabled={busy !== null}>Check status</button></div>
         ) : null}
-        {!outcomeUnknown && (canHold(tx, holdEnabled) || onHold || canComplete(tx) || canCancel(tx, role)) ? (
+        {!readOnly && !outcomeUnknown && (canHold(tx, holdEnabled) || onHold || canComplete(tx) || canCancel(tx, role)) ? (
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {canComplete(tx) ? (
               <button ref={completeButtonRef} type="button" className="btn-primary" onClick={openCompleteDialog} disabled={busy !== null}>
@@ -421,9 +462,38 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
         busy={busy === 'complete'}
         busyLabel="Completing…"
         onConfirm={confirmComplete}
-        onCancel={() => setCompleteDialog(false)}
+        onCancel={closeCompleteDialog}
         returnFocusRef={completeButtonRef}
       >
+        <fieldset className="mt-4 space-y-2" aria-describedby={outcomeFieldErrors.outcome ? 'complete-outcome-error' : undefined}>
+          <legend className="label">Outcome</legend>
+          <div className="flex flex-wrap gap-4">
+            {OUTCOMES.map((value) => (
+              <label key={value} className="flex items-center gap-2 text-sm text-slate-800">
+                <input type="radio" name="complete-outcome" id={`complete-outcome-${value.toLowerCase()}`} value={value} className="h-4 w-4 accent-[#800000]" checked={outcomeChoice.outcome === value} disabled={busy === 'complete'} onChange={() => pickOutcome(value)} aria-invalid={outcomeFieldErrors.outcome ? true : undefined} data-testid={`outcome-${value.toLowerCase()}`} />
+                {OUTCOME_LABELS[value]}
+              </label>
+            ))}
+          </div>
+          {outcomeFieldErrors.outcome ? <p id="complete-outcome-error" className="text-xs text-red-700">{outcomeFieldErrors.outcome}</p> : null}
+          {outcomeChoice.outcome === 'DISAPPROVED' ? (
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="label" htmlFor="complete-disapproval-reason">Reason for disapproval</label>
+                <textarea id="complete-disapproval-reason" className="input min-h-20" value={outcomeChoice.reason} maxLength={DISAPPROVAL_REASON_MAX} required disabled={busy === 'complete'} onChange={(e) => { const reason = e.target.value; setOutcomeChoice((c) => ({ ...c, reason })); setOutcomeFieldErrors((x) => ({ ...x, disapproval_reason: undefined })); }} aria-invalid={reasonError ? true : undefined} aria-describedby={reasonError ? 'complete-disapproval-reason-error' : 'complete-disapproval-reason-count'} />
+                <p id="complete-disapproval-reason-count" className="mt-1 text-xs text-slate-500">{outcomeChoice.reason.length}/{DISAPPROVAL_REASON_MAX}</p>
+                {reasonError ? <p id="complete-disapproval-reason-error" className="mt-1 text-xs text-red-700">{reasonError}</p> : null}
+              </div>
+              <div>
+                <label className="flex items-center gap-2 text-sm text-slate-800">
+                  <input id="complete-disapproval-notice" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-[#800000]" checked={outcomeChoice.notice} disabled={busy === 'complete'} onChange={(e) => { const notice = e.target.checked; setOutcomeChoice((c) => ({ ...c, notice })); setOutcomeFieldErrors((x) => ({ ...x, disapproval_notice_given: undefined })); }} aria-invalid={noticeError ? true : undefined} aria-describedby={noticeError ? 'complete-disapproval-notice-error' : undefined} />
+                  {NOTICE_LABEL}
+                </label>
+                {noticeError ? <p id="complete-disapproval-notice-error" className="mt-1 text-xs text-red-700">{noticeError}</p> : null}
+              </div>
+            </div>
+          ) : null}
+        </fieldset>
         <div className="mt-4 space-y-3">
           <label className="flex items-center gap-2 text-sm text-slate-800">
             <input id="complete-manual-end" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-[#800000]" checked={manualEnd.enabled} disabled={busy === 'complete'} onChange={(e) => { setManualEnd({ ...EMPTY_MANUAL_END, enabled: e.target.checked }); setManualErrors({}); }} />

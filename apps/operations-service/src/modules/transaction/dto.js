@@ -1,3 +1,5 @@
+import { ROLES } from 'ccms-shared';
+
 const iso = (value) => (value ? new Date(value).toISOString() : null);
 
 /**
@@ -58,4 +60,78 @@ export function toTransactionDto(row, { detail = true } = {}) {
     dto.registry_miss_note = row.registry_miss_note ?? null;
   }
   return dto;
+}
+
+/**
+ * CC027 / K14: the ONLY shape a transaction leaves Operations in for an Executive, for the list and the detail alike.
+ * Built field by field from this allowlist (never the ordinary DTO with keys removed), so a column added later stays out
+ * until someone adds it here on purpose. Anything not listed is absent from the JSON (not null): staff ids, names and
+ * positions; the client's reference and email; registry status, student number, reason code and note; counter id and label;
+ * every free-text reason (hold, cancel, disapproval, backdate); the disapproval notice flag; email statuses; ended_by.
+ * What is left identifies the transaction and shows how the service was delivered (Sprint 5-8 spec 6.5): office, service,
+ * classification, client type (a category, not an identity), status, outcome, timing, on time or late with the margin, flags.
+ */
+export const EXECUTIVE_TRANSACTION_FIELDS = Object.freeze([
+  'transaction_id',
+  'tracking_no',
+  'service_id',
+  'service_code',
+  'service_name',
+  'service_classification',
+  'office_id',
+  'office_code',
+  'office_name',
+  'standard_duration_days',
+  'standard_duration_hours',
+  'standard_duration_minutes',
+  'client_type',
+  'status',
+  'outcome',
+  'started_at',
+  'ended_at',
+  'hold_started_at',
+  'held_minutes',
+  'elapsed_working_minutes',
+  'is_compliant',
+  'variance_minutes',
+  'is_backdated',
+  'started_outside_hours',
+  'version',
+]);
+
+export function toExecutiveTransactionDto(row) {
+  return {
+    transaction_id: row.transaction_id,
+    tracking_no: row.tracking_no,
+    service_id: row.service_id,
+    service_code: row.service_code,
+    service_name: row.service_name,
+    service_classification: row.service_classification,
+    office_id: row.office_id,
+    office_code: row.office_code,
+    office_name: row.office_name ?? null,
+    standard_duration_days: row.standard_duration_days,
+    standard_duration_hours: row.standard_duration_hours,
+    standard_duration_minutes: row.standard_duration_minutes,
+    client_type: row.client_type,
+    status: row.status,
+    // CC050: only a completed transaction carries a decision; the disapproval reason and notice flag never leave for an Executive.
+    outcome: row.status === 'COMPLETED' ? (row.outcome ?? null) : null,
+    started_at: iso(row.started_at),
+    ended_at: iso(row.ended_at),
+    hold_started_at: iso(row.hold_started_at),
+    held_minutes: row.held_minutes ?? 0,
+    elapsed_working_minutes: row.elapsed_working_minutes ?? null,
+    is_compliant: row.is_compliant ?? null,
+    variance_minutes: row.variance_minutes ?? null,
+    is_backdated: row.is_backdated === true,
+    started_outside_hours: row.started_outside_hours === true,
+    version: row.version,
+  };
+}
+
+/** The read view for this caller: the Executive allowlist, or the ordinary DTO (list or detail) for every other role. */
+export function transactionDtoFor(user, row, { detail = true } = {}) {
+  if (user?.role === ROLES.EXECUTIVE) return toExecutiveTransactionDto(row);
+  return toTransactionDto(row, { detail });
 }

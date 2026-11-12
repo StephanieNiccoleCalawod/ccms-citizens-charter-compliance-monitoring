@@ -80,7 +80,8 @@ by BE Dev 1 after a verified backup: see [../../docs/database-migrations.md](../
 | `GET /health` | anyone |
 | `GET /settings`, `PUT /settings` | read: any role; change: Super Admin (version check, 409 `SETTINGS_VERSION_CONFLICT`) |
 | `GET /counters?officeId=`, `POST /counters`, `PUT /counters/:id`, `PATCH /counters/:id/deactivate\|reactivate` | read: Super Admin, Office Head/Staff (own office); write: Super Admin |
-| `POST /transactions`, `GET /transactions`, `GET /transactions/:id` | Super Admin, Office Head, Office Staff (scoped); Executive 403 |
+| `POST /transactions` | Super Admin, Office Head, Office Staff (scoped); Executive 403 |
+| `GET /transactions`, `GET /transactions/:id` | Super Admin, Office Head, Office Staff (scoped); Executive read-only across offices with the allowlisted view (`dto.js` `toExecutiveTransactionDto`, CC027 / K14) |
 | `POST /transactions/:id/hold`, `/resume`, `/complete` | who started it, Office Head of the office, Super Admin |
 | `POST /transactions/:id/cancel` | Office Head (own office), Super Admin |
 | `GET /transactions/analytics-export?limit=&cursor=` | **service key only** (TT2 backfill source; blocked by the gateway for every method) |

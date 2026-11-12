@@ -26,13 +26,14 @@ const detail = (id, token = tokens.superAdmin) => call(detailRoute, req('GET', `
 const trackingOf = (r) => r.body.items.map((i) => i.tracking_no);
 
 describe('CC027 list', () => {
-  it('AC1: Super Admin sees all offices, Office Head their office, Office Staff their own records; Executive none (403)', async () => {
+  // REPLACED UNDER K14 (CC027 change), for reads only: Executive now reads every office (allowlisted view, cc027-executive-read.test.js).
+  it('AC1: Super Admin sees all offices, Office Head their office, Office Staff their own records; Executive every office (K14)', async () => {
     assert.deepEqual(trackingOf(await list()).sort(), ['PUP-ACAD-20261006-0001', 'PUP-OSAS-20261006-0001', 'PUP-OSAS-20261006-0002', 'PUP-OSAS-20261007-0001']);
     assert.deepEqual(trackingOf(await list('', tokens.officeHeadA)).sort(), ['PUP-OSAS-20261006-0001', 'PUP-OSAS-20261006-0002', 'PUP-OSAS-20261007-0001']);
     assert.deepEqual(trackingOf(await list('', tokens.officeStaffA)).sort(), ['PUP-OSAS-20261006-0001', 'PUP-OSAS-20261007-0001']);
     assert.deepEqual(trackingOf(await list('', tokens.officeStaffA2)), ['PUP-OSAS-20261006-0002']);
     assert.deepEqual(trackingOf(await list('', tokens.officeHeadB)), ['PUP-ACAD-20261006-0001']);
-    assert.equal((await list('', tokens.executive)).status, 403);
+    assert.deepEqual(trackingOf(await list('', tokens.executive)).sort(), ['PUP-ACAD-20261006-0001', 'PUP-OSAS-20261006-0001', 'PUP-OSAS-20261006-0002', 'PUP-OSAS-20261007-0001']);
     assert.equal((await call(listRoute, req('GET', '/transactions'))).status, 401);
   });
 
@@ -118,7 +119,8 @@ describe('CC027 detail', () => {
   });
 
   it('AC3: a transaction outside the user\'s scope is a 403 with no data; unknown is 404', async () => {
-    for (const token of [tokens.officeStaffA2, tokens.officeHeadB, tokens.officeStaffB, tokens.executive]) {
+    // Executive left this list under K14 (reads any office, allowlisted): see cc027-executive-read.test.js.
+    for (const token of [tokens.officeStaffA2, tokens.officeHeadB, tokens.officeStaffB]) {
       const r = await detail(rows.a1.transaction_id, token);
       assert.equal(r.status, 403, 'a1');
       assert.ok(!JSON.stringify(r.body).includes('PUP-OSAS') && !JSON.stringify(r.body).includes('a1@example.com'));

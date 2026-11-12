@@ -90,7 +90,7 @@ export function completeErrorResult(err) {
   if (status === 400 && err.details && typeof err.details === 'object') {
     const first = Object.values(err.details).find((v) => typeof v === 'string');
     const fieldErrors = {};
-    for (const field of ['ended_at', 'backdate_reason']) if (typeof err.details[field] === 'string') fieldErrors[field] = err.details[field];
+    for (const field of ['ended_at', 'backdate_reason', ...OUTCOME_FIELDS]) if (typeof err.details[field] === 'string') fieldErrors[field] = err.details[field];
     if (first) return { ...result('validation', first, { reload: true }), fieldErrors };
   }
   if (code === 'NETWORK_ERROR') return result('network', COMPLETE_MESSAGES.unknownOutcome, { reload: true, unknown: true });
@@ -105,4 +105,68 @@ export function reconcileBanner(status) {
   if (status === 'COMPLETED') return { variant: 'info', message: COMPLETE_MESSAGES.completedAfterUnknown };
   if (status === 'ON_HOLD') return { variant: 'info', message: COMPLETE_MESSAGES.mustResume };
   return { variant: 'info', message: COMPLETE_MESSAGES.notInProgress };
+}
+
+// ---------------------------------------------------------------- CC050: Granted or Disapproved
+
+export const OUTCOMES = Object.freeze(['GRANTED', 'DISAPPROVED']);
+export const OUTCOME_LABELS = Object.freeze({ GRANTED: 'Granted', DISAPPROVED: 'Disapproved' });
+export const NOT_RECORDED_LABEL = 'Not recorded';
+export const DISAPPROVAL_REASON_MAX = 1000;
+export const NOTICE_LABEL = 'Written notice of disapproval given to the client';
+/** The request fields the service may name in a 400 (Operations complete.js parseOutcome). */
+export const OUTCOME_FIELDS = Object.freeze(['outcome', 'disapproval_reason', 'disapproval_notice_given']);
+
+export const OUTCOME_MESSAGES = Object.freeze({
+  outcome: 'Choose Granted or Disapproved',
+  reason: 'Enter the reason for disapproval (up to 1,000 characters)',
+  notice: 'Confirm that the client was given written notice of the disapproval',
+});
+
+/** Nothing chosen yet: the screen always asks; it never defaults to either decision. */
+export const EMPTY_OUTCOME = Object.freeze({ outcome: '', reason: '', notice: false });
+
+/**
+ * Switching the decision. The disapproval fields belong to Disapproved only, so any change of outcome clears them: a reason typed
+ * and then hidden by choosing Granted is never sent, and does not reappear on switching back.
+ */
+export function chooseOutcome(choice, outcome) {
+  if (choice?.outcome === outcome) return choice;
+  return { ...EMPTY_OUTCOME, outcome: OUTCOMES.includes(outcome) ? outcome : '' };
+}
+
+/** Early feedback, by request field name (the service checks the same rules again). Empty object = ready to send. */
+export function outcomeErrors(choice) {
+  const errors = {};
+  if (!OUTCOMES.includes(choice?.outcome)) {
+    errors.outcome = OUTCOME_MESSAGES.outcome;
+    return errors;
+  }
+  if (choice.outcome === 'DISAPPROVED') {
+    const reason = typeof choice.reason === 'string' ? choice.reason.trim() : '';
+    if (!reason || reason.length > DISAPPROVAL_REASON_MAX) errors.disapproval_reason = OUTCOME_MESSAGES.reason;
+    if (choice.notice !== true) errors.disapproval_notice_given = OUTCOME_MESSAGES.notice;
+  }
+  return errors;
+}
+
+/** The outcome part of the complete request. Granted sends neither disapproval field. Call only when outcomeErrors() is empty. */
+export function outcomeBody(choice) {
+  if (choice?.outcome === 'DISAPPROVED') {
+    return { outcome: 'DISAPPROVED', disapproval_reason: choice.reason.trim(), disapproval_notice_given: true };
+  }
+  return { outcome: 'GRANTED' };
+}
+
+/** The whole complete request: the outcome, plus the manual end time when one was entered (ui/backdate.js completionBody). */
+export const completeRequestBody = (choice, manualPart) => ({ ...outcomeBody(choice), ...(manualPart ?? {}) });
+
+/**
+ * The completion outcome as shown: only a COMPLETED transaction has one ("Granted", "Disapproved", or "Not recorded" for a
+ * completion saved before outcomes existed). Anything not completed (in progress, on hold, cancelled, auto-closed) shows none (null).
+ */
+export function outcomeLabel(transaction) {
+  if (transaction?.status !== 'COMPLETED') return null;
+  if (transaction.outcome == null) return NOT_RECORDED_LABEL;
+  return OUTCOME_LABELS[transaction.outcome] ?? NOT_RECORDED_LABEL;
 }

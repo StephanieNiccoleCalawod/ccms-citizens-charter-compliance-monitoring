@@ -86,7 +86,8 @@ describe('the screen (source checks)', () => {
     assert.ok(/form="cancel-form"/.test(page));
   });
   it('withdraws every action when the state could not be read back', () => {
-    assert.ok(/\{!outcomeUnknown && \(/.test(page));
+    // CC027 (K14): the read-only check comes first; the actions are still withdrawn while the outcome is unknown.
+    assert.ok(/\{!readOnly && !outcomeUnknown && \(/.test(page));
     assert.ok((page.match(/if \(!fresh\) \{/g) ?? []).length >= 2);
   });
   it('invents no time, status, hold field or result, and sends no client data', () => {

@@ -20,20 +20,21 @@ const COUNTER = '22222222-2222-4222-8222-222222222222';
 const OFFICE = '33333333-3333-4333-8333-333333333333';
 
 describe('navigation by role', () => {
-  it('Super Admin, Office Head and Office Staff get a Transactions item; Executive and unknown roles do not', () => {
-    for (const role of [ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]) {
+  // REPLACED UNDER K14 (CC027 change), for reads only: the Executive now gets the Transactions item (read-only). Starting a
+  // transaction stays off every menu, and the start page keeps its three roles (start-transaction.test.js).
+  it('Super Admin, Office Head, Office Staff and (read-only, K14) Executive get a Transactions item; unknown roles do not', () => {
+    for (const role of [ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE]) {
       assert.deepEqual(transactionsNav(role), { section: 'Main', label: 'Transactions', href: '/transactions' }, role);
       assert.ok(appNavForRole(role).some((i) => i.href === '/transactions'), role);
     }
-    assert.equal(transactionsNav(ROLES.EXECUTIVE), null);
-    assert.ok(!appNavForRole(ROLES.EXECUTIVE).some((i) => i.href === '/transactions' || i.href === '/transactions/new'));
+    assert.ok(!appNavForRole(ROLES.EXECUTIVE).some((i) => i.href === '/transactions/new'));
     for (const role of ['admin', undefined, null, '']) assert.deepEqual(appNavForRole(role), []);
     assert.ok(ROLE_LIST.includes(ROLES.EXECUTIVE));
   });
   it('the menu item is a convenience: the page itself refuses other roles and the server stays authoritative', () => {
     const list = strip(read('src/app/transactions/page.js'));
-    assert.ok(/allowedRoles=\{\[ROLES\.SUPER_ADMIN, ROLES\.OFFICE_HEAD, ROLES\.OFFICE_STAFF\]\}/.test(list));
-    assert.ok(!/ROLES\.EXECUTIVE/.test(list));
+    assert.ok(/allowedRoles=\{TRANSACTION_PAGE_ROLES\}/.test(list));
+    assert.ok(!/ROLES\.EXECUTIVE/.test(list), 'the page asks the shared read-only rule, it does not test the role itself');
     // Scope is never worked out here: no filter by user, office or started_by is built from the signed-in person.
     assert.ok(!/started_by|user\.id|user\.officeId|office_id:\s*user/.test(list));
   });

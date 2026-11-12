@@ -223,7 +223,8 @@ describe('completing an open transaction with an end time entered by hand (MOCKE
     const page = strip((read('src/app/transactions/[id]/page.js') + read('src/components/transactions/TransactionDetail.js')));
     assert.equal((page.match(/completeTransaction\(/g) ?? []).length, 1);
     assert.ok(/manualEndErrors\(manualEnd, tx\.started_at, Date\.now\(\)\)/.test(page));
-    assert.ok(/completeTransaction\(id, undefined, completionBody\(manualEnd\)\)/.test(page));
+    // CC050: the manual end is sent together with the chosen outcome (completeRequestBody in ui/complete-transaction.js).
+    assert.ok(/completeTransaction\(id, undefined, completeRequestBody\(outcomeChoice, completionBody\(manualEnd\)\)\)/.test(page));
     assert.ok(!/started_at\s*:/.test(page));
   });
 });
