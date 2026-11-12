@@ -100,6 +100,12 @@ export const Transaction = new EntitySchema({
     outcome: { type: 'varchar', length: 12, nullable: true },
     disapprovalReason: { name: 'disapproval_reason', type: 'text', nullable: true },
     disapprovalNoticeGiven: { name: 'disapproval_notice_given', type: 'boolean', nullable: true },
+    // CC044: registry capture at Start (server-owned). NONE for old rows, Employee/External and seeded rows without a lookup.
+    // The CHECK (transactions_registry_ck) lives in after-sync and migrations/1794528100000-Cc044RegistryAtStart.js.
+    registryStudentNumber: { name: 'registry_student_number', type: 'varchar', length: 30, nullable: true },
+    registryStatus: { name: 'registry_status', type: 'varchar', length: 12, default: 'NONE' },
+    registryMissReason: { name: 'registry_miss_reason', type: 'varchar', length: 20, nullable: true },
+    registryMissNote: { name: 'registry_miss_note', type: 'varchar', length: 200, nullable: true },
     version: { type: 'int', default: 1 },
     // TT2: analytics feed counter (not the optimistic lock). 0 = never emitted; each analytics event increments it.
     analyticsEventVersion: { name: 'analytics_event_version', type: 'int', default: 0 },
@@ -202,5 +208,62 @@ export const RegistryPerson = new EntitySchema({
   ],
 });
 
+// ---- CC049 client emails other than the completion receipt (kind ACKNOWLEDGEMENT) ----
+// Constraints, the FK and the due index are created in after-sync / migrations/1794528200000-Cc049TransactionEmails.js.
+export const TransactionEmail = new EntitySchema({
+  name: 'TransactionEmail',
+  tableName: 'transaction_emails',
+  columns: {
+    emailId: { name: 'email_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'transaction_emails_pkey' },
+    transactionId: { name: 'transaction_id', type: 'uuid' },
+    kind: { type: 'varchar', length: 20 },
+    status: { type: 'varchar', length: 10, default: 'PENDING' },
+    attempts: { type: 'int', default: 0 },
+    idempotencyKey: { name: 'idempotency_key', type: 'varchar', length: 100 },
+    claimToken: { name: 'claim_token', type: 'uuid', nullable: true },
+    claimUntil: { name: 'claim_until', type: 'timestamptz', nullable: true },
+    firstAttemptAt: { name: 'first_attempt_at', type: 'timestamptz', nullable: true },
+    nextAttemptAt: { name: 'next_attempt_at', type: 'timestamptz', default: () => 'now()' },
+    providerMessageId: { name: 'provider_message_id', type: 'varchar', length: 200, nullable: true },
+    lastErrorCode: { name: 'last_error_code', type: 'varchar', length: 60, nullable: true },
+    sentAt: { name: 'sent_at', type: 'timestamptz', nullable: true },
+    createdAt: { name: 'created_at', type: 'timestamptz', default: () => 'now()' },
+    updatedAt: { name: 'updated_at', type: 'timestamptz', default: () => 'now()' },
+  },
+});
+
+// ---- Sprint 6 TT1 provenance of the historical-records import (demo only) ----
+// Constraints and indexes in after-sync / migrations/1794528300000-Tt1SeedProvenance.js.
+export const SeedRun = new EntitySchema({
+  name: 'SeedRun',
+  tableName: 'seed_runs',
+  columns: {
+    runId: { name: 'run_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'seed_runs_pkey' },
+    mode: { type: 'varchar', length: 10 },
+    algorithmVersion: { name: 'algorithm_version', type: 'varchar', length: 40 },
+    randomSeed: { name: 'random_seed', type: 'varchar', length: 100, nullable: true },
+    periodFrom: { name: 'period_from', type: 'date', nullable: true },
+    periodTo: { name: 'period_to', type: 'date', nullable: true },
+    asOf: { name: 'as_of', type: 'date', nullable: true },
+    operatorId: { name: 'operator_id', type: 'uuid' },
+    inputsDigest: { name: 'inputs_digest', type: 'varchar', length: 64, nullable: true },
+    counts: { type: 'jsonb', default: () => "'{}'::jsonb" },
+    createdAt: { name: 'created_at', type: 'timestamptz', default: () => 'now()' },
+  },
+});
+
+export const SeededTransaction = new EntitySchema({
+  name: 'SeededTransaction',
+  tableName: 'seeded_transactions',
+  columns: {
+    transactionId: { name: 'transaction_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'seeded_transactions_pkey' },
+    runId: { name: 'run_id', type: 'uuid' },
+    trackingNo: { name: 'tracking_no', type: 'varchar', length: 60 },
+    removedAt: { name: 'removed_at', type: 'timestamptz', nullable: true },
+    removedByRun: { name: 'removed_by_run', type: 'uuid', nullable: true },
+    oversightPurgedAt: { name: 'oversight_purged_at', type: 'timestamptz', nullable: true },
+  },
+});
+
 export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun,
-  AnalyticsOutboxEvent, RegistryImport, RegistryPerson];
+  AnalyticsOutboxEvent, RegistryImport, RegistryPerson, TransactionEmail, SeedRun, SeededTransaction];

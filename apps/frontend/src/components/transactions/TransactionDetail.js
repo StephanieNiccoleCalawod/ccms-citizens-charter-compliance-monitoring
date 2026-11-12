@@ -14,7 +14,7 @@ import { COMPLETE_MESSAGES, COMPLIANCE_LABELS, canComplete, complianceState, com
 import { EMPTY_MANUAL_END, completionBody, manualEndErrors } from '../../lib/ui/backdate.js';
 import { CANCEL_MESSAGES, CANCEL_REASON_MAX, cancelErrorResult, cancelReconcileBanner, canCancel, validateCancelReason } from '../../lib/ui/cancel-transaction.js';
 import { HOLD_REASON_MAX, canHold, canResume, formatHeldMinutes, holdActionError, loadErrorResult, validateHoldReason } from '../../lib/ui/hold-transaction.js';
-import { clientTypeLabel, formatStandardDuration, statusLabel } from '../../lib/ui/start-transaction.js';
+import { REGISTRY_STATUS_LABELS, clientTypeLabel, formatStandardDuration, registryReasonLabel, statusLabel } from '../../lib/ui/start-transaction.js';
 import ElapsedTime from '../ui/ElapsedTime.js';
 import { officeName } from '../../lib/ui/names.js';
 import { starterLabels } from '../../lib/ui/account-position.js';
@@ -330,6 +330,12 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
         <p className="mt-1 text-sm text-slate-600">
           Status: <span className="font-semibold text-slate-900" data-testid="status">{statusLabel(tx.status)}</span>
         </p>
+        {/* CC049: the acknowledgement slip can be printed again at any time; it needs no email and no successful send. */}
+        <p className="mt-2">
+          <Link href={`/transactions/${tx.transaction_id}/acknowledgement`} className="text-sm font-semibold text-maroon-800 underline-offset-2 hover:underline" data-testid="acknowledgement-link">
+            Print acknowledgement
+          </Link>
+        </p>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <Item label="Service">{tx.service_name}</Item>
           <Item label="Office">{officeName(tx)}</Item>
@@ -342,6 +348,17 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
           <Item label="Started">{formatDateTime(tx.started_at) || '-'} (Asia/Manila)</Item>
           <Item label="Elapsed time"><ElapsedTime transaction={tx} /></Item>
           <Item label="Client type">{clientTypeLabel(tx.client_type)}</Item>
+          {/* CC044: the registry check made at Start. The private note is shown only here, to staff who may open the transaction. */}
+          {tx.registry_status && tx.registry_status !== 'NONE' ? (
+            <Item label="Registry" testId="registry">
+              <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${tx.registry_status === 'MATCHED' ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'}`} data-testid="registry-badge">
+                {REGISTRY_STATUS_LABELS[tx.registry_status] ?? tx.registry_status}
+              </span>
+              {tx.registry_student_number ? <span className="block font-mono text-xs text-slate-700">{tx.registry_student_number}</span> : null}
+              {tx.registry_miss_reason ? <span className="block text-xs text-slate-600">{registryReasonLabel(tx.registry_miss_reason)}</span> : null}
+              {tx.registry_miss_note ? <span className="block whitespace-pre-line text-xs text-slate-600" data-testid="registry-note">{tx.registry_miss_note}</span> : null}
+            </Item>
+          ) : null}
           {tx.counter_label ? <Item label="Counter">{tx.counter_label}</Item> : null}
           <Item label="Time on hold so far (working time)" testId="held-minutes">{formatHeldMinutes(tx.held_minutes)}</Item>
           {tx.ended_at ? <Item label="Ended" testId="ended-at">{formatDateTime(tx.ended_at) || '-'} (Asia/Manila)</Item> : null}

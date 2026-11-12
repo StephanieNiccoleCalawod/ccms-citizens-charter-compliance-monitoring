@@ -54,11 +54,23 @@ export const Service = new EntitySchema({
     // CC007/CC008 (BR-SRV-001, FR-SRV-001): Charter display-only reference fields.
     fees: { name: 'fees', type: 'text', nullable: true },
     whoMayAvail: { name: 'who_may_avail', type: 'text', nullable: true },
+    // CC047: who may start this service, a non-empty subset of the four client types (canonical order, no duplicates).
+    // Same default and CHECK as migrations/1794528000000-Cc047AllowedClientTypes.js.
+    allowedClientTypes: {
+      name: 'allowed_client_types',
+      type: 'text',
+      array: true,
+      default: () => "ARRAY['STUDENT'::text, 'ALUMNI'::text, 'EMPLOYEE'::text, 'EXTERNAL'::text]",
+    },
     isActive: { name: 'is_active', type: 'boolean', default: true },
     createdAt: { name: 'created_at', type: 'timestamptz', createDate: true },
     updatedAt: { name: 'updated_at', type: 'timestamptz', updateDate: true },
   },
   indices: [{ name: 'services_office_idx', columns: ['officeId'] }],
+  checks: [{
+    name: 'services_allowed_client_types_check',
+    expression: "cardinality(allowed_client_types) >= 1 AND array_ndims(allowed_client_types) = 1 AND array_position(allowed_client_types, NULL::text) IS NULL AND allowed_client_types <@ ARRAY['STUDENT'::text, 'ALUMNI'::text, 'EMPLOYEE'::text, 'EXTERNAL'::text]",
+  }],
 });
 
 // One version of a service's timeliness standard. Dates are Manila calendar dates.

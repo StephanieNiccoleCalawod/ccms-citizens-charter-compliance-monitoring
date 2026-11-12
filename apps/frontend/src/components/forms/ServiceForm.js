@@ -7,6 +7,7 @@ import { CATALOGUE_API, CLASSIFICATIONS, SERVICE_SCOPES, TRANSACTION_TYPES, stan
 import { apiFetch } from '../../lib/auth/session.js';
 import { PROCEDURE_LIMIT, canUseStepEditor, toStepMode, toTextMode } from '../../lib/ui/procedure-steps.js';
 import {
+  ALLOWED_CLIENT_TYPE_OPTIONS,
   SERVICE_FORM_FIELDS,
   WHO_MAY_AVAIL_MAX,
   abbreviationProblem,
@@ -15,6 +16,7 @@ import {
   previewErrorMessage,
   previewPlan,
   suggestAbbreviation,
+  toggleClientType,
   validateServiceForm,
 } from '../../lib/ui/service-form.js';
 import DateHint from './DateHint.js';
@@ -24,7 +26,7 @@ import RequiredDocumentsEditor from './RequiredDocumentsEditor.js';
 
 export { EMPTY_SERVICE_FORM, formToBody, serviceToForm } from '../../lib/ui/service-form.js';
 
-const FIELD_FOCUS_ORDER = ['office_id', 'service_abbr', 'service_name', 'classification', 'service_scope', 'transaction_types', 'fees', 'who_may_avail', 'processing_steps', 'documents', 'duration_days', 'duration_hours', 'duration_minutes', 'effective_from', 'charter_reference'];
+const FIELD_FOCUS_ORDER = ['office_id', 'service_abbr', 'service_name', 'classification', 'service_scope', 'transaction_types', 'fees', 'who_may_avail', 'allowed_client_types', 'processing_steps', 'documents', 'duration_days', 'duration_hours', 'duration_minutes', 'effective_from', 'charter_reference'];
 
 /**
  * Asks Core which code the next new service of this office and abbreviation would get (GET /services/next-code). It only asks when
@@ -92,6 +94,11 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
     const next = form.transaction_types.includes(value) ? form.transaction_types.filter((t) => t !== value) : [...form.transaction_types, value];
     // keep the order of the list, not the order of clicking
     change({ transaction_types: TRANSACTION_TYPES.map((t) => t.value).filter((t) => next.includes(t)) }, 'transaction_types');
+  }
+
+  // CC047: at least one client type stays checked (the server refuses an empty list too).
+  function toggleAllowed(value) {
+    change({ allowed_client_types: toggleClientType(form.allowed_client_types, value) }, 'allowed_client_types');
   }
 
   function submit(event) {
@@ -368,6 +375,31 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
           aria-describedby={describe('who_may_avail')}
         />
         <FieldError id={`${id}-who_may_avail-error`}>{fieldError('who_may_avail')}</FieldError>
+        <fieldset className="mt-3" aria-describedby={describe('allowed_client_types')}>
+          <legend className="text-sm font-semibold text-slate-800">
+            Client types that may start this service
+            <RequiredMark />
+          </legend>
+          <div className={`mt-1 grid gap-2 rounded-md sm:grid-cols-4 ${fieldError('allowed_client_types') ? 'border border-red-600 p-2' : ''}`}>
+            {ALLOWED_CLIENT_TYPE_OPTIONS.map((t, index) => {
+              const checked = form.allowed_client_types.includes(t.value);
+              return (
+                <label key={t.value} className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-sm ${checked ? 'border-maroon-800 bg-maroon-50 font-semibold text-maroon-900' : 'border-slate-300 text-slate-700'}`}>
+                  <input
+                    type="checkbox"
+                    data-field={index === 0 ? 'allowed_client_types' : undefined}
+                    className="mt-0.5 accent-[#800000]"
+                    checked={checked}
+                    onChange={() => toggleAllowed(t.value)}
+                  />
+                  <span>{t.label}</span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">The Start screen offers only these client types for this service. Choose at least one.</p>
+          <FieldError id={`${id}-allowed_client_types-error`}>{fieldError('allowed_client_types')}</FieldError>
+        </fieldset>
       </div>
 
       <div>

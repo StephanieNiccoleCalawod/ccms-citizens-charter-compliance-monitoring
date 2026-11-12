@@ -92,4 +92,15 @@ export const AnalyticsBackfillState = new EntitySchema({
 
 // The Logs module receives and shows audit entries: it has no outbox and sends nothing out (BR-LOG-001). TT2 adds the
 // analytics projection, which it also only receives.
-export const entities = [AuditLog, AnalyticsTransaction, AnalyticsBackfillState];
+// Sprint 6 TT1: ids of seeded rows removed from the projection; the upsert never writes them again. The purge function
+// and grants are created in after-sync / migrations/1794528400000-Tt1AnalyticsTombstones.js.
+export const AnalyticsTombstone = new EntitySchema({
+  name: 'AnalyticsTombstone',
+  tableName: 'analytics_tombstones',
+  columns: {
+    transactionId: { name: 'transaction_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'analytics_tombstones_pkey' },
+    removedAt: { name: 'removed_at', type: 'timestamptz', default: () => 'now()' },
+  },
+});
+
+export const entities = [AuditLog, AnalyticsTransaction, AnalyticsBackfillState, AnalyticsTombstone];

@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { POST as completeRoute } from '../src/app/api/transactions/[id]/complete/route.js';
 import { POST as startRoute } from '../src/app/api/transactions/route.js';
-import { OFFICE_A, SERVICE_A, SERVICE_B, USERS, at, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
+import { NOT_IN_REGISTRY, OFFICE_A, SERVICE_A, SERVICE_B, USERS, at, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
 
 let env;
 before(async () => {
@@ -17,7 +17,7 @@ beforeEach(async () => {
 });
 
 const iso = (date, time) => `${date}T${time}:00+08:00`;
-const body = (over = {}) => ({ service_id: SERVICE_A, client_type: 'STUDENT', requirements_confirmed: true, ...over });
+const body = (over = {}) => ({ service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, requirements_confirmed: true, ...over });
 const start = (over = {}, token = tokens.officeStaffA) => call(startRoute, req('POST', '/transactions', { token, body: body(over) }));
 const complete = (id, payload, token = tokens.officeStaffA) => call(completeRoute, req('POST', `/transactions/${id}/complete`, { token, body: payload }), ctx(id));
 const audits = (action) => env.ds.query(`SELECT payload FROM audit_outbox WHERE payload->>'action' = $1 ORDER BY created_at`, [action]);

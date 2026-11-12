@@ -16,7 +16,7 @@ import { runComputePending } from '../src/modules/transaction/compute-pending.js
 import { createCoreClient } from '../src/modules/transaction/core-client.js';
 import { holdTransaction, resumeTransaction } from '../src/modules/transaction/hold.js';
 import { startTransaction } from '../src/modules/transaction/start.js';
-import { OFFICE_A, SERVICE_A, SERVICE_KEY, USERS, call, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
+import { NOT_IN_REGISTRY, OFFICE_A, SERVICE_A, SERVICE_KEY, USERS, call, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
 
 let env;
 before(async () => {
@@ -40,7 +40,7 @@ const PRIVATE = {
   cancel: 'Cancel reason PRIVATE-C',
   disapproval: 'Disapproval reason PRIVATE-D',
 };
-const body = (over = {}) => ({ service_id: SERVICE_A, client_type: 'STUDENT', client_reference: PRIVATE.client_reference, client_email: PRIVATE.client_email, requirements_confirmed: true, ...over });
+const body = (over = {}) => ({ service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, client_reference: PRIVATE.client_reference, client_email: PRIVATE.client_email, requirements_confirmed: true, ...over });
 const events = (id) => env.ds.query('SELECT event_type, event_version, payload FROM analytics_outbox WHERE transaction_id = $1 ORDER BY event_version', [id]);
 const allEvents = () => env.ds.query('SELECT event_id, transaction_id, event_type, event_version, payload, attempts, delivered_at, lease_token, last_error FROM analytics_outbox ORDER BY created_at, event_version');
 const versionOf = async (id) => (await env.ds.query('SELECT analytics_event_version FROM transactions WHERE transaction_id = $1', [id]))[0].analytics_event_version;
@@ -172,8 +172,9 @@ describe('TT2 producer: one complete snapshot per transition, in the business tr
       }
     }
     for (const e of await allEvents()) {
-      assert.equal(e.payload.snapshot.registry_status, 'NONE');
-      assert.equal(e.payload.snapshot.registry_miss_reason, null);
+      // CC044: Starts in this file use the manual registry path; only the status and the reason CODE reach the feed.
+      assert.equal(e.payload.snapshot.registry_status, 'NOT_FOUND');
+      assert.equal(e.payload.snapshot.registry_miss_reason, 'NEW_ENROLLEE');
     }
   });
 });

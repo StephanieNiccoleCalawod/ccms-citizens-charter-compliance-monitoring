@@ -6,7 +6,9 @@ export function rowsOf(result) {
 }
 
 export const TRANSACTION_SELECT = `
-  SELECT t.*, c.label AS counter_label
+  SELECT t.*, c.label AS counter_label,
+         (SELECT e.status FROM transaction_emails e
+           WHERE e.transaction_id = t.transaction_id AND e.kind = 'ACKNOWLEDGEMENT') AS acknowledgement_email_status
     FROM transactions t
     LEFT JOIN counters c ON c.counter_id = t.counter_id`;
 

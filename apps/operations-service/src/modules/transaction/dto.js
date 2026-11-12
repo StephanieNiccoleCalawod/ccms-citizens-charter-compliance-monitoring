@@ -38,6 +38,11 @@ export function toTransactionDto(row, { detail = true } = {}) {
     held_minutes: row.held_minutes ?? 0,
     hold_started_at: iso(row.hold_started_at),
     receipt_email_status: row.receipt_email_status ?? 'NONE',
+    // CC049: NONE when no acknowledgement email was queued (no client email, or an older transaction).
+    acknowledgement_email_status: row.acknowledgement_email_status ?? 'NONE',
+    // CC044: the status and reason code are flags; the student number and the private note are detail-only.
+    registry_status: row.registry_status ?? 'NONE',
+    registry_miss_reason: row.registry_miss_reason ?? null,
     version: row.version,
   };
   if (detail) {
@@ -49,6 +54,8 @@ export function toTransactionDto(row, { detail = true } = {}) {
     dto.disapproval_notice_given = row.disapproval_notice_given ?? null;
     dto.backdate_reason = row.backdate_reason ?? null;
     dto.receipt_email_attempts = row.receipt_email_attempts ?? 0;
+    dto.registry_student_number = row.registry_student_number ?? null;
+    dto.registry_miss_note = row.registry_miss_note ?? null;
   }
   return dto;
 }

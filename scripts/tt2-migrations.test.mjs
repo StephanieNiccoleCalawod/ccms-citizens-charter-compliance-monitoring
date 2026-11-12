@@ -52,6 +52,13 @@ const fingerprint = (url) => q(url, 'SELECT 1').then(async () => {
 });
 const OPS = 'Tt2AnalyticsOutbox1794355200000';
 const OVS = 'Tt2AnalyticsTransactions1794355300000';
+function revertAfterOperationsTt2(url) {
+  for (const migration of ['Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000', 'Cc043Registry1794441600000']) {
+    const reverted = cli('operations', url, ['revert']);
+    assert.equal(reverted.code, 0, reverted.out);
+    assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);
+  }
+}
 const TX = (id, version = 0) => `INSERT INTO transactions (transaction_id, tracking_no, service_id, service_code, service_name, office_id, office_code, service_classification,
   standard_id, standard_duration_days, standard_duration_hours, standard_duration_minutes, client_type, started_at, started_by, status${version === null ? '' : ', analytics_event_version'})
   VALUES ('${id}', 'PUP-REG-20261001-000${id.slice(-1)}', '00000000-0000-4000-8000-0000000000aa', 'C', 'S', '00000000-0000-4000-8000-0000000000bb', 'PUP-REG', 'SIMPLE',
@@ -61,7 +68,7 @@ describe('Operations TT2 migration', () => {
   test('applies once, shows as applied, reruns without change; existing rows start at version 0 and keep their data', async () => {
     const url = await emptyDatabase('ops');
     assert.equal(cli('operations', url, ['run']).code, 0);
-    assert.match(cli('operations', url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
+    revertAfterOperationsTt2(url);
     assert.match(cli('operations', url, ['revert']).out, new RegExp(`Reverted: ${OPS}`));
     // A database at the previous migration with existing records.
     await q(url, TX('00000000-0000-4000-8000-000000000001', null));
@@ -71,7 +78,7 @@ describe('Operations TT2 migration', () => {
     assert.match(run.out, new RegExp(`Applied: ${OPS}`));
     const after = await q(url, 'SELECT * FROM transactions');
     assert.equal(after[0].analytics_event_version, 0);
-    const { analytics_event_version: _v, ...unchanged } = after[0];
+    const unchanged = Object.fromEntries(Object.keys(before[0]).map((key) => [key, after[0][key]]));
     assert.deepEqual(unchanged, before[0], 'no existing value changed');
     const show = cli('operations', url, ['show']);
     assert.match(show.out, new RegExp(`\\[X\\] ${OPS}`));
@@ -85,7 +92,7 @@ describe('Operations TT2 migration', () => {
   test('revert is refused while it would lose events or versions, unless explicitly allowed', async () => {
     const url = await emptyDatabase('ops_loss');
     assert.equal(cli('operations', url, ['run']).code, 0);
-    assert.match(cli('operations', url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
+    revertAfterOperationsTt2(url);
     await q(url, TX('00000000-0000-4000-8000-000000000002', 1));
     let refused = cli('operations', url, ['revert']);
     assert.equal(refused.code, 1);
@@ -105,7 +112,7 @@ describe('Operations TT2 migration', () => {
   test('an incompatible pre-existing column or a partial table is refused without repair', async () => {
     const url = await emptyDatabase('ops_bad');
     assert.equal(cli('operations', url, ['run']).code, 0);
-    assert.match(cli('operations', url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
+    revertAfterOperationsTt2(url);
     assert.equal(cli('operations', url, ['revert']).code, 0);
     await q(url, 'ALTER TABLE transactions ADD COLUMN analytics_event_version bigint');
     let before = await fingerprint(url);
@@ -125,13 +132,14 @@ describe('Oversight TT2 migration', () => {
   test('applies with exact grants, reruns without change, guards revert and leaves audit_log untouched', async () => {
     const url = await emptyDatabase('ovs');
     assert.equal(cli('oversight', url, ['run']).code, 0);
+    assert.match(cli('oversight', url, ['revert']).out, /Reverted: Tt1AnalyticsTombstones1794528400000/);
     assert.match(cli('oversight', url, ['revert']).out, new RegExp(`Reverted: ${OVS}`));
     const auditOnly = await fingerprint(url);
     const run = cli('oversight', url, ['run']);
     assert.match(run.out, new RegExp(`Applied: ${OVS}`));
     const schema = await fingerprint(url);
     for (const [key, value] of Object.entries(auditOnly)) assert.equal(schema[key], value, `audit object changed: ${key}`);
-    assert.deepEqual(Object.keys(schema).filter((k) => k.startsWith('grant:analytics')).sort(), [
+    assert.deepEqual(Object.keys(schema).filter((k) => /^grant:analytics_(backfill_state|transactions)\./.test(k)).sort(), [
       'grant:analytics_backfill_state.ccms_logs_writer.INSERT', 'grant:analytics_backfill_state.ccms_logs_writer.SELECT', 'grant:analytics_backfill_state.ccms_logs_writer.UPDATE',
       'grant:analytics_transactions.ccms_logs_writer.INSERT', 'grant:analytics_transactions.ccms_logs_writer.SELECT', 'grant:analytics_transactions.ccms_logs_writer.UPDATE',
       'grant:analytics_transactions.ccms_oversight_app.SELECT',
@@ -139,6 +147,7 @@ describe('Oversight TT2 migration', () => {
     assert.match(cli('oversight', url, ['run']).out, /No pending migrations/);
     assert.deepEqual(await fingerprint(url), schema);
 
+    assert.match(cli('oversight', url, ['revert']).out, /Reverted: Tt1AnalyticsTombstones1794528400000/);
     await q(url, "INSERT INTO analytics_backfill_state (job_name) VALUES ('analytics-backfill')");
     const refused = cli('oversight', url, ['revert']);
     assert.equal(refused.code, 1);

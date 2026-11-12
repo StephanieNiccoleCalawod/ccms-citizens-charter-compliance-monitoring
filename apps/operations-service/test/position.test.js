@@ -9,7 +9,7 @@ import { loadTransactionRow } from '../src/modules/transaction/db.js';
 import { toTransactionDto } from '../src/modules/transaction/dto.js';
 import { createIdentityClient, identityBaseUrl } from '../src/modules/transaction/identity-client.js';
 import { startTransaction } from '../src/modules/transaction/start.js';
-import { SERVICE_A, USERS, resetData, seedCoreServices, setupTestEnv, staff } from './helpers.js';
+import { NOT_IN_REGISTRY, SERVICE_A, USERS, resetData, seedCoreServices, setupTestEnv, staff } from './helpers.js';
 
 let env;
 before(async () => {
@@ -22,7 +22,7 @@ beforeEach(async () => {
   await resetData(env.ds);
 });
 
-const body = () => ({ service_id: SERVICE_A, client_type: 'STUDENT', client_reference: null, client_email: null, requirements_confirmed: true });
+const body = () => ({ service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, client_reference: null, client_email: null, requirements_confirmed: true });
 const startWith = (identity, user = staff(USERS.staffA)) => startTransaction(env.ds, { core: createCoreClient(), identity, now: () => new Date() }, user, body());
 const stored = async (id) => (await env.ds.query('SELECT started_by_position, started_by_name FROM transactions WHERE transaction_id = $1', [id]))[0];
 const jsonResponse = (status, payload) => new Response(JSON.stringify(payload), { status, headers: { 'content-type': 'application/json' } });

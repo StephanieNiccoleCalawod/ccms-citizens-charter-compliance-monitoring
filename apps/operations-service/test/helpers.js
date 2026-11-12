@@ -76,6 +76,9 @@ export async function call(handler, request, context) {
   return { status: response.status, body: text ? JSON.parse(text) : null, headers: response.headers };
 }
 
+/** CC044: a Student/Alumni Start must carry a registry choice. Tests not about the registry use the manual path. */
+export const NOT_IN_REGISTRY = Object.freeze({ registry_not_found: true, registry_miss_reason: 'NEW_ENROLLEE' });
+
 export const SERVICE_A = randomUUID();
 export const SERVICE_B = randomUUID();
 
@@ -102,6 +105,7 @@ export function seedCoreServices(core) {
 }
 
 export const resetData = async (ds) => {
+  await ds.query('DELETE FROM transaction_emails'); // CC049 rows reference transactions
   await ds.query('DELETE FROM transactions');
   await ds.query('DELETE FROM tracking_sequences');
   await ds.query('DELETE FROM counters');

@@ -10,7 +10,8 @@
     "./testing": "./src/testing/index.js",
     "./nav": "./src/nav.js",
     "./roles": "./src/roles.js",
-    "./qa": "./src/qa.js"
+    "./qa": "./src/qa.js",
+    "./client-types": "./src/client-types.js"
   },
   "bin": {
     "ccms-check-time": "./scripts/check-time-usage.mjs"

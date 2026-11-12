@@ -191,3 +191,22 @@
     scroll-behavior: auto;
   }
 }
+
+/* CC049: printing the acknowledgement slip prints the slip only (no navigation, header or buttons). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .ack-print-area,
+  .ack-print-area * {
+    visibility: visible;
+  }
+  .ack-print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: none;
+    box-shadow: none;
+    border: none;
+  }
+}

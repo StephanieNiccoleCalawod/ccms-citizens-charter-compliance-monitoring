@@ -1,6 +1,7 @@
 import { migrateSprint4Operations } from './migrations/sprint4-critical.js';
 import { migrateSprint5Operations } from './migrations/sprint5.js';
 import { migrateSprint6Operations } from './migrations/sprint6.js';
+import { REGISTRY_CHECK, REGISTRY_CHECK_NAME } from '../../migrations/1794528100000-Cc044RegistryAtStart.js';
 // Runs after TypeORM has created the tables. Everything here is idempotent.
 // TypeORM cannot declare expression indexes, partial unique indexes, foreign keys with our names or CHECK
 // constraints, so the Transaction data rules live here as well as in the service code.
@@ -24,6 +25,43 @@ export async function afterSync(dataSource) {
   await counterRules(dataSource);
   await transactionRules(dataSource);
   await analyticsOutboxRules(dataSource);
+  await transactionRegistryRules(dataSource);
+  await transactionEmailRules(dataSource);
+  await seedProvenanceRules(dataSource);
+}
+
+// CC044 (keep identical to migrations/1794528100000-Cc044RegistryAtStart.js).
+async function transactionRegistryRules(dataSource) {
+  await addConstraint(dataSource, 'transactions', REGISTRY_CHECK_NAME, `CHECK (${REGISTRY_CHECK})`);
+}
+
+// CC049 (keep identical to migrations/1794528200000-Cc049TransactionEmails.js).
+async function transactionEmailRules(dataSource) {
+  await addConstraint(dataSource, 'transaction_emails', 'transaction_emails_transaction_fk', 'FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id)');
+  await addConstraint(dataSource, 'transaction_emails', 'transaction_emails_kind_uq', 'UNIQUE (transaction_id, kind)');
+  await addConstraint(dataSource, 'transaction_emails', 'transaction_emails_key_uq', 'UNIQUE (idempotency_key)');
+  await addConstraint(
+    dataSource,
+    'transaction_emails',
+    'transaction_emails_values_ck',
+    "CHECK (kind IN ('ACKNOWLEDGEMENT') AND status IN ('PENDING', 'SENDING', 'SENT', 'FAILED') AND attempts >= 0 AND (status <> 'SENT' OR sent_at IS NOT NULL) AND ((status = 'SENDING') = (claim_token IS NOT NULL)))",
+  );
+  await dataSource.query("CREATE INDEX IF NOT EXISTS transaction_emails_due_idx ON transaction_emails (next_attempt_at, created_at) WHERE status IN ('PENDING', 'SENDING', 'FAILED')");
+}
+
+// Sprint 6 TT1 (keep identical to migrations/1794528300000-Tt1SeedProvenance.js).
+async function seedProvenanceRules(dataSource) {
+  await addConstraint(dataSource, 'seed_runs', 'seed_runs_mode_ck', "CHECK (mode IN ('IMPORT', 'REMOVE'))");
+  await addConstraint(dataSource, 'seeded_transactions', 'seeded_transactions_run_fk', 'FOREIGN KEY (run_id) REFERENCES seed_runs (run_id)');
+  await addConstraint(dataSource, 'seeded_transactions', 'seeded_transactions_removed_run_fk', 'FOREIGN KEY (removed_by_run) REFERENCES seed_runs (run_id)');
+  await addConstraint(
+    dataSource,
+    'seeded_transactions',
+    'seeded_transactions_removal_ck',
+    'CHECK ((removed_at IS NULL) = (removed_by_run IS NULL) AND (oversight_purged_at IS NULL OR removed_at IS NOT NULL))',
+  );
+  await dataSource.query('CREATE INDEX IF NOT EXISTS seeded_transactions_run_idx ON seeded_transactions (run_id)');
+  await dataSource.query('CREATE INDEX IF NOT EXISTS seeded_transactions_open_idx ON seeded_transactions (transaction_id) WHERE removed_at IS NULL OR oversight_purged_at IS NULL');
 }
 
 // TT2 (keep identical to migrations/sql/1794355200000-Tt2AnalyticsOutbox.up.sql).

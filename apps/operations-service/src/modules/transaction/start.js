@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { Errors, assertOfficeAccess, isUniqueViolation, isUuid, recordAudit, toManilaDate } from 'ccms-shared';
-import { kickAnalytics, kickOutbox, kickReceipts } from '../../lib/outbox.js';
+import { Errors, assertOfficeAccess, isUniqueViolation, isUuid, readAllowedClientTypes, recordAudit, toManilaDate } from 'ccms-shared';
+import { kickAcknowledgements, kickAnalytics, kickOutbox, kickReceipts } from '../../lib/outbox.js';
+import { parseRegistryChoice, resolveRegistryChoice } from '../registry/lookup.js';
+import { queueAcknowledgement } from './acknowledgement.js';
 import { recordAnalytics } from '../analytics/producer.js';
 import { CoreRejectedError, CoreUnavailableError } from './core-client.js';
 import { CLIENT_TYPES, MSG, STATUS } from './constants.js';
@@ -49,10 +51,12 @@ export function parseStartInput(body, { now }) {
   } catch (err) {
     Object.assign(details, err.details ?? {});
   }
+  // CC044: the registry choice of a Student or Alumni client (re-checked against the registry by the server later).
+  const registry = CLIENT_TYPES.includes(body.client_type) ? parseRegistryChoice(body, body.client_type, details) : null;
   if (Object.keys(details).length) throw Errors.validation('Please correct the highlighted fields', details);
   // CC051: only an explicit true counts. Accepted as confirmOutsideHours (the spec) or confirm_outside_hours.
   const confirmOutsideHours = body.confirmOutsideHours === true || body.confirm_outside_hours === true;
-  return { serviceId, clientType: body.client_type, clientReference, clientEmail, counterId, confirmOutsideHours, ...backdate };
+  return { serviceId, clientType: body.client_type, clientReference, clientEmail, counterId, confirmOutsideHours, registry, ...backdate };
 }
 
 /** Looks the standard in force up in Core (one retry inside the client) and turns Core's answers into Operations errors. */
@@ -72,6 +76,21 @@ async function lookUpStandard(core, serviceId, asOf, { backdated }) {
     }
     throw err;
   }
+}
+
+/**
+ * CC047: the client type must be one the service allows, by the authoritative Core answer. An older Core that does not send
+ * the field yet means all four (rolling deployment); a malformed list fails closed (503), never "everyone".
+ * Runs before any write, audit or mail.
+ */
+export function assertClientTypeAllowed(standard, clientType) {
+  const allowed = readAllowedClientTypes(standard.allowed_client_types);
+  if (allowed.error) throw Errors.unavailable(MSG.CATALOGUE_DOWN, 'CATALOGUE_UNAVAILABLE');
+  if (!allowed.value.includes(clientType)) {
+    const message = 'This service is not available to this client type';
+    throw Errors.badRequest(message, { client_type: message, allowed_client_types: allowed.value }, 'CLIENT_TYPE_NOT_ALLOWED');
+  }
+  return allowed.value;
 }
 
 function trackingNo(officeCode, manilaDate, sequence) {
@@ -122,6 +141,12 @@ export async function startTransaction(dataSource, { core, identity = null, now 
 
   const standard = await lookUpStandard(core, input.serviceId, manilaDate, { backdated });
   assertOfficeAccess(user, standard.office_id);
+  assertClientTypeAllowed(standard, input.clientType);
+
+  // CC044: resolved by the server against the current registry and the Manila date of the submission, before any lock.
+  const registry = await resolveRegistryChoice(dataSource, input.clientType, input.registry, { today: toManilaDate(requestTime) });
+  // A valid match fills only an empty email; an email typed by the user always wins.
+  const clientEmail = input.clientEmail ?? registry.email ?? null;
 
   // CC051: a Start outside working time needs a confirmation and is flagged; a backdated entry is never flagged.
   const startedOutsideHours = backdated ? false : await assertWorkingTimeOrConfirmed(core, { officeId: standard.office_id, at: requestTime, confirmed: input.confirmOutsideHours });
@@ -159,16 +184,18 @@ export async function startTransaction(dataSource, { core, identity = null, now 
            transaction_id, tracking_no, service_id, service_code, service_name, office_id, office_code, service_classification,
            standard_id, standard_duration_days, standard_duration_hours, standard_duration_minutes, counter_id, client_type,
            client_reference, client_email, started_at, started_by, ended_at, ended_by, status, is_backdated, backdate_reason,
-            receipt_email_status, office_name, started_by_position, started_by_name, started_outside_hours)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
+            receipt_email_status, office_name, started_by_position, started_by_name, started_outside_hours,
+            registry_student_number, registry_status, registry_miss_reason, registry_miss_note)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)`,
         [
           transactionId, number, input.serviceId, standard.service_code, standard.service_name, standard.office_id, standard.office_code,
           standard.classification, standard.standard_id, standard.duration_days, standard.duration_hours, standard.duration_minutes,
-          counterId, input.clientType, input.clientReference, input.clientEmail, startedAt, user.id,
+          counterId, input.clientType, input.clientReference, clientEmail, startedAt, user.id,
           completed ? input.endedAt : null, completed ? user.id : null,
           completed ? STATUS.COMPLETED : STATUS.IN_PROGRESS, backdated, input.backdateReason,
-          completed && input.clientEmail ? 'PENDING' : 'NONE',
+          completed && clientEmail ? 'PENDING' : 'NONE',
           standard.office_name, startedByPosition, startedByName, startedOutsideHours,
+          registry.studentNumber, registry.status, registry.reason, registry.note,
         ],
       );
 
@@ -192,9 +219,14 @@ export async function startTransaction(dataSource, { core, identity = null, now 
           counter_id: counterId,
           requirements_confirmed: true,
           started_outside_hours: startedOutsideHours,
+          // CC044: status and reason CODE only; never the student number, name, email or note.
+          registry_status: registry.status,
+          registry_miss_reason: registry.reason,
         },
         ipAddress,
       });
+      // CC049: the acknowledgement email is queued with the Start itself, only when there is an email to send it to.
+      if (clientEmail) await queueAcknowledgement(manager, transactionId);
       if (backdated) {
         await recordAudit(manager, {
           actor: user,
@@ -241,12 +273,13 @@ export async function startTransaction(dataSource, { core, identity = null, now 
   }
   kickOutbox();
   kickAnalytics();
+  if (clientEmail) kickAcknowledgements();
 
   if (completed) {
     // Recorded after the fact in one call: work out the result right away (Core down: it stays pending for the job).
     const row = await loadTransactionRow(dataSource, transactionId);
     await computeAndStoreResult(dataSource, core, row, { actor: user, ipAddress });
-    if (input.clientEmail) kickReceipts();
+    if (clientEmail) kickReceipts();
   }
   return toTransactionDto(await loadTransactionRow(dataSource, transactionId));
 }

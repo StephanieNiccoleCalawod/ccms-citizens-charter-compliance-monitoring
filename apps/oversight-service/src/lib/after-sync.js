@@ -1,4 +1,5 @@
 import { migrateSprint4Oversight } from './migrations/sprint4-critical.js';
+import { PURGE_FUNCTION_SQL, PURGE_GRANTS_SQL } from '../../migrations/1794528400000-Tt1AnalyticsTombstones.js';
 // Runs after TypeORM has created the table. Everything here is idempotent.
 // TypeORM cannot declare descending indexes, CHECK constraints, roles or grants, so the Logs data rules live
 // here (the team has no migrations yet, E22 open).
@@ -63,6 +64,8 @@ export async function afterSync(dataSource) {
   await migrateSprint4Oversight(dataSource);
   await auditLogRules(dataSource);
   await analyticsRules(dataSource);
+  // Sprint 6 TT1 (keep identical to migrations/1794528400000-Tt1AnalyticsTombstones.js).
+  await dataSource.query(PURGE_FUNCTION_SQL);
 
   // Keep all role mutations on one checked-out connection under an advisory lock so two syncs of this
   // database cannot concurrently update the same PostgreSQL system-catalog rows. The test suite runs its
@@ -101,6 +104,8 @@ export async function analyticsGrants(dataSource) {
   await dataSource.query(`GRANT SELECT, INSERT, UPDATE ON analytics_transactions TO ${LOGS_WRITER_ROLE}`);
   await dataSource.query(`GRANT SELECT ON analytics_transactions TO ${OVERSIGHT_APP_ROLE}`);
   await dataSource.query(`GRANT SELECT, INSERT, UPDATE ON analytics_backfill_state TO ${LOGS_WRITER_ROLE}`);
+  // Sprint 6 TT1: SELECT on the tombstones and EXECUTE on the seeded-only purge function. Never DELETE on the projection.
+  for (const sql of PURGE_GRANTS_SQL) await dataSource.query(sql);
 }
 
 async function auditLogRules(dataSource) {

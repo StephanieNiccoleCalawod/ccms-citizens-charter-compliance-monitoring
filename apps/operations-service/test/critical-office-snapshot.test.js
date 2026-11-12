@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { before, after, describe, it } from 'node:test';
-import { setupTestEnv, seedCoreServices, req, call, ctx, tokens, SERVICE_A, OFFICE_A } from './helpers.js';
+import { NOT_IN_REGISTRY, OFFICE_A, SERVICE_A, call, ctx, req, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
 import { POST } from '../src/app/api/transactions/route.js';
 import { GET as detail } from '../src/app/api/transactions/[id]/route.js';
 import { GET as list } from '../src/app/api/transactions/route.js';
@@ -12,7 +12,7 @@ before(async () => { env = await setupTestEnv(); seedCoreServices(env.core); });
 after(async () => { await env?.teardown(); });
 describe('F7 stable office-name snapshots', () => {
   it('copies the trusted office name, returns it everywhere, and never audits citizen fields', async () => {
-    const result = await call(POST, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', requirements_confirmed: true, client_email: 'citizen@example.test', client_reference: 'TEST-REFERENCE' } }));
+    const result = await call(POST, req('POST', '/transactions', { token: tokens.officeStaffA, body: { service_id: SERVICE_A, client_type: 'STUDENT', ...NOT_IN_REGISTRY, requirements_confirmed: true, client_email: 'citizen@example.test', client_reference: 'TEST-REFERENCE' } }));
     assert.equal(result.status, 201, JSON.stringify(result.body));
     const id = result.body.transaction_id;
     assert.equal(result.body.office_name, 'Student Affairs');

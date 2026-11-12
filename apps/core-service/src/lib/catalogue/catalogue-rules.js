@@ -1,4 +1,4 @@
-import { Errors, fromManila, isValidManilaDate, toManilaDate } from 'ccms-shared';
+import { Errors, fromManila, isValidManilaDate, normaliseAllowedClientTypes, toManilaDate } from 'ccms-shared';
 
 export const CLASSIFICATIONS = ['SIMPLE', 'COMPLEX', 'HIGHLY_TECHNICAL'];
 export const TRANSACTION_TYPES = ['G2C', 'G2G', 'G2B'];
@@ -110,6 +110,14 @@ export function parseServiceFields(body, details = {}, { mode = 'create' } = {})
   else if (body.who_may_avail.length > 1000) details.who_may_avail = 'Who may avail must be 1000 characters or fewer';
   else whoMayAvail = body.who_may_avail.trim() === '' ? null : body.who_may_avail.trim();
 
+  // CC047: omitted = keep the saved value on edit (all four types on create); anything sent must be a valid non-empty list.
+  let allowedClientTypes;
+  if (body.allowed_client_types !== undefined) {
+    const { value, error } = normaliseAllowedClientTypes(body.allowed_client_types);
+    if (error) details.allowed_client_types = error;
+    else allowedClientTypes = value;
+  }
+
   return {
     officeId: typeof body.office_id === 'string' ? body.office_id.trim() : '',
     serviceCode,
@@ -121,6 +129,7 @@ export function parseServiceFields(body, details = {}, { mode = 'create' } = {})
     processingSteps,
     fees,
     whoMayAvail,
+    allowedClientTypes,
   };
 }
 

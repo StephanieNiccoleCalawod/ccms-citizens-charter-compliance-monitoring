@@ -71,6 +71,7 @@ describe('CC027 list', () => {
     const early = await insertTransaction(env.ds, { tracking_no: 'PUP-OSAS-20261021-0001', started_at: new Date(at('2026-10-21', '00:00')) });
     assert.deepEqual(trackingOf(await list('?from=2026-10-20&to=2026-10-20')), ['PUP-OSAS-20261020-0001']);
     assert.deepEqual(trackingOf(await list('?from=2026-10-21&to=2026-10-21')), ['PUP-OSAS-20261021-0001']);
+    await env.ds.query('DELETE FROM transaction_emails WHERE transaction_id = ANY($1)', [[late.transaction_id, early.transaction_id]]);
     await env.ds.query('DELETE FROM transactions WHERE transaction_id = ANY($1)', [[late.transaction_id, early.transaction_id]]);
   });
 
