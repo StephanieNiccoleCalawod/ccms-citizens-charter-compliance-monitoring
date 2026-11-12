@@ -48,7 +48,7 @@ describe('the shared app shell: header and sidebar (source checks, not a browser
   it('keeps the CCMS branding and the dynamic user details, role-based navigation and Sign out', () => {
     assert.ok(shell.includes('{BRAND.campus}') && shell.includes('{BRAND.system}') && shell.includes('<BrandMark'));
     assert.ok(shell.includes('{user.fullName}') && shell.includes('ROLE_LABELS[user.role]') && shell.includes('initials(user.fullName)'));
-    assert.ok(shell.includes('appNavForRole(user.role)'));
+    assert.ok(shell.includes('appNavForRole(user.role, staffAccess)'));
     assert.ok(shell.includes("label: signOutControl.busy ? 'Signing out…' : 'Sign out'"));
   });
   it('the sidebar rhythm follows the reference: 38px items on a 40px pitch, 14px side padding, 16px between icon and label, 18px icons, 24px between groups, headings aligned with the icons, and no space-between spreading', () => {

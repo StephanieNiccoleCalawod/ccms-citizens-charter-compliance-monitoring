@@ -32,6 +32,10 @@ export function registryNav(role) {
   return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Registry', href: '/registry' } : null;
 }
 
+/** Roles with the Reports page (CC029-CC031). Office Staff get the item only while permission switch STAFF_VIEW_REPORTS is on (`access.reports`, from GET /me); Oversight answers 403 to them otherwise. */
+export const REPORT_PAGE_ROLES = Object.freeze([ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.EXECUTIVE]);
+export const reportsNav = (role, access = {}) => (REPORT_PAGE_ROLES.includes(role) || (role === ROLES.OFFICE_STAFF && access.reports === true) ? { section: 'Main', label: 'Reports', href: '/reports' } : null);
+
 /** Roles with the Transactions list and detail. Executive is read-only (CC027 / K14): no start, hold, resume, complete or cancel. */
 export const TRANSACTION_PAGE_ROLES = Object.freeze([ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE]);
 /** Roles that may start or act on a transaction (the Add Transaction page and the acknowledgement slip, which names the officer). */
@@ -60,9 +64,9 @@ export function activeNavHref(items, pathname) {
 }
 
 /** The menu a signed-in role sees: the shared menu plus the pages the frontend adds (empty when the role is not recognized). */
-export function appNavForRole(role) {
+export function appNavForRole(role, access = {}) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
   const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
-  return [...shared, transactionsNav(role), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
+  return [...shared, transactionsNav(role), reportsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
 }

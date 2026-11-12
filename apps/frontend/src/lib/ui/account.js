@@ -68,3 +68,9 @@ export function switchChanges(saved, draft) {
 }
 
 export const switchValues = (switches) => Object.fromEntries((switches ?? []).map((s) => [s.key, s.enabled === true]));
+
+/** Which switch-gated pages an Office Staff member may open now, from GET /me ("What I can do"). Anything unclear is "no". */
+export function staffAccessFrom(me) {
+  const on = (key) => (me?.what_i_can_do ?? []).some((item) => item.switch_key === key && item.switch_on === true);
+  return { reports: on('STAFF_VIEW_REPORTS'), complaints: on('STAFF_VIEW_COMPLAINTS') };
+}

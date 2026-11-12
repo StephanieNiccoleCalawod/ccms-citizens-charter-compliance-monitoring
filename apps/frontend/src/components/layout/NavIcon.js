@@ -50,6 +50,7 @@ const ICON_BY_HREF = {
   '/registry': 'users',
   '/transactions': 'receipt',
   '/late-risk': 'list',
+  '/reports': 'receipt',
 };
 
 export default function NavIcon({ href }) {

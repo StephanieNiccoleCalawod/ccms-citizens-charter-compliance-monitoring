@@ -10,6 +10,8 @@ import { BRAND } from '../../lib/constants/brand.js';
 import { ROLE_NOT_RECOGNIZED, ROLE_NOT_RECOGNIZED_MESSAGE, isRoleAllowed } from '../../lib/auth/guards.js';
 import { getAccessToken, redirectToLogin, refreshSession, sessionRejection } from '../../lib/auth/session.js';
 import { useSignOut } from '../../lib/auth/useSignOut.js';
+import { getMe } from '../../lib/api/account.js';
+import { staffAccessFrom } from '../../lib/ui/account.js';
 import Breadcrumb from '../navigation/Breadcrumb.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import Toaster from '../feedback/Toaster.js';
@@ -73,6 +75,7 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsedState] = useState(getInitialCollapsed);
   const [wide, setWide] = useState(readWide);
+  const [staffAccess, setStaffAccess] = useState({}); // CC056: which switch-gated pages an Office Staff member may open right now
   const signOutControl = useSignOut();
   const signOutButtonRef = useRef(null);
 
@@ -146,6 +149,15 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
     };
   }, []);
 
+  // CC056: Office Staff see Reports / Complaints in the menu only while the Super Admin's switch for it is on.
+  const staffRole = state.status === 'ready' && state.user?.role === ROLES.OFFICE_STAFF;
+  useEffect(() => {
+    if (!staffRole) return undefined;
+    let cancelled = false;
+    getMe().then((me) => !cancelled && setStaffAccess(staffAccessFrom(me))).catch(() => {});
+    return () => { cancelled = true; };
+  }, [staffRole, pathname]);
+
   // Keep the session alive quietly and notice a revoked one.
   useEffect(() => {
     if (state.status !== 'ready') return undefined;
@@ -186,7 +198,7 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
 
   const { user } = state;
   // The shared nav calls the signed-in landing page "Home"; this app shows it as "Dashboard".
-  const nav = appNavForRole(user.role).map((item) => (item.href === '/' && item.label === 'Home' ? { ...item, label: 'Dashboard' } : item));
+  const nav = appNavForRole(user.role, staffAccess).map((item) => (item.href === '/' && item.label === 'Home' ? { ...item, label: 'Dashboard' } : item));
   const activeHref = activeNavHref(nav, pathname);
   const sections = [...new Set(nav.map((item) => item.section))];
   const allowed = isRoleAllowed(user, allowedRoles);

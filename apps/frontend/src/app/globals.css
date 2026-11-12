@@ -210,3 +210,25 @@
     border: none;
   }
 }
+
+/* CC029: Print / Save as PDF prints the report only (PUP heading, office, period, version, dates and the figures table). */
+@media print {
+  .report-print-area,
+  .report-print-area * {
+    visibility: visible;
+  }
+  .report-print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: none;
+    box-shadow: none;
+    border: none;
+  }
+  .report-print-area table {
+    break-inside: auto;
+  }
+  .report-print-area tr {
+    break-inside: avoid;
+  }
+}
