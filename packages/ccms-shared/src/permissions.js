@@ -20,13 +20,14 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
  *   - Executive: read-only everywhere (any non-GET/HEAD/OPTIONS call is a 403).
  *   - Office Head / Office Staff: limited to their bound office.
  */
-export function requirePermission(roles, officeScope = 'campus', { verifier } = {}) {
+export function requirePermission(roles, officeScope = 'campus', { verifier, selfService = false } = {}) {
   return async function check(request, target = {}) {
     const user = await authenticate(request, verifier);
 
     if (!roles.includes(user.role)) throw Errors.forbidden();
 
-    if (user.role === ROLES.EXECUTIVE && !SAFE_METHODS.has(request.method)) {
+    // selfService: an account changing its own sign-in details (CC056 change password) is not a data write, so the read-only rule does not apply.
+    if (!selfService && user.role === ROLES.EXECUTIVE && !SAFE_METHODS.has(request.method)) {
       throw Errors.forbidden('Executives have read-only access');
     }
 

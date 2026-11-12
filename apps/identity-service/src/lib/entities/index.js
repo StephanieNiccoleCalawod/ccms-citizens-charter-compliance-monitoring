@@ -36,6 +36,29 @@ export const Account = new EntitySchema({
   ],
 });
 
+// CC056: the four staff permission switches (default off). One row per switch; updated_by is the Super Admin who last changed it.
+// The CHECK on the key and the seed rows are created in after-sync / migrations/1794650000000-Cc056PermissionSwitches.js.
+export const PermissionSwitch = new EntitySchema({
+  name: 'PermissionSwitch',
+  tableName: 'permission_switches',
+  columns: {
+    switchKey: { name: 'switch_key', type: 'varchar', length: 40, primary: true, primaryKeyConstraintName: 'permission_switches_pkey' },
+    enabled: { type: 'boolean', default: false },
+    updatedBy: { name: 'updated_by', type: 'uuid', nullable: true },
+    updatedAt: { name: 'updated_at', type: 'timestamptz', default: () => 'now()' },
+  },
+});
+
+// CC056: when the person last signed in (shown on My account). Not part of accounts so the accounts table is untouched.
+export const AccountLastLogin = new EntitySchema({
+  name: 'AccountLastLogin',
+  tableName: 'account_last_login',
+  columns: {
+    accountId: { name: 'account_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'account_last_login_pkey' },
+    lastLoginAt: { name: 'last_login_at', type: 'timestamptz' },
+  },
+});
+
 // Refresh tokens are stored hashed so they can be revoked without keeping the secret.
 export const RefreshToken = new EntitySchema({
   name: 'RefreshToken',
@@ -63,4 +86,4 @@ export const PasswordResetToken = new EntitySchema({
   indices: [{ name: 'password_reset_tokens_account_idx', columns: ['accountId'] }],
 });
 
-export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit];
+export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit, PermissionSwitch, AccountLastLogin];

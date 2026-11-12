@@ -15,6 +15,6 @@ function verify(token) {
 }
 
 /** requirePermission bound to Identity's verifier. */
-export function guard(roles, officeScope = 'campus') {
-  return requirePermission(roles, officeScope, { verifier: verify });
+export function guard(roles, officeScope = 'campus', { selfService = false } = {}) {
+  return requirePermission(roles, officeScope, { verifier: verify, selfService });
 }

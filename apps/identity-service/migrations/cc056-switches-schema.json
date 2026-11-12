@@ -1,0 +1,15 @@
+{
+  "column:account_last_login.account_id": "uuid NOT NULL",
+  "column:account_last_login.last_login_at": "timestamp with time zone NOT NULL",
+  "column:permission_switches.enabled": "boolean NOT NULL DEFAULT false",
+  "column:permission_switches.switch_key": "character varying(40) NOT NULL",
+  "column:permission_switches.updated_at": "timestamp with time zone NOT NULL DEFAULT now()",
+  "column:permission_switches.updated_by": "uuid",
+  "constraint:account_last_login.account_last_login_pkey": "PRIMARY KEY (account_id)",
+  "constraint:permission_switches.permission_switches_key_ck": "CHECK (((switch_key)::text = ANY ((ARRAY['STAFF_HOLD_RESUME'::character varying, 'STAFF_BACKDATE'::character varying, 'STAFF_VIEW_COMPLAINTS'::character varying, 'STAFF_VIEW_REPORTS'::character varying])::text[])))",
+  "constraint:permission_switches.permission_switches_pkey": "PRIMARY KEY (switch_key)",
+  "index:account_last_login.account_last_login_pkey": "CREATE UNIQUE INDEX account_last_login_pkey ON public.account_last_login USING btree (account_id)",
+  "index:permission_switches.permission_switches_pkey": "CREATE UNIQUE INDEX permission_switches_pkey ON public.permission_switches USING btree (switch_key)",
+  "table:account_last_login": "",
+  "table:permission_switches": ""
+}

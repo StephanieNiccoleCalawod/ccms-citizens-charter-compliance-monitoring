@@ -15,3 +15,5 @@ export * from './cron.js';
 export * from './analytics.js';
 export * from './qa.js';
 export * from './client-types.js';
+export * from './capabilities.js';
+export * from './switches.js';

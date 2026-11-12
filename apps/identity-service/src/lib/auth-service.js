@@ -4,6 +4,7 @@ import { Account, RefreshToken } from './entities/index.js';
 import { toAccountDto } from './accounts.js';
 import { hashToken, newOpaqueToken, signAccessToken } from './tokens.js';
 import { verifyAgainstDummy, verifyPassword } from './passwords.js';
+import { recordLogin } from './me.js';
 
 const BAD_CREDENTIALS = 'Incorrect email or password';
 
@@ -45,6 +46,7 @@ export async function login(dataSource, { email, password }) {
   }
   const passwordOk = await verifyPassword(password, account.passwordHash);
   if (!passwordOk || !account.isActive) throw fail();
+  await recordLogin(dataSource, account.accountId); // CC056: shown as "last sign-in" on My account
   return issueSession(dataSource, account);
 }
 
