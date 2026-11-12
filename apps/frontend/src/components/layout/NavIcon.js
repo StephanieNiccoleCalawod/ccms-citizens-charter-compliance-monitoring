@@ -51,6 +51,7 @@ const ICON_BY_HREF = {
   '/transactions': 'receipt',
   '/late-risk': 'list',
   '/reports': 'receipt',
+  '/complaints': 'list',
 };
 
 export default function NavIcon({ href }) {
