@@ -1,15 +1,17 @@
 import { ROLES, json, readJson, requirePermission, route } from 'ccms-shared';
+import { requireStaffSwitch } from '../../../lib/switches.js';
 import { getDb } from '../../../lib/data-source.js';
 import { generateReport, listReports } from '../../../modules/reports/reports.js';
 
 export const dynamic = 'force-dynamic';
 
-// Office Staff are not allowed until permission switch 4 exists (CC056), so they are not in either list.
-const canRead = requirePermission([ROLES.SUPER_ADMIN, ROLES.EXECUTIVE, ROLES.OFFICE_HEAD]);
+// Office Staff may read only while the Super Admin's switch STAFF_VIEW_REPORTS is on (CC056); they never generate or publish.
+const canRead = requirePermission([ROLES.SUPER_ADMIN, ROLES.EXECUTIVE, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]);
 const canGenerate = requirePermission([ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD]);
 
 export const GET = route(async (request) => {
   const user = await canRead(request);
+  await requireStaffSwitch(user, 'STAFF_VIEW_REPORTS');
   return json(await listReports(await getDb(), user, new URL(request.url).searchParams), 200, { 'cache-control': 'no-store' });
 });
 

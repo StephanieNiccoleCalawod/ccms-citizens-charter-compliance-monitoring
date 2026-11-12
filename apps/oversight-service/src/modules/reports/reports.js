@@ -25,7 +25,7 @@ const lower = (value) => (value ? String(value).toLowerCase() : value);
 
 /** The report as the browser gets it. The Executive does not get who generated or published it. */
 export function reportDto(row, viewer, { withFigures = true } = {}) {
-  const executive = viewer.role === ROLES.EXECUTIVE;
+  const executive = viewer.role === ROLES.EXECUTIVE || viewer.role === ROLES.OFFICE_STAFF; // neither sees who published (no names of people)
   const dto = {
     report_id: row.report_id, office_id: row.office_id, office_name: row.office_name, period_type: row.period_type,
     from: row.period_from, to: row.period_to, version: row.version, status: row.status,
@@ -118,7 +118,8 @@ export function canRead(actor, row) {
   if (actor.role === ROLES.SUPER_ADMIN) return true;
   if (actor.role === ROLES.EXECUTIVE) return row.status !== 'DRAFT';
   if (actor.role === ROLES.OFFICE_HEAD) return lower(row.office_id) === lower(actor.officeId);
-  return false; // Office Staff: switch 4 (CC056) is not built; the route refuses them with 403 first
+  if (actor.role === ROLES.OFFICE_STAFF) return row.status !== 'DRAFT' && lower(row.office_id) === lower(actor.officeId); // the route has already checked the switch
+  return false;
 }
 
 export async function fetchReport(db, actor, id) {
@@ -134,6 +135,7 @@ export async function listReports(db, actor, params) {
   const add = (sql, value) => { values.push(value); where.push(sql.replaceAll('?', `$${values.length}`)); };
   if (actor.role === ROLES.EXECUTIVE) where.push(`status <> 'DRAFT'`);
   else if (actor.role === ROLES.OFFICE_HEAD) add('office_id = ?::uuid', actor.officeId);
+  else if (actor.role === ROLES.OFFICE_STAFF) { where.push(`status <> 'DRAFT'`); add('office_id = ?::uuid', actor.officeId); }
   else if (actor.role !== ROLES.SUPER_ADMIN) throw Errors.forbidden();
   const officeId = params.get('office_id');
   const periodType = params.get('period_type');
@@ -153,7 +155,7 @@ export async function listReports(db, actor, params) {
   const pageSize = num('page_size', 20, 100);
   if (Object.keys(details).length) throw Errors.validation('Please correct the highlighted fields', details);
   if (officeId) {
-    if (actor.role === ROLES.OFFICE_HEAD && lower(officeId) !== lower(actor.officeId)) throw Errors.forbidden();
+    if ((actor.role === ROLES.OFFICE_HEAD || actor.role === ROLES.OFFICE_STAFF) && lower(officeId) !== lower(actor.officeId)) throw Errors.forbidden();
     add('office_id = ?::uuid', officeId);
   }
   if (periodType) add('period_type = ?', periodType);

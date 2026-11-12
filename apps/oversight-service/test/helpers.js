@@ -4,6 +4,7 @@ import { ROLES, setDataSource, setDefaultVerifier } from 'ccms-shared';
 import { createTestDatabase, createTestKeys } from 'ccms-shared/testing';
 import { afterSync } from '../src/lib/after-sync.js';
 import { entities } from '../src/lib/entities/index.js';
+import { setSwitchGate } from '../src/lib/switches.js';
 
 export const SERVICE_KEY = 'test-service-key-0123456789';
 export const TEST_ROLE_PASSWORD = 'test-oversight-role-password';
@@ -13,7 +14,12 @@ export const USERS = { adminId: randomUUID(), headA: randomUUID(), staffA: rando
 
 export const tokens = {};
 
+// CC056: a stand-in for the Identity switches (all off, the production default). Tests turn one on to check the staff views.
+export const switchState = { STAFF_BACKDATE: false, STAFF_HOLD_RESUME: false, STAFF_VIEW_COMPLAINTS: false, STAFF_VIEW_REPORTS: false };
+const fakeGate = { all: async () => ({ ...switchState }), isEnabled: async (key) => switchState[key] === true, reset() {} };
+
 export async function setupTestEnv() {
+  setSwitchGate(fakeGate);
   process.env.SERVICE_KEY = SERVICE_KEY;
   process.env.LOGS_WRITER_PASSWORD = TEST_ROLE_PASSWORD;
   process.env.OVERSIGHT_APP_PASSWORD = TEST_ROLE_PASSWORD;
@@ -33,6 +39,7 @@ export async function setupTestEnv() {
     url: testDb.url,
     tokens,
     async teardown() {
+      setSwitchGate(null);
       setDataSource(null);
       await testDb.drop();
     },
