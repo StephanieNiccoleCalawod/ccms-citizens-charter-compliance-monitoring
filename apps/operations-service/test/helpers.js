@@ -1,4 +1,5 @@
 // Shared test setup (not a test file): a database, a fake Core, tokens and request helpers.
+import { setSwitchGate } from '../src/modules/transaction/switches.js';
 import { randomUUID } from 'node:crypto';
 import { ROLES, setDataSource, setDefaultVerifier } from 'ccms-shared';
 import { createTestDatabase, createTestKeys } from 'ccms-shared/testing';
@@ -21,7 +22,13 @@ export const USERS = {
 
 export const tokens = { superAdmin: null, executive: null, officeHeadA: null, officeStaffA: null, officeStaffA2: null, officeHeadB: null, officeStaffB: null };
 
+// CC056: a stand-in for the Identity switches so staff tests can turn a switch on or off. All on by default, which is what the
+// pre-CC056 staff tests assume; test/cc056-switches.test.js turns them off.
+export const switchState = { STAFF_BACKDATE: true, STAFF_HOLD_RESUME: true, STAFF_VIEW_COMPLAINTS: true, STAFF_VIEW_REPORTS: true };
+const fakeGate = { all: async () => ({ ...switchState }), isEnabled: async (key) => switchState[key] === true, reset() {} };
+
 export async function setupTestEnv() {
+  setSwitchGate(fakeGate);
   process.env.SERVICE_KEY = SERVICE_KEY;
   delete process.env.LOGS_SERVICE_URL;
   const core = await startFakeCore({ serviceKey: SERVICE_KEY });
@@ -47,6 +54,7 @@ export async function setupTestEnv() {
     keys,
     tokens,
     async teardown() {
+      setSwitchGate(null);
       setDataSource(null);
       await testDb.drop();
       await core.close();

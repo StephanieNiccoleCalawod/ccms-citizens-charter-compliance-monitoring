@@ -7,6 +7,7 @@ import { toTransactionDto } from './dto.js';
 import { assertCanAccess } from './access.js';
 import { computeCompliance } from './compliance.js';
 import { parseBackdate } from './time.js';
+import { requireStaffSwitch } from './switches.js';
 
 /**
  * CC050: the outcome of a complete request. Leaving `outcome` out records no outcome (shown as "Not recorded"), so a client
@@ -103,6 +104,7 @@ export async function completeTransaction(dataSource, { core, now = () => new Da
   const backdate = parseBackdate(body ?? {}, { now: requestTime, storedStart: existing.started_at, allowStart: false });
   const endedAt = backdate.endedAt ?? requestTime;
   const backdated = backdate.endedAt !== null;
+  if (backdated) await requireStaffSwitch(user, 'STAFF_BACKDATE'); // CC056
 
   const completed = await dataSource.transaction(async (manager) => {
     const rows = rowsOf(

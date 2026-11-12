@@ -12,6 +12,7 @@ import { toTransactionDto } from './dto.js';
 import { computeAndStoreResult } from './complete.js';
 import { readSettingsRow } from './settings.js';
 import { parseBackdate, usDate } from './time.js';
+import { requireStaffSwitch } from './switches.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -131,6 +132,7 @@ export async function startTransaction(dataSource, { core, identity = null, now 
   const requestTime = now();
   const input = parseStartInput(body, { now: requestTime });
   const backdated = input.startedAt !== null;
+  if (backdated) await requireStaffSwitch(user, 'STAFF_BACKDATE'); // CC056
   const startedAt = input.startedAt ?? requestTime;
   const manilaDate = toManilaDate(startedAt);
 

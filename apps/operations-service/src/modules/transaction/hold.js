@@ -7,6 +7,7 @@ import { loadTransactionRow, notFound, rowsOf } from './db.js';
 import { toTransactionDto } from './dto.js';
 import { assertCanAccess } from './access.js';
 import { readSettingsRow } from './settings.js';
+import { requireStaffSwitch } from './switches.js';
 
 const VERSION_CONFLICT = 'This transaction was changed by someone else. Reload and try again.';
 
@@ -26,6 +27,7 @@ export async function holdTransaction(dataSource, user, id, body, { now = () => 
   const row = await loadTransactionRow(dataSource, id);
   if (!row) throw notFound();
   assertCanAccess(user, row);
+  await requireStaffSwitch(user, 'STAFF_HOLD_RESUME'); // CC056
 
   const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
   if (!reason || reason.length > REASON_MAX) throw Errors.validation(MSG.HOLD_REASON, { reason: MSG.HOLD_REASON });
@@ -71,6 +73,7 @@ export async function resumeTransaction(dataSource, { core, now = () => new Date
   const row = await loadTransactionRow(dataSource, id);
   if (!row) throw notFound();
   assertCanAccess(user, row);
+  await requireStaffSwitch(user, 'STAFF_HOLD_RESUME'); // CC056
   if (row.status !== STATUS.ON_HOLD) throw Errors.conflict(MSG.NOT_ON_HOLD, 'INVALID_STATE', { status: row.status });
 
   const end = now();
