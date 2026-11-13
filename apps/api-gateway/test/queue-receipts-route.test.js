@@ -34,7 +34,8 @@ const acceptAll = async () => ({ ok: true });
 describe('CC039 public queue path', () => {
   it('only POST-able Take a ticket path is public; the panel, Call next, Skip and staff issuance are not', () => {
     assert.equal(isPublicApi('operations', '/api/queue/public/tickets'), true);
-    for (const path of ['/api/queue', '/api/queue/tickets', '/api/queue/call-next', '/api/queue/tickets/x/skip', '/api/queue/public', '/api/queue/public/tickets/x',
+    assert.equal(isPublicApi('operations', '/api/ratings'), true); // CC057: rate with a receipt code, no account
+    for (const path of ['/api/queue', '/api/queue/tickets', '/api/queue/call-next', '/api/queue/tickets/x/skip', '/api/queue/public', '/api/queue/public/tickets/x', '/api/ratings/summary', '/api/ratings/x',
       '/api/transactions/x/receipt', '/api/transactions/x/receipt/image']) {
       assert.equal(isPublicApi('operations', path), false, path);
     }

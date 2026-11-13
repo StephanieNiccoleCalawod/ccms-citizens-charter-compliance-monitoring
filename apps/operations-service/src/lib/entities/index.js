@@ -359,6 +359,25 @@ export const TransactionReceipt = new EntitySchema({
   },
 });
 
+// ---- CC057 service rating (Sprint 7 Wave 3) ----
+// Constraints and indexes in after-sync / migrations/1795000100000-Cc057ServiceRatings.js. No personal data is kept on a rating.
+export const ServiceRating = new EntitySchema({
+  name: 'ServiceRating',
+  tableName: 'service_ratings',
+  columns: {
+    ratingId: { name: 'rating_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'service_ratings_pkey' },
+    transactionId: { name: 'transaction_id', type: 'uuid' },
+    ratingCode: { name: 'rating_code', type: 'varchar', length: 12 },
+    officeId: { name: 'office_id', type: 'uuid' },
+    serviceId: { name: 'service_id', type: 'uuid' },
+    serviceCode: { name: 'service_code', type: 'text' },
+    serviceName: { name: 'service_name', type: 'text' },
+    issuedAt: { name: 'issued_at', type: 'timestamptz', default: () => 'now()' },
+    stars: { type: 'smallint', nullable: true },
+    ratedAt: { name: 'rated_at', type: 'timestamptz', nullable: true },
+  },
+});
+
 export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun,
   AnalyticsOutboxEvent, RegistryImport, RegistryPerson, TransactionEmail, SeedRun, SeededTransaction, LateRiskRun, LateRiskScoreCache,
-  QueueSequence, QueueTicket, TransactionReceipt];
+  QueueSequence, QueueTicket, TransactionReceipt, ServiceRating];

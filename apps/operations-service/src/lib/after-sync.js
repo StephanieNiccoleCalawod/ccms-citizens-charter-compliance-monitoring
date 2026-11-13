@@ -5,6 +5,7 @@ import { REGISTRY_CHECK, REGISTRY_CHECK_NAME } from '../../migrations/1794528100
 import { QUEUE_CONSTRAINTS, QUEUE_INDEXES } from '../../migrations/1794900000000-Cc039QueueTickets.js';
 import { QUEUE_LINK_CONSTRAINTS, QUEUE_LINK_INDEX } from '../../migrations/1794900100000-Cc040QueueTicketLink.js';
 import { RECEIPT_CONSTRAINTS, RECEIPT_INDEXES } from '../../migrations/1794900200000-Cc045TransactionReceipts.js';
+import { RATING_CONSTRAINTS, RATING_INDEXES } from '../../migrations/1795000100000-Cc057ServiceRatings.js';
 // Runs after TypeORM has created the tables. Everything here is idempotent.
 // TypeORM cannot declare expression indexes, partial unique indexes, foreign keys with our names or CHECK
 // constraints, so the Transaction data rules live here as well as in the service code.
@@ -33,6 +34,13 @@ export async function afterSync(dataSource) {
   await seedProvenanceRules(dataSource);
   await queueRules(dataSource);
   await receiptRules(dataSource);
+  await ratingRules(dataSource);
+}
+
+// CC057 (keep identical to migrations/1795000100000-Cc057ServiceRatings.js).
+async function ratingRules(dataSource) {
+  for (const [name, definition] of RATING_CONSTRAINTS) await addConstraint(dataSource, 'service_ratings', name, definition);
+  for (const sql of RATING_INDEXES) await dataSource.query(sql);
 }
 
 // CC045 (keep identical to migrations/1794900200000-Cc045TransactionReceipts.js).

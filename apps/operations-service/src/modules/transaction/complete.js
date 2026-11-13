@@ -8,6 +8,7 @@ import { assertCanAccess } from './access.js';
 import { computeCompliance } from './compliance.js';
 import { parseBackdate } from './time.js';
 import { requireStaffSwitch } from './switches.js';
+import { issueRatingCode } from '../ratings/ratings.js';
 
 /**
  * CC050: the outcome of a complete request. Leaving `outcome` out records no outcome (shown as "Not recorded"), so a client
@@ -122,6 +123,7 @@ export async function completeTransaction(dataSource, { core, now = () => new Da
     );
     if (!rows[0]) return null;
     await recordAnalytics(manager, id, 'TRANSACTION_COMPLETED');
+    await issueRatingCode(manager, rows[0]); // CC057: the one-time rating code for the citizen's receipt
     await recordAudit(manager, {
       actor: user,
       action: 'TRANSACTION_COMPLETED',

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { kickOutbox } from '../../lib/outbox.js';
 import { SYSTEM_ACTOR } from './constants.js';
 import { rowsOf } from './db.js';
+import { formatCode, ratingCodeFor } from '../ratings/ratings.js';
 
 export const RECEIPT_MAX_ATTEMPTS = 5;
 export const RECEIPT_BATCH = 50;
@@ -36,6 +37,7 @@ export function buildReceipt(row) {
       `Completed: ${manilaStamp(row.ended_at)}`,
       '',
       'Please quote this tracking number whenever you file a complaint about this transaction.',
+      ...(row.rating_code ? ['', `Tell us how we served you (CC057). Your one-time rating code: ${formatCode(row.rating_code)}`, `Rate at: ${process.env.RATING_PAGE_URL || 'the Rate page of the CCMS website'} (1 to 5 stars, once; no name or comment is asked for).`] : []),
     ].join('\n'),
   };
 }
@@ -82,7 +84,8 @@ export async function sendReceipt(dataSource, mailer, row, { leaseMs = RECEIPT_C
     let error = null;
     try {
       // SMTP has no idempotency API. A stable Message-ID helps diagnostics, but cannot guarantee exactly-once delivery.
-      await mailer.send({ ...buildReceipt(claimed[0]), messageId: `<receipt-${row.transaction_id}@ccms>` }, { signal: controller.signal });
+      const rating = await ratingCodeFor(runner, row.transaction_id);
+      await mailer.send({ ...buildReceipt({ ...claimed[0], rating_code: rating?.code }), messageId: `<receipt-${row.transaction_id}@ccms>` }, { signal: controller.signal });
     } catch (err) { error = err; }
     const updated = rowsOf(await runner.query(`UPDATE transactions SET receipt_email_status = $1,
       receipt_email_claim_token = NULL, receipt_email_claim_until = NULL, version = version + 1

@@ -114,6 +114,7 @@ export function seedCoreServices(core) {
 
 export const resetData = async (ds) => {
   await ds.query('DELETE FROM transaction_emails'); // CC049 rows reference transactions
+  await ds.query('DELETE FROM service_ratings'); // CC057 rows reference transactions
   await ds.query('DELETE FROM transaction_receipts'); // CC045 rows reference transactions
   await ds.query('DELETE FROM transactions');
   await ds.query('DELETE FROM queue_tickets'); // CC039 (after transactions: CC040 links point at tickets)

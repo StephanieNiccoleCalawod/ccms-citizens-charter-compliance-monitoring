@@ -14,6 +14,7 @@ import { Cc052LateRisk1794531600000 } from './1794531600000-Cc052LateRisk.js';
 import { Cc039QueueTickets1794900000000 } from './1794900000000-Cc039QueueTickets.js';
 import { Cc040QueueTicketLink1794900100000 } from './1794900100000-Cc040QueueTicketLink.js';
 import { Cc045TransactionReceipts1794900200000 } from './1794900200000-Cc045TransactionReceipts.js';
+import { Cc057ServiceRatings1795000100000 } from './1795000100000-Cc057ServiceRatings.js';
 
 // Ordered migrations. Naming: <13-digit epoch ms>-<Name>.js exporting class <Name><timestamp>. Append only: never edit
 // or reorder a migration that may have run on the hosted database; add a new one instead.
@@ -21,7 +22,7 @@ export const migrations = [OperationsBaseline1793491200000, Cc050TransactionOutc
   Cc046StarterName1794300100000, Cc051OutsideHours1794300200000, Cc038ForecastRuns1794300300000, Tt2AnalyticsOutbox1794355200000,
   Cc043Registry1794441600000, Cc044RegistryAtStart1794528100000, Cc049TransactionEmails1794528200000, Tt1SeedProvenance1794528300000,
   Cc052LateRisk1794531600000, Cc039QueueTickets1794900000000,
-  Cc040QueueTicketLink1794900100000, Cc045TransactionReceipts1794900200000];
+  Cc040QueueTicketLink1794900100000, Cc045TransactionReceipts1794900200000, Cc057ServiceRatings1795000100000];
 
 export const baseline = {
   allowedExtras: { ...JSON.parse(readFileSync(new URL('./integration-schema.json', import.meta.url), 'utf8')),
