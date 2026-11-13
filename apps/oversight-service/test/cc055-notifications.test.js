@@ -2,8 +2,8 @@
 import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, describe, it } from 'node:test';
-import { GET as listRoute } from '../src/app/api/notifications/route.js';
-import { POST as readRoute } from '../src/app/api/notifications/read/route.js';
+import { GET as listRoute } from '../src/app/api/analytics/notifications/route.js';
+import { POST as readRoute } from '../src/app/api/analytics/notifications/read/route.js';
 import { OFFICE_A, OFFICE_B, USERS, call, req, setupTestEnv, switchState, tokens } from './helpers.js';
 
 let env;
@@ -31,12 +31,12 @@ async function calendar(officeId, action = 'CALENDAR_EXCEPTION_ADDED', at = hour
      VALUES ($1,$2,'super_admin',$3,'calendar_exception',$4,$5,$6::jsonb,$7)`, [id, USERS.adminId, action, randomUUID(), officeId, JSON.stringify({ exception_type: 'SUSPENSION', exception_date: '2026-11-20' }), at]);
   return id;
 }
-const list = (token) => call(listRoute, req('GET', '/notifications', { token }));
-const mark = (token, body) => call(readRoute, req('POST', '/notifications/read', { token, body }));
+const list = (token) => call(listRoute, req('GET', '/analytics/notifications', { token }));
+const mark = (token, body) => call(readRoute, req('POST', '/analytics/notifications/read', { token, body }));
 
 describe('access', () => {
   it('no token is 401 and the Executive has no bell (403)', async () => {
-    assert.equal((await call(listRoute, req('GET', '/notifications'))).status, 401);
+    assert.equal((await call(listRoute, req('GET', '/analytics/notifications'))).status, 401);
     assert.equal((await list(tokens.executive)).status, 403);
     assert.equal((await mark(tokens.executive, { keys: ['calendar:x'] })).status, 403);
   });

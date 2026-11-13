@@ -25,7 +25,7 @@ describe('calls', () => {
     const f = async (path, init) => { calls.push([path, init?.method ?? 'GET', init?.body]); return {}; };
     await getNotificationFeeds(f);
     await markNotificationsRead(['a:b'], f);
-    assert.deepEqual(calls, [['/api/logs/notifications', 'GET', undefined], ['/api/operations/notifications', 'GET', undefined], ['/api/logs/notifications/read', 'POST', { keys: ['a:b'] }]]);
+    assert.deepEqual(calls, [['/api/logs/analytics/notifications', 'GET', undefined], ['/api/operations/notifications', 'GET', undefined], ['/api/logs/analytics/notifications/read', 'POST', { keys: ['a:b'] }]]);
   });
   it('one feed failing does not hide the other', async () => {
     const f = async (path) => { if (path.includes('operations')) throw new Error('down'); return { items: [] }; };

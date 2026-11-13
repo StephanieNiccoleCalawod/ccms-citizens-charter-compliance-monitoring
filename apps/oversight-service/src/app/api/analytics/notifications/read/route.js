@@ -1,6 +1,6 @@
 import { ROLES, json, readJson, requirePermission, route } from 'ccms-shared';
-import { getDb } from '../../../../lib/data-source.js';
-import { markNotificationsRead } from '../../../../modules/notifications/notifications.js';
+import { getDb } from '../../../../../lib/data-source.js';
+import { markNotificationsRead } from '../../../../../modules/notifications/notifications.js';
 
 export const dynamic = 'force-dynamic';
 const canRead = requirePermission([ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]);

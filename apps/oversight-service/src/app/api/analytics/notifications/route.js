@@ -1,6 +1,6 @@
 import { ROLES, json, requirePermission, route } from 'ccms-shared';
-import { getDb } from '../../../lib/data-source.js';
-import { listNotifications } from '../../../modules/notifications/notifications.js';
+import { getDb } from '../../../../lib/data-source.js';
+import { listNotifications } from '../../../../modules/notifications/notifications.js';
 
 export const dynamic = 'force-dynamic';
 // CC055: Super Admin, Office Head, Office Staff. The Executive has no bell (403).
