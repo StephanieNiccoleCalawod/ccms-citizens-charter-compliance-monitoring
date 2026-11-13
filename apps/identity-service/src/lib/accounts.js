@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Errors, ROLES, ROLE_LIST, isOfficeBound, isUniqueViolation, isValidRole, isUuid, recordAudit } from 'ccms-shared';
+import { clerkSettings } from './clerk.js';
 import { config } from './config.js';
 import { Account, PasswordResetToken } from './entities/index.js';
 import { verifyOffice } from './offices-client.js';
@@ -20,6 +21,11 @@ export const MESSAGES = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Clerk sign-in (Landas 1): while Clerk sign-in is on, the Super Admin may create an account without a password; the person
+// signs in with Clerk instead. password_hash is NOT NULL, so such an account stores this marker. It is not an scrypt hash, so
+// verifyPassword always answers false: the password sign-in treats it exactly like a wrong password.
+export const NO_PASSWORD_MARKER = 'clerk$';
 
 /** Account as returned by the API. Never includes the password hash. */
 export function toAccountDto(account) {
@@ -43,7 +49,7 @@ const text = (value) => (typeof value === 'string' ? value.trim() : '');
  * Field and role/office rules shared by create (CC001) and edit (CC002).
  * Returns normalised values or throws a 400.
  */
-export function parseAccountInput(body, { withPassword }) {
+export function parseAccountInput(body, { withPassword, passwordOptional = false }) {
   const details = {};
   const employeeNo = text(body.employee_no);
   const fullName = text(body.full_name);
@@ -68,7 +74,8 @@ export function parseAccountInput(body, { withPassword }) {
   else if (!isValidRole(role)) details.role = `Role must be one of: ${ROLE_LIST.join(', ')}`;
 
   let password = null;
-  if (withPassword) {
+  const noPassword = body.password === undefined || body.password === null || body.password === '';
+  if (withPassword && !(passwordOptional && noPassword)) {
     password = body.password;
     const problem = passwordProblem(password);
     if (problem) details.password = problem;
@@ -153,11 +160,11 @@ function audit(manager, actor, action, rawBefore, rawAfter, ipAddress) {
 }
 
 export async function createAccount(dataSource, actor, body, { ipAddress, correlationId } = {}) {
-  const input = parseAccountInput(body, { withPassword: true });
+  const input = parseAccountInput(body, { withPassword: true, passwordOptional: clerkSettings().enabled });
   // Office Head / Office Staff: the office must exist and be active (Catalogue). Super Admin and
   // Executive have no office, so they still save when Catalogue is down.
   if (isOfficeBound(input.roleKey)) await verifyOffice(input.officeId, { correlationId });
-  const passwordHash = await hashPassword(input.password);
+  const passwordHash = input.password === null ? NO_PASSWORD_MARKER : await hashPassword(input.password);
 
   try {
     const dto = await dataSource.transaction(async (manager) => {

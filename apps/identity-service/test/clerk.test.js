@@ -3,6 +3,9 @@ import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { SignJWT, exportSPKI, generateKeyPair } from 'jose';
 import { ROLES } from 'ccms-shared';
 import { PATCH as deactivateRoute } from '../src/app/api/accounts/[id]/deactivate/route.js';
+import { POST as createRoute } from '../src/app/api/accounts/route.js';
+import { POST as loginRoute, setLoginLimiter } from '../src/app/api/auth/login/route.js';
+import { NO_PASSWORD_MARKER } from '../src/lib/accounts.js';
 import { DELETE as unlinkRoute, PUT as linkRoute } from '../src/app/api/accounts/[id]/clerk-link/route.js';
 import { POST as exchangeRoute, setExchangeLimiter } from '../src/app/api/auth/clerk/exchange/route.js';
 import { GET as linksRoute } from '../src/app/api/clerk-access/links/route.js';
@@ -304,6 +307,40 @@ describe('Clerk sign-in: binding by issuer + user ID (playbook R3)', () => {
       assert.equal((await unlinkRoute(req('DELETE', `/accounts/${staff.accountId}/clerk-link`, { token }), ctx(staff.accountId))).status, 403);
     }
     assert.equal((await requestsRoute(req('GET', '/clerk-access/requests'))).status, 401);
+  });
+
+  it('while Clerk is on, an account can be created without a password; it can never use the password sign-in', async () => {
+    setLoginLimiter({ check: async () => ({ allowed: true, retryAfterSeconds: 0 }) });
+    try {
+      const { token } = await admin();
+      const body = { employee_no: 'CLK-001', full_name: 'Clerk Only', email: 'clerk.only@example.test', role: ROLES.EXECUTIVE };
+      const created = await createRoute(req('POST', '/accounts', { token, body }));
+      assert.equal(created.status, 201, JSON.stringify(await created.clone().json()));
+      const { account } = await created.json();
+      const [row] = await ds.query('SELECT password_hash FROM accounts WHERE account_id = $1', [account.account_id]);
+      assert.equal(row.password_hash, NO_PASSWORD_MARKER);
+      for (const password of ['', 'clerk', 'clerk$', NO_PASSWORD_MARKER, 'Password123!']) {
+        const login = await loginRoute(req('POST', '/auth/login', { body: { email: 'clerk.only@example.test', password } }));
+        assert.equal(login.status, 401, `password ${JSON.stringify(password)}`);
+      }
+      // The person gets in through Clerk once the Super Admin binds them.
+      const staff = { accountId: account.account_id };
+      const sub = await signInAndLink(staff, token);
+      assert.equal((await exchange(await clerkToken({ sub }))).status, 200);
+      // A password that is given is still checked and stored as before.
+      const weak = await createRoute(req('POST', '/accounts', { token, body: { ...body, employee_no: 'CLK-002', email: 'weak@example.test', password: 'short' } }));
+      assert.equal(weak.status, 400);
+    } finally {
+      setLoginLimiter(null);
+    }
+  });
+
+  it('while Clerk is off, a password is still required to create an account', async () => {
+    const { token } = await admin();
+    process.env.CLERK_AUTH_ENABLED = 'false';
+    const res = await createRoute(req('POST', '/accounts', { token, body: { employee_no: 'CLK-003', full_name: 'No Clerk', email: 'no.clerk@example.test', role: ROLES.EXECUTIVE } }));
+    assert.equal(res.status, 400);
+    assert.ok((await res.json()).error.details.password);
   });
 
   it('a Clerk token is never accepted where a CCMS token is required', async () => {
