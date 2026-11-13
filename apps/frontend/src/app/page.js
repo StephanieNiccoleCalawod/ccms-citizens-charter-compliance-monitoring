@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AppShell from '../components/layout/AppShell.js';
 import DashboardAnalytics from '../components/dashboard/DashboardAnalytics.js';
+import InsightsPage from '../components/insights/InsightsPage.js';
 import LandingHero from '../components/public/LandingHero.js';
 import ErrorBanner from '../components/feedback/ErrorBanner.js';
 import Pager from '../components/navigation/Pager.js';
@@ -284,6 +285,10 @@ function SignedInHome() {
       {(user) => (
         <div className="space-y-8">
           <DashboardAnalytics user={user} />
+          <section aria-labelledby="insights-heading">
+            <h2 id="insights-heading" className="title-section mb-4">Insights</h2>
+            <InsightsPage user={user} />
+          </section>
           <div>
             <h2 className="title-section mb-4">Find a service</h2>
             {/* No Search button: pressing Enter in the box searches. */}
