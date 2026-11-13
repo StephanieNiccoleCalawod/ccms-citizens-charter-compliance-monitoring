@@ -3,6 +3,7 @@ import { migrateSprint5Operations } from './migrations/sprint5.js';
 import { migrateSprint6Operations } from './migrations/sprint6.js';
 import { REGISTRY_CHECK, REGISTRY_CHECK_NAME } from '../../migrations/1794528100000-Cc044RegistryAtStart.js';
 import { QUEUE_CONSTRAINTS, QUEUE_INDEXES } from '../../migrations/1794900000000-Cc039QueueTickets.js';
+import { QUEUE_LINK_CONSTRAINTS, QUEUE_LINK_INDEX } from '../../migrations/1794900100000-Cc040QueueTicketLink.js';
 // Runs after TypeORM has created the tables. Everything here is idempotent.
 // TypeORM cannot declare expression indexes, partial unique indexes, foreign keys with our names or CHECK
 // constraints, so the Transaction data rules live here as well as in the service code.
@@ -36,6 +37,9 @@ export async function afterSync(dataSource) {
 async function queueRules(dataSource) {
   for (const [table, name, definition] of QUEUE_CONSTRAINTS) await addConstraint(dataSource, table, name, definition);
   for (const sql of QUEUE_INDEXES) await dataSource.query(sql);
+  // CC040 (keep identical to migrations/1794900100000-Cc040QueueTicketLink.js).
+  for (const [name, definition] of QUEUE_LINK_CONSTRAINTS) await addConstraint(dataSource, 'transactions', name, definition);
+  await dataSource.query(QUEUE_LINK_INDEX);
 }
 
 // CC044 (keep identical to migrations/1794528100000-Cc044RegistryAtStart.js).

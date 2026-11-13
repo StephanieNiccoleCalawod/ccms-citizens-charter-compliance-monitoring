@@ -68,6 +68,8 @@ export const AnalyticsTransaction = new EntitySchema({
     endedByUserId: { name: 'ended_by_user_id', type: 'uuid', nullable: true },
     counterId: { name: 'counter_id', type: 'uuid', nullable: true },
     eventVersion: { name: 'event_version', type: 'int' },
+    // CC040: whole minutes from the queue ticket's issue to the Start; null = no ticket. Never a compliance input.
+    queueWaitMinutes: { name: 'queue_wait_minutes', type: 'int', nullable: true },
     isSeeded: { name: 'is_seeded', type: 'boolean' },
     receivedAt: { name: 'received_at', type: 'timestamptz', default: () => 'now()' },
   },

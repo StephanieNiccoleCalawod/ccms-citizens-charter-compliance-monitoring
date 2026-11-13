@@ -23,7 +23,7 @@ const PAGE_SIZE = 20;
 
 function FiguresTable({ report }) {
   const rows = figureRows(report);
-  const heads = ['Received', 'On time', 'Late', 'Closed automatically', 'On-time rate', 'Cancelled', 'Auto-closed', 'Pending now', 'Not in registry'];
+  const heads = ['Received', 'On time', 'Late', 'Closed automatically', 'On-time rate', 'Cancelled', 'Auto-closed', 'Pending now', 'Not in registry', 'Queue wait'];
   return (
     <div data-testid="report-figures">
       <TableShell>
@@ -31,12 +31,13 @@ function FiguresTable({ report }) {
           {rows.map((r) => (
             <tr key={r.key} className={`tr-row ${r.total ? 'font-bold' : ''}`}>
               <td className="td">{r.label}</td>
-              {[r.received, r.onTime, r.late, r.closedAutomatically, r.rate, r.cancelled, r.autoClosed, r.pending, r.notInRegistry].map((v, i) => <td key={i} className="td text-right">{v}</td>)}
+              {[r.received, r.onTime, r.late, r.closedAutomatically, r.rate, r.cancelled, r.autoClosed, r.pending, r.notInRegistry, r.queueWait].map((v, i) => <td key={i} className="td text-right">{v}</td>)}
             </tr>
           ))}
         </Table>
       </TableShell>
       <p className="mt-2 text-xs text-slate-500">{report.figures?.basis}</p>
+      <p className="mt-1 text-xs text-slate-500">Queue wait: minutes from taking a queue ticket to the start of the transaction, for transactions started with a ticket. It is not part of compliance.</p>
     </div>
   );
 }

@@ -41,6 +41,7 @@ const COLUMNS = [
   ['ended_by_user_id', 'uuid'],
   ['counter_id', 'uuid'],
   ['event_version', 'integer'],
+  ['queue_wait_minutes', 'integer'], // CC040: optional in the contract; absent in older snapshots = null
   ['is_seeded', 'boolean'],
 ];
 const NAMES = COLUMNS.map(([name]) => name);

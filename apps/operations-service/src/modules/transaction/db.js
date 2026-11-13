@@ -8,7 +8,8 @@ export function rowsOf(result) {
 export const TRANSACTION_SELECT = `
   SELECT t.*, c.label AS counter_label,
          (SELECT e.status FROM transaction_emails e
-           WHERE e.transaction_id = t.transaction_id AND e.kind = 'ACKNOWLEDGEMENT') AS acknowledgement_email_status
+           WHERE e.transaction_id = t.transaction_id AND e.kind = 'ACKNOWLEDGEMENT') AS acknowledgement_email_status,
+         (SELECT q.ticket_no FROM queue_tickets q WHERE q.ticket_id = t.queue_ticket_id) AS queue_ticket_no
     FROM transactions t
     LEFT JOIN counters c ON c.counter_id = t.counter_id`;
 

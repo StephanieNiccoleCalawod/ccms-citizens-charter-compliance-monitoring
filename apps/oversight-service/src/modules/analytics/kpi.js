@@ -18,6 +18,9 @@ import { resolvePeriod } from './period.js';
 //   working days, which is never before the service's own standard.
 // Cancelled transactions are never in the rate. A completed row whose result is still being computed is "awaiting result".
 // Early = on time with a negative variance; the margin is how many working minutes before the limit it finished.
+// CC040 queue wait: its own figure, never part of compliance. Placed by the Manila start date (like received, because it is
+// measured at Start): queue_wait = { measured, average_minutes }. measured counts rows with a wait (0 included, null excluded);
+// average_minutes is their mean with one decimal (clock minutes from ticket issue to Start), null when nothing was measured.
 //
 // groupBy: total (default), office, service or staff. Staff figures attribute starts, cancellations, auto-closes and pending to the
 // account that started the transaction and results to the account that ended it (the starter when the ender is unknown).
@@ -53,13 +56,14 @@ function makeBucket() {
     time: { average_minutes: null, median_minutes: null, p90_minutes: null },
     early: { count: 0, average_margin_minutes: null },
     pending: { count: 0, oldest_started_at: null, oldest_age_minutes: null },
+    queue_wait: { measured: 0, average_minutes: null },
     // Raw lists for the statistics; removed by finish().
-    _times: [], _margins: [], _oldest: null,
+    _times: [], _margins: [], _waits: [], _oldest: null,
   };
 }
 
 function finish(bucket, nowMs) {
-  const { _times, _margins, _oldest, ...figures } = bucket;
+  const { _times, _margins, _waits, _oldest, ...figures } = bucket;
   const sorted = [..._times].sort((a, b) => a - b);
   const r = figures.results;
   r.late_total = r.late + r.late_auto_closed;
@@ -67,6 +71,7 @@ function finish(bucket, nowMs) {
   r.on_time_rate = divisor > 0 ? oneDecimal((r.on_time / divisor) * 100) : null;
   figures.time = { average_minutes: average(_times), median_minutes: median(sorted), p90_minutes: percentile(sorted, 90) };
   figures.early = { count: _margins.length, average_margin_minutes: average(_margins) };
+  figures.queue_wait = { measured: _waits.length, average_minutes: average(_waits) };
   if (_oldest !== null) {
     figures.pending.oldest_started_at = new Date(_oldest).toISOString();
     figures.pending.oldest_age_minutes = Math.max(0, Math.floor((nowMs - _oldest) / 60_000));
@@ -82,6 +87,8 @@ function countStart(bucket, row) {
     bucket.not_in_registry += 1;
     if (Object.hasOwn(bucket.not_in_registry_by_reason, row.registry_miss_reason)) bucket.not_in_registry_by_reason[row.registry_miss_reason] += 1;
   }
+  // CC040: a measured wait (0 counts; null = no ticket and is left out).
+  if (Number.isInteger(row.queue_wait_minutes) && row.queue_wait_minutes >= 0) bucket._waits.push(row.queue_wait_minutes);
 }
 
 /** The outcome bucket of a completed row, or null when the row is not a completion this report counts. */
@@ -159,7 +166,7 @@ export function computeKpis(rows, { officeId, serviceId, from, to, groupBy = 'to
 }
 
 const COLUMNS = `started_at, ended_at, office_id, service_id, status, outcome, is_compliant, variance_minutes, elapsed_working_minutes,
-       is_backdated, started_outside_hours, registry_status, registry_miss_reason, started_by_user_id, ended_by_user_id`;
+       is_backdated, started_outside_hours, registry_status, registry_miss_reason, started_by_user_id, ended_by_user_id, queue_wait_minutes`;
 
 /**
  * Who may ask for which figures (the server decides; the screen only follows):

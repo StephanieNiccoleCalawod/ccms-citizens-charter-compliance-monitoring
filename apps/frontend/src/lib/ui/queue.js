@@ -1,4 +1,4 @@
-// CC039 queue helpers.
+// CC039 / CC040 queue helpers (pure, tested in tests/unit/queue.test.js).
 import { ROLES } from 'ccms-shared/roles';
 
 export const PRIORITY_OPTIONS = Object.freeze([
@@ -37,4 +37,28 @@ export function describeTakeFailure(error) {
   }
   if (error?.status === 503) return { message: 'Tickets cannot be issued right now. Please try again in a few minutes or ask the office staff.', fields: {} };
   return { message: error?.message || 'Something went wrong. Please try again.', fields: {} };
+}
+
+/**
+ * CC040: the choices of the ticket picker on the Start form, from the queue board of the service's office. Called tickets first
+ * (the usual choice, newest call first), then the waiting line in call order. Each label is the display number only.
+ */
+export function ticketPickerOptions(board) {
+  const called = (board?.called ?? []).map((t) => ({ value: t.ticket_id, label: `${t.ticket_no} (called now${t.lane === 'PRIORITY' ? ', priority' : ''})`, called: true }));
+  const waiting = (board?.waiting ?? []).map((t) => ({ value: t.ticket_id, label: `${t.ticket_no} (waiting${t.lane === 'PRIORITY' ? ', priority' : ''})`, called: false }));
+  return [...called, ...waiting];
+}
+
+/** "12 min" / "0 min" for a measured wait, null when there was no ticket (never shown as 0). */
+export function queueWaitText(minutes) {
+  if (minutes === null || minutes === undefined || !Number.isFinite(Number(minutes))) return null;
+  return `${Number(minutes)} min`;
+}
+
+/** A report/KPI bucket's queue wait: "8.5 min average (12 measured)", "Not measured" when nothing was, '-' for an older report. */
+export function queueWaitFigure(bucket) {
+  const q = bucket?.queue_wait;
+  if (!q) return '-';
+  if (!q.measured) return 'Not measured';
+  return `${q.average_minutes} min average (${q.measured} measured)`;
 }

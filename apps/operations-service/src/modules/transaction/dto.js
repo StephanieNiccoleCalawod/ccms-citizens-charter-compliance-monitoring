@@ -45,6 +45,10 @@ export function toTransactionDto(row, { detail = true } = {}) {
     // CC044: the status and reason code are flags; the student number and the private note are detail-only.
     registry_status: row.registry_status ?? 'NONE',
     registry_miss_reason: row.registry_miss_reason ?? null,
+    // CC040: the linked queue ticket and the measured wait (null = started without a ticket; 0 is a measured zero).
+    queue_ticket_id: row.queue_ticket_id ?? null,
+    queue_ticket_no: row.queue_ticket_no ?? null,
+    queue_wait_minutes: row.queue_wait_minutes ?? null,
     version: row.version,
   };
   if (detail) {

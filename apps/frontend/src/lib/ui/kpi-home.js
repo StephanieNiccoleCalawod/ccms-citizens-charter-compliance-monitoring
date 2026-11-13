@@ -52,6 +52,8 @@ export function tilesFor(bucket) {
     { key: 'late', label: 'Late', value: count(r.late_total ?? r.late), note: count(r.late_auto_closed) ? `${count(r.late_auto_closed)} closed automatically` : '' },
     { key: 'pending', label: 'Pending now', value: count(b.pending?.count) },
     { key: 'cancelled', label: 'Cancelled', value: count(b.cancelled) },
+    // CC040: ticket-to-Start wait, its own figure (not a compliance input). Only rows started with a ticket count.
+    { key: 'queue_wait', label: 'Average queue wait', value: b.queue_wait?.measured ? `${b.queue_wait.average_minutes} min` : '-', note: b.queue_wait ? `${count(b.queue_wait.measured)} measured` : '' },
   ];
 }
 

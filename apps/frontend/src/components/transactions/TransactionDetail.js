@@ -19,6 +19,7 @@ import { REGISTRY_STATUS_LABELS, clientTypeLabel, formatStandardDuration, regist
 import ElapsedTime from '../ui/ElapsedTime.js';
 import { officeName } from '../../lib/ui/names.js';
 import { starterLabels } from '../../lib/ui/account-position.js';
+import { queueWaitText } from '../../lib/ui/queue.js';
 
 const LABEL = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 const VALUE = 'text-sm text-slate-800';
@@ -398,6 +399,8 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
             </Item>
           ) : null}
           {!readOnly && tx.counter_label ? <Item label="Counter">{tx.counter_label}</Item> : null}
+          {/* CC040: the queue ticket served and the measured wait (null = started without a ticket; never part of compliance). */}
+          {!readOnly && tx.queue_ticket_no ? <Item label="Queue ticket" testId="queue-ticket">{tx.queue_ticket_no} · waited {queueWaitText(tx.queue_wait_minutes)}</Item> : null}
           <Item label="Time on hold so far (working time)" testId="held-minutes">{formatHeldMinutes(tx.held_minutes)}</Item>
           {tx.ended_at ? <Item label="Ended" testId="ended-at">{formatDateTime(tx.ended_at) || '-'} (Asia/Manila)</Item> : null}
           {/* CC050: only a completed transaction has an outcome; one completed before outcomes existed reads "Not recorded".

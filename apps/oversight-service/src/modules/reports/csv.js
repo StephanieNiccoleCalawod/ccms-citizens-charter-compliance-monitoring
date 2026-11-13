@@ -21,6 +21,8 @@ const HEAD = [
   'Office', 'Period', 'From', 'To', 'Version', 'Status', 'Service', 'Received', 'On time', 'Late (including closed automatically)',
   'Closed automatically', 'On-time rate (%)', 'Cancelled', 'Pending now', 'Not in registry', 'Backdated', 'Started outside hours',
   'Average working minutes', 'Median working minutes', '90th percentile working minutes',
+  // CC040: separate from compliance. Empty in a report generated before CC040 (its frozen figures have no queue_wait).
+  'Queue waits measured', 'Average queue wait (minutes)',
 ];
 
 function row(report, label, b) {
@@ -30,6 +32,7 @@ function row(report, label, b) {
     STATUS_LABEL[report.status] ?? report.status, label, b.received, r.on_time, r.late_total, r.late_auto_closed, r.on_time_rate,
     b.cancelled, b.pending?.count, b.not_in_registry, b.backdated, b.started_outside_hours,
     b.time?.average_minutes, b.time?.median_minutes, b.time?.p90_minutes,
+    b.queue_wait?.measured, b.queue_wait?.average_minutes,
   ];
 }
 

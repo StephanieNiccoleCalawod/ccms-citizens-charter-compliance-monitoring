@@ -46,9 +46,20 @@ function operationsRow(over = {}) {
 
 describe('TT2 analytics contract', () => {
   it('the snapshot has exactly the specified fields and event types', () => {
-    assert.deepEqual([...ANALYTICS_SNAPSHOT_FIELD_NAMES].sort(), [...SPEC_FIELDS].sort());
+    // CC040 adds one OPTIONAL field; every TT2 field stays required.
+    assert.deepEqual([...ANALYTICS_SNAPSHOT_FIELD_NAMES].sort(), [...SPEC_FIELDS, 'queue_wait_minutes'].sort());
     assert.deepEqual([...ANALYTICS_EVENT_TYPES], ['TRANSACTION_STARTED', 'TRANSACTION_HELD', 'TRANSACTION_RESUMED', 'TRANSACTION_COMPLETED', 'TRANSACTION_RESULT_COMPUTED', 'TRANSACTION_CANCELLED', 'TRANSACTION_AUTO_CLOSED']);
     assert.equal(ANALYTICS_MAX_BATCH, 500);
+  });
+
+  it('CC040: queue_wait_minutes is optional, nullable, whole and non-negative, and left out while null', () => {
+    const base = snapshotFromTransactionRow(operationsRow());
+    assert.equal(Object.hasOwn(base, 'queue_wait_minutes'), false, 'no wait: left out, so an older receiver still accepts it');
+    const measured = snapshotFromTransactionRow({ ...operationsRow(), queue_wait_minutes: 0 });
+    assert.strictEqual(measured.queue_wait_minutes, 0, 'a measured zero is kept');
+    assert.equal(validateAnalyticsSnapshot({ ...base }).queue_wait_minutes, undefined, 'an older snapshot without the field is valid');
+    assert.equal(Object.hasOwn(validateAnalyticsSnapshot({ ...base, queue_wait_minutes: null }), 'queue_wait_minutes'), false);
+    for (const bad of [-1, 1.5, '4', true]) assert.throws(() => validateAnalyticsSnapshot({ ...base, queue_wait_minutes: bad }), /invalid/);
   });
 
   it('the mapper copies only allowlisted fields, renames source columns, keeps nulls and defaults registry to NONE', () => {

@@ -154,7 +154,8 @@ export function standardLoadResult(err) {
 
 // ---- The form ----
 
-export const EMPTY_START_FORM = Object.freeze({ service_id: '', client_type: '', client_reference: '', client_email: '', counter_id: '' });
+// CC040: queue_ticket_id is the optional queue ticket (its stable id), cleared whenever the chosen service's office changes.
+export const EMPTY_START_FORM = Object.freeze({ service_id: '', client_type: '', client_reference: '', client_email: '', counter_id: '', queue_ticket_id: '' });
 
 /** Early feedback, by field: { service, standard, client_type, client_reference, client_email, requirements, counter }. Empty when ready. */
 export function startErrors({ form, standard, items, checks, countersEnabled }) {
@@ -184,10 +185,12 @@ export function buildStartBody({ form, countersEnabled }) {
   if (reference) body.client_reference = reference;
   if (email) body.client_email = email;
   if (countersEnabled && form.counter_id) body.counter_id = form.counter_id;
+  // CC040: only when a ticket was chosen; without one the request is exactly the pre-CC040 body.
+  if (form.queue_ticket_id) body.queue_ticket_id = form.queue_ticket_id;
   return body;
 }
 
-const FIELD_OF = { service_id: 'service', client_type: 'client_type', client_reference: 'client_reference', client_email: 'client_email', requirements_confirmed: 'requirements', counter_id: 'counter', started_at: 'started_at', ended_at: 'ended_at', backdate_reason: 'backdate_reason', registry: 'registry', registry_miss_reason: 'registry_miss_reason', registry_miss_note: 'registry_miss_note' };
+const FIELD_OF = { service_id: 'service', client_type: 'client_type', client_reference: 'client_reference', client_email: 'client_email', requirements_confirmed: 'requirements', counter_id: 'counter', started_at: 'started_at', ended_at: 'ended_at', backdate_reason: 'backdate_reason', registry: 'registry', registry_miss_reason: 'registry_miss_reason', registry_miss_note: 'registry_miss_note', queue_ticket_id: 'queue_ticket' };
 
 /** A failed start as { kind, fieldErrors, message }. kind: validation, open, counter_busy, inactive, standard, unavailable, forbidden, auth, notfound, network, server. */
 export function startErrorResult(err) {
@@ -198,6 +201,10 @@ export function startErrorResult(err) {
     return { kind: 'registry_reason', fieldErrors: { registry_miss_reason: err.details?.registry_miss_reason ?? err.message }, message: null, registryStatus: err.details?.registry_status ?? null };
   }
   if (status === 400 && err.code === 'CLIENT_TYPE_NOT_ALLOWED') return { kind: 'validation', fieldErrors: { client_type: MESSAGES.clientTypeNotAllowed }, message: null };
+  // CC040: the chosen ticket was linked meanwhile, is from an earlier day, or is later than the start: say so at the picker.
+  if ((status === 400 || status === 409) && typeof code === 'string' && code.startsWith('QUEUE_TICKET_')) {
+    return { kind: 'queue_ticket', fieldErrors: { queue_ticket: err.details?.queue_ticket_id ?? err.message }, message: null };
+  }
   if (status === 503 && err.code === 'REGISTRY_UNAVAILABLE') return { kind: 'registry_unavailable', fieldErrors: { registry: err.message }, message: err.message };
   if (status === 400 && err.details && typeof err.details === 'object') {
     const fieldErrors = {};

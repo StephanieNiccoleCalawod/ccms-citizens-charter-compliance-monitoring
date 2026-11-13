@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Errors, assertOfficeAccess, isUniqueViolation, isUuid, readAllowedClientTypes, recordAudit, toManilaDate } from 'ccms-shared';
 import { kickAcknowledgements, kickAnalytics, kickOutbox, kickReceipts } from '../../lib/outbox.js';
 import { parseRegistryChoice, resolveRegistryChoice } from '../registry/lookup.js';
+import { QUEUE_LINK_MESSAGES, lockTicketForStart, markTicketServed, parseQueueTicketChoice } from '../queue/link.js';
 import { queueAcknowledgement } from './acknowledgement.js';
 import { recordAnalytics } from '../analytics/producer.js';
 import { CoreRejectedError, CoreUnavailableError } from './core-client.js';
@@ -54,10 +55,12 @@ export function parseStartInput(body, { now }) {
   }
   // CC044: the registry choice of a Student or Alumni client (re-checked against the registry by the server later).
   const registry = CLIENT_TYPES.includes(body.client_type) ? parseRegistryChoice(body, body.client_type, details) : null;
+  // CC040: an optional queue ticket (its stable id); re-checked against the office, the date and its state in the database transaction.
+  const queueTicketId = parseQueueTicketChoice(body, details);
   if (Object.keys(details).length) throw Errors.validation('Please correct the highlighted fields', details);
   // CC051: only an explicit true counts. Accepted as confirmOutsideHours (the spec) or confirm_outside_hours.
   const confirmOutsideHours = body.confirmOutsideHours === true || body.confirm_outside_hours === true;
-  return { serviceId, clientType: body.client_type, clientReference, clientEmail, counterId, confirmOutsideHours, registry, ...backdate };
+  return { serviceId, clientType: body.client_type, clientReference, clientEmail, counterId, confirmOutsideHours, registry, queueTicketId, ...backdate };
 }
 
 /** Looks the standard in force up in Core (one retry inside the client) and turns Core's answers into Operations errors. */
@@ -101,6 +104,10 @@ function trackingNo(officeCode, manilaDate, sequence) {
 function mapUnique(err) {
   if (isUniqueViolation(err, 'transactions_one_open_per_staff_uq')) return Errors.conflict(MSG.OPEN_EXISTS, 'OPEN_TRANSACTION_EXISTS');
   if (isUniqueViolation(err, 'transactions_one_open_per_counter_uq')) return Errors.conflict(MSG.COUNTER_BUSY, 'COUNTER_BUSY');
+  // CC040 backstop (the ticket row lock normally refuses the second claim first).
+  if (isUniqueViolation(err, 'transactions_queue_ticket_uq') || isUniqueViolation(err, 'queue_tickets_transaction_uq')) {
+    return Errors.conflict(QUEUE_LINK_MESSAGES.used, 'QUEUE_TICKET_USED', { queue_ticket_id: QUEUE_LINK_MESSAGES.used });
+  }
   return null;
 }
 
@@ -171,6 +178,11 @@ export async function startTransaction(dataSource, { core, identity = null, now 
         counterId = counter.counter_id;
       }
 
+      // CC040: claim the chosen ticket under its row lock and measure issue -> Start (null when no ticket was chosen).
+      const queue = input.queueTicketId
+        ? await lockTicketForStart(manager, { ticketId: input.queueTicketId, officeId: standard.office_id, startedAt, requestTime })
+        : null;
+
       const [{ last_seq: sequence }] = rowsOf(
         await manager.query(
           `INSERT INTO tracking_sequences (office_id, seq_date, last_seq) VALUES ($1, $2, 1)
@@ -187,8 +199,8 @@ export async function startTransaction(dataSource, { core, identity = null, now 
            standard_id, standard_duration_days, standard_duration_hours, standard_duration_minutes, counter_id, client_type,
            client_reference, client_email, started_at, started_by, ended_at, ended_by, status, is_backdated, backdate_reason,
             receipt_email_status, office_name, started_by_position, started_by_name, started_outside_hours,
-            registry_student_number, registry_status, registry_miss_reason, registry_miss_note)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)`,
+            registry_student_number, registry_status, registry_miss_reason, registry_miss_note, queue_ticket_id, queue_wait_minutes)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)`,
         [
           transactionId, number, input.serviceId, standard.service_code, standard.service_name, standard.office_id, standard.office_code,
           standard.classification, standard.standard_id, standard.duration_days, standard.duration_hours, standard.duration_minutes,
@@ -198,8 +210,10 @@ export async function startTransaction(dataSource, { core, identity = null, now 
           completed && clientEmail ? 'PENDING' : 'NONE',
           standard.office_name, startedByPosition, startedByName, startedOutsideHours,
           registry.studentNumber, registry.status, registry.reason, registry.note,
+          queue?.ticketId ?? null, queue?.waitMinutes ?? null,
         ],
       );
+      if (queue) await markTicketServed(manager, { ticketId: queue.ticketId, transactionId, servedAt: requestTime });
 
       // The audit trail never carries the citizen's email or reference (personal data).
       await recordAudit(manager, {
@@ -224,6 +238,9 @@ export async function startTransaction(dataSource, { core, identity = null, now 
           // CC044: status and reason CODE only; never the student number, name, email or note.
           registry_status: registry.status,
           registry_miss_reason: registry.reason,
+          // CC040: the display number and the measured wait (no personal data: the queue holds none).
+          queue_ticket_no: queue?.ticketNo ?? null,
+          queue_wait_minutes: queue?.waitMinutes ?? null,
         },
         ipAddress,
       });

@@ -60,6 +60,11 @@ import { isUuid } from './http.js';
 //   ended_by_user_id         uuid | null                                    staff ACCOUNT id (K28), source ended_by
 //   counter_id               uuid | null
 //   event_version            integer 0..2147483647
+//   queue_wait_minutes       integer >= 0 | null, OPTIONAL                  (CC040) whole minutes from the queue ticket's original
+//                            issue to the Start; null = no ticket linked (or a row from before CC040). The only optional field:
+//                            an older producer, an older outbox row, a replay or a backfill page without it reads as null. The
+//                            producer leaves it out while it is null, so a receiver that predates CC040 still accepts those.
+//                            Never part of compliance: deadline, hold and on-time results do not read it.
 //   The three result fields are either all null (pending) or all set.
 //
 // ---- Never in a snapshot ------------------------------------------------------------------------------------------
@@ -136,6 +141,8 @@ export const ANALYTICS_SNAPSHOT_FIELDS = Object.freeze({
   ended_by_user_id: { type: 'uuid', nullable: true },
   counter_id: { type: 'uuid', nullable: true },
   event_version: { type: 'int', min: 0, max: ANALYTICS_MAX_VERSION },
+  // CC040: optional (absent = null) so snapshots from before CC040 stay valid.
+  queue_wait_minutes: { type: 'int', min: 0, nullable: true, optional: true },
 });
 export const ANALYTICS_SNAPSHOT_FIELD_NAMES = Object.freeze(Object.keys(ANALYTICS_SNAPSHOT_FIELDS));
 
@@ -231,10 +238,13 @@ function checkSnapshot(value, path, errors) {
   const out = {};
   for (const [name, spec] of Object.entries(ANALYTICS_SNAPSHOT_FIELDS)) {
     if (!Object.hasOwn(value, name)) {
-      errors.add(`${path}${name}`, 'Is required');
+      if (!spec.optional) errors.add(`${path}${name}`, 'Is required');
       continue;
     }
     out[name] = checkField(name, spec, value[name], path, errors);
+    // An optional field that is null is left out of the normalised copy (absent and null mean the same: not measured), so a
+    // stored or re-sent payload stays readable by a receiver that predates the field.
+    if (spec.optional && out[name] === null) delete out[name];
   }
   const results = [out.elapsed_working_minutes, out.is_compliant, out.variance_minutes];
   if (results.some((v) => v === null) && results.some((v) => v !== null && v !== undefined)) {
@@ -396,6 +406,8 @@ export const ANALYTICS_SOURCE_COLUMNS = Object.freeze([
   'outcome', 'started_by', 'ended_by', 'counter_id', 'analytics_event_version',
   // CC044: status and reason CODE only. Never registry_student_number or registry_miss_note.
   'registry_status', 'registry_miss_reason',
+  // CC040: the measured queue wait only (never the ticket id or number). A baseline column, so this list reads on every schema.
+  'queue_wait_minutes',
 ]);
 
 const isoOrNull = (value) => (value === null || value === undefined ? null : new Date(value).toISOString());
@@ -408,7 +420,7 @@ const nullable = (value) => (value === undefined ? null : value);
  */
 export function snapshotFromTransactionRow(row) {
   const hasRegistry = row.registry_status !== undefined && row.registry_status !== null;
-  return validateAnalyticsSnapshot({
+  const snapshot = {
     transaction_id: row.transaction_id,
     tracking_no: row.tracking_no,
     office_id: row.office_id,
@@ -435,7 +447,10 @@ export function snapshotFromTransactionRow(row) {
     ended_by_user_id: nullable(row.ended_by),
     counter_id: nullable(row.counter_id),
     event_version: row.analytics_event_version,
-  });
+  };
+  // CC040: present only when measured (see the contract above).
+  if (row.queue_wait_minutes !== null && row.queue_wait_minutes !== undefined) snapshot.queue_wait_minutes = row.queue_wait_minutes;
+  return validateAnalyticsSnapshot(snapshot);
 }
 
 /** Builds a validated envelope for a snapshot. */

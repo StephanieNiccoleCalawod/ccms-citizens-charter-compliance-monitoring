@@ -1,5 +1,6 @@
 import { migrateSprint4Oversight } from './migrations/sprint4-critical.js';
 import { PURGE_FUNCTION_SQL, PURGE_GRANTS_SQL } from '../../migrations/1794528400000-Tt1AnalyticsTombstones.js';
+import { QUEUE_WAIT_CHECK, QUEUE_WAIT_CHECK_NAME } from '../../migrations/1794900000000-Cc040QueueWait.js';
 // Runs after TypeORM has created the table. Everything here is idempotent.
 // TypeORM cannot declare descending indexes, CHECK constraints, roles or grants, so the Logs data rules live
 // here (the team has no migrations yet, E22 open).
@@ -98,6 +99,8 @@ async function analyticsRules(dataSource) {
   await dataSource.query('CREATE INDEX IF NOT EXISTS analytics_transactions_office_started_idx ON analytics_transactions (office_id, started_at DESC)');
   await dataSource.query('CREATE INDEX IF NOT EXISTS analytics_transactions_service_started_idx ON analytics_transactions (service_id, started_at DESC)');
   await dataSource.query('CREATE INDEX IF NOT EXISTS analytics_transactions_status_idx ON analytics_transactions (status)');
+  // CC040 (keep identical to migrations/1794900000000-Cc040QueueWait.js).
+  await addConstraint(dataSource, 'analytics_transactions', QUEUE_WAIT_CHECK_NAME, QUEUE_WAIT_CHECK);
 }
 
 // TT2 runtime access. Runs after auditLogGrants (which first revokes everything from the runtime roles). audit_log keeps

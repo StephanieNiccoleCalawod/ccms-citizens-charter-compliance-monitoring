@@ -20,6 +20,8 @@ import { BACKDATE_MESSAGES, BACKDATE_REASON_MAX, EMPTY_PAST, backdateErrors, isA
 import { COMPLIANCE_LABELS, complianceState, describeElapsed, describeVariance } from '../../lib/ui/complete-transaction.js';
 import StatusBadge from '../ui/StatusBadge.js';
 import RegistryPicker from './RegistryPicker.js';
+import { getQueueBoard } from '../../lib/api/queue.js';
+import { queueWaitText, ticketPickerOptions } from '../../lib/ui/queue.js';
 import { formatDate, formatDateTime } from '../../lib/ui/date-format.js';
 import { officeName } from '../../lib/ui/names.js';
 import {
@@ -46,8 +48,8 @@ import {
 } from '../../lib/ui/start-transaction.js';
 
 // The element to focus for each field error, so a keyboard or screen-reader user lands on the first problem.
-const FIELD_ID = { started_at: 'start-past-start', ended_at: 'start-past-end', backdate_reason: 'start-past-reason', service: 'start-service', client_type: 'start-client-type', registry: 'start-registry', registry_miss_reason: 'start-registry-reason', registry_miss_note: 'start-registry-note', client_reference: 'start-reference', client_email: 'start-email', counter: 'start-counter', requirements: 'start-requirements' };
-const FIELD_ORDER = ['service', 'standard', 'started_at', 'ended_at', 'backdate_reason', 'client_type', 'registry', 'registry_miss_reason', 'registry_miss_note', 'client_reference', 'client_email', 'requirements', 'counter'];
+const FIELD_ID = { queue_ticket: 'start-queue-ticket', started_at: 'start-past-start', ended_at: 'start-past-end', backdate_reason: 'start-past-reason', service: 'start-service', client_type: 'start-client-type', registry: 'start-registry', registry_miss_reason: 'start-registry-reason', registry_miss_note: 'start-registry-note', client_reference: 'start-reference', client_email: 'start-email', counter: 'start-counter', requirements: 'start-requirements' };
+const FIELD_ORDER = ['service', 'queue_ticket', 'standard', 'started_at', 'ended_at', 'backdate_reason', 'client_type', 'registry', 'registry_miss_reason', 'registry_miss_note', 'client_reference', 'client_email', 'requirements', 'counter'];
 
 // A titled block of the form: a card on the page, and in the modal a plain block with a thin divider (no card borders), like the
 // other CCMS modal forms.
@@ -82,6 +84,9 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
   const [documents, setDocuments] = useState({ state: 'idle', items: [], message: null }); // idle | loading | ready | failed
   const [checks, setChecks] = useState({});
   const [counters, setCounters] = useState({ state: 'idle', items: [], message: null }); // idle | loading | ready | failed
+  // CC040: today's tickets of the chosen service's office (optional; a failure never blocks a Start without a ticket).
+  const [tickets, setTickets] = useState({ state: 'idle', officeId: null, options: [] }); // idle | loading | ready | failed
+  const latestTickets = useRef(0);
   const [fieldErrors, setFieldErrors] = useState({});
   const [banner, setBanner] = useState(null); // { kind, message, conflict }
   const [submitting, setSubmitting] = useState(false);
@@ -146,14 +151,34 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     }
   }
 
+  // CC040: the ticket picker lists the office's called tickets first, then the waiting line. Scoped to one office.
+  async function loadTickets(officeId) {
+    const request = ++latestTickets.current;
+    if (!officeId) {
+      setTickets({ state: 'idle', officeId: null, options: [] });
+      return;
+    }
+    setTickets((t) => ({ state: 'loading', officeId, options: t.officeId === officeId ? t.options : [] }));
+    try {
+      const board = await getQueueBoard(officeId);
+      if (request === latestTickets.current) setTickets({ state: 'ready', officeId, options: ticketPickerOptions(board) });
+    } catch {
+      if (request === latestTickets.current) setTickets({ state: 'failed', officeId, options: [] });
+    }
+  }
+
   function chooseService(serviceId) {
     setBanner(null);
     setFieldErrors({});
     setChecks({});
+    const service = services.items.find((s) => s.service_id === serviceId);
+    const sameOffice = Boolean(service) && service.office_id === tickets.officeId;
     // CC047/CC044: a new service may allow other client types, so the client type and the registry choice start over.
+    // CC040: a chosen ticket stays only while the office is the same.
     setForm((f) => ({ ...f, service_id: serviceId, counter_id: '', client_type: '' }));
     setRegistry({ ...EMPTY_REGISTRY });
-    const service = services.items.find((s) => s.service_id === serviceId);
+    if (!sameOffice) setForm((f) => ({ ...f, queue_ticket_id: '' }));
+    loadTickets(service?.office_id ?? null);
     if (!service) {
       latestService.current += 1;
       setStandard({ state: 'idle', data: null, kind: null, message: null });
@@ -238,7 +263,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
   }
 
   // What the modal needs to know: is there anything to lose, and is a request running.
-  const dirty = Boolean(form.service_id || form.client_type || form.client_reference || form.client_email || form.counter_id || past.enabled || Object.keys(checks).length || registry.choice !== 'none');
+  const dirty = Boolean(form.service_id || form.queue_ticket_id || form.client_type || form.client_reference || form.client_email || form.counter_id || past.enabled || Object.keys(checks).length || registry.choice !== 'none');
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
@@ -334,6 +359,8 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     setStandard({ state: 'idle', data: null, kind: null, message: null });
     setDocuments({ state: 'idle', items: [], message: null });
     setCounters({ state: 'idle', items: [], message: null });
+    latestTickets.current += 1;
+    setTickets({ state: 'idle', officeId: null, options: [] });
     setPast({ ...EMPTY_PAST });
     setPastStandard({ state: 'idle', data: null, message: null });
     setLock(null);
@@ -396,6 +423,12 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Started outside working hours</dt>
                 <dd className="text-sm text-slate-800">Yes</dd>
+              </div>
+            ) : null}
+            {result.queue_ticket_no ? (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Queue ticket</dt>
+                <dd className="text-sm text-slate-800" data-testid="queue-ticket">{result.queue_ticket_no} · waited {queueWaitText(result.queue_wait_minutes)}</dd>
               </div>
             ) : null}
             {result.counter_label ? (
@@ -477,6 +510,26 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
           <FieldError id="start-service-error">{fieldErrors.service}</FieldError>
         </div>
       </Section>
+
+      {form.service_id ? (
+        <Section flat={embedded} title="Queue ticket (optional)" id="queue-heading">
+          <div className="max-w-md">
+            <label className="label" htmlFor="start-queue-ticket">Ticket of the client being served</label>
+            <div className="flex gap-2">
+              <select id="start-queue-ticket" className="input" value={form.queue_ticket_id} onChange={(e) => { setForm((f) => ({ ...f, queue_ticket_id: e.target.value })); setFieldErrors((errors) => ({ ...errors, queue_ticket: undefined })); }} disabled={tickets.state === 'loading' && tickets.options.length === 0}
+                aria-invalid={fieldErrors.queue_ticket ? true : undefined} aria-describedby={fieldErrors.queue_ticket ? 'start-queue-ticket-error' : 'start-queue-ticket-hint'}>
+                <option value="">{tickets.state === 'loading' && tickets.options.length === 0 ? 'Loading tickets…' : 'No ticket'}</option>
+                {tickets.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <button type="button" className="btn-secondary" onClick={() => loadTickets(selected?.office_id ?? null)} disabled={tickets.state === 'loading'}>Refresh</button>
+            </div>
+            <p id="start-queue-ticket-hint" className="mt-1 text-xs text-slate-500">
+              {tickets.state === 'failed' ? 'The queue could not be loaded. You can still start without a ticket.' : 'Today’s called and waiting tickets of this office. The waiting time from the ticket to this start is recorded; it never affects compliance.'}
+            </p>
+            <FieldError id="start-queue-ticket-error">{fieldErrors.queue_ticket}</FieldError>
+          </div>
+        </Section>
+      ) : null}
 
       <Section flat={embedded} title="Late entry" id="past-heading">
         <label className="flex items-start gap-3 text-sm text-slate-800">

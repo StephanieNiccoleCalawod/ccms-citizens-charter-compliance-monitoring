@@ -1,9 +1,12 @@
-// CC039 browser-side queue rules.
+// CC039 queue and CC040 queue wait browser-side rules.
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { PUBLIC_TICKET_API, takeTicket } from '../../src/lib/api/queue.js';
-import { PRIORITY_OPTIONS, describeTakeFailure, queueNav, skipCountdown } from '../../src/lib/ui/queue.js';
+import { PRIORITY_OPTIONS, describeTakeFailure, queueNav, queueWaitFigure, queueWaitText, skipCountdown, ticketPickerOptions } from '../../src/lib/ui/queue.js';
+import { buildStartBody, EMPTY_START_FORM, startErrorResult } from '../../src/lib/ui/start-transaction.js';
+import { figureRows } from '../../src/lib/ui/reports.js';
+import { tilesFor } from '../../src/lib/ui/kpi-home.js';
 import { appNavForRole } from '../../src/lib/auth/permissions.js';
 
 const read = (p) => readFileSync(new URL(`../../src/${p}`, import.meta.url), 'utf8');
@@ -53,5 +56,48 @@ describe('CC039 staff panel', () => {
     assert.equal(queueNav('executive'), null);
     assert.ok(appNavForRole('office_staff').some((i) => i.href === '/queue'));
     assert.ok(!appNavForRole('executive').some((i) => i.href === '/queue'));
+  });
+});
+
+describe('CC040 ticket at Start', () => {
+  const board = {
+    called: [{ ticket_id: 'c1', ticket_no: 'REG-004', lane: 'REGULAR' }],
+    waiting: [{ ticket_id: 'w1', ticket_no: 'REG-006', lane: 'PRIORITY' }, { ticket_id: 'w2', ticket_no: 'REG-005', lane: 'REGULAR' }],
+  };
+  it('lists the called ticket first, then the waiting line, by display number', () => {
+    assert.deepEqual(ticketPickerOptions(board).map((o) => [o.value, o.label]), [
+      ['c1', 'REG-004 (called now)'], ['w1', 'REG-006 (waiting, priority)'], ['w2', 'REG-005 (waiting)'],
+    ]);
+    assert.deepEqual(ticketPickerOptions(null), []);
+  });
+
+  it('sends the ticket id only when chosen; an older body is unchanged', () => {
+    const form = { ...EMPTY_START_FORM, service_id: 's', client_type: 'EMPLOYEE' };
+    assert.deepEqual(buildStartBody({ form, countersEnabled: false }), { service_id: 's', client_type: 'EMPLOYEE', requirements_confirmed: true });
+    assert.equal(buildStartBody({ form: { ...form, queue_ticket_id: 'c1' }, countersEnabled: false }).queue_ticket_id, 'c1');
+  });
+
+  it('a stale, used or cross-office ticket is shown at the picker', () => {
+    for (const [status, code] of [[409, 'QUEUE_TICKET_USED'], [409, 'QUEUE_TICKET_EXPIRED'], [400, 'QUEUE_TICKET_INVALID'], [400, 'QUEUE_TICKET_AFTER_START']]) {
+      const r = startErrorResult({ status, code, message: 'm', details: { queue_ticket_id: 'Pick another' } });
+      assert.deepEqual([r.kind, r.fieldErrors], ['queue_ticket', { queue_ticket: 'Pick another' }]);
+    }
+  });
+
+  it('the picker is cleared when the office changes and the wait is never shown as 0 for "no ticket"', () => {
+    const source = read('components/transactions/StartTransactionForm.js');
+    assert.match(source, /if \(!sameOffice\) setForm\(\(f\) => \(\{ \.\.\.f, queue_ticket_id: '' \}\)\);/);
+    assert.equal(queueWaitText(null), null);
+    assert.equal(queueWaitText(0), '0 min');
+  });
+
+  it('KPI tiles and report rows show the queue wait as its own figure; an older report shows "-"', () => {
+    const tile = tilesFor({ queue_wait: { measured: 4, average_minutes: 7.5 } }).find((t) => t.key === 'queue_wait');
+    assert.deepEqual([tile.value, tile.note], ['7.5 min', '4 measured']);
+    assert.equal(tilesFor({ queue_wait: { measured: 0, average_minutes: null } }).find((t) => t.key === 'queue_wait').value, '-');
+    assert.equal(queueWaitFigure({ queue_wait: { measured: 2, average_minutes: 5 } }), '5 min average (2 measured)');
+    assert.equal(queueWaitFigure({ queue_wait: { measured: 0, average_minutes: null } }), 'Not measured');
+    const rows = figureRows({ figures: { services: [], total: { received: 3, results: {} } } });
+    assert.equal(rows.at(-1).queueWait, '-');
   });
 });

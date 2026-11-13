@@ -1,6 +1,7 @@
 // Rules for the Reports page (CC029 / CC030 / CC031), as pure functions (no React, no network, no clock).
 import { ROLES } from 'ccms-shared/roles';
 import { formatDate, formatDateTime } from './date-format.js';
+import { queueWaitFigure } from './queue.js';
 
 export const PERIOD_TYPES = Object.freeze([
   { value: 'half_year', label: 'Half-year' },
@@ -82,6 +83,8 @@ export function figureRows(report) {
     autoClosed: num(b.auto_closed),
     pending: num(b.pending?.count),
     notInRegistry: num(b.not_in_registry),
+    // CC040: its own figure, never part of the rate. '-' for a report published before CC040 (no queue_wait in its figures).
+    queueWait: queueWaitFigure(b),
   });
   const f = report?.figures ?? {};
   return [...(f.services ?? []).map((s) => toRow(s.service_name ?? 'Service (name not available)', s)), toRow('Total (all services)', f.total ?? {}, true)];
