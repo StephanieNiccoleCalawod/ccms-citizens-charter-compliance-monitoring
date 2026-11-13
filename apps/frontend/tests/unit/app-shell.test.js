@@ -66,8 +66,9 @@ describe('the shared app shell: header and sidebar (source checks, not a browser
     assert.ok(shell.includes("? 'bg-[#783535] text-white shadow-sm font-semibold'"));
     assert.ok(shell.includes('absolute left-1 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-[#E5B53A]'));
   });
-  it('shows no notification bell or count, because the app has no notification data to show', () => {
-    assert.ok(!/bell|notification|unread/i.test(shell));
+  it('shows the notification bell (CC055) only through the NotificationBell component and only for roles that have one; no count of its own', () => {
+    assert.ok(shell.includes('hasBell(user.role) ? <NotificationBell />'));
+    assert.ok(!/unread/i.test(shell));
   });
   it('a tablet starts collapsed when there is no saved choice; a saved choice still wins', () => {
     assert.ok(shell.includes("window.matchMedia('(max-width: 1023px)').matches"));

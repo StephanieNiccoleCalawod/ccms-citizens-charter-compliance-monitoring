@@ -19,6 +19,8 @@ import ErrorBanner from '../feedback/ErrorBanner.js';
 import BrandMark from '../ui/BrandMark.js';
 import NavIcon from './NavIcon.js';
 import RowActionMenu from '../ui/RowActionMenu.js';
+import NotificationBell from '../notifications/NotificationBell.js';
+import { hasBell } from '../../lib/ui/notifications.js';
 
 function initials(name) {
   return (name ?? '?')
@@ -320,6 +322,8 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
             </button>
             {breadcrumb ? <Breadcrumb items={breadcrumb} className="min-w-0 text-base text-slate-800" /> : <span className="truncate text-base font-bold text-slate-800">{title}</span>}
           </div>
+          <div className="flex items-center gap-2">
+          {hasBell(user.role) ? <NotificationBell /> : null}
           <RowActionMenu
             label={`Account menu for ${user.fullName}`}
             buttonRef={signOutButtonRef}
@@ -343,6 +347,7 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
             }
             items={[{ label: 'My account', href: '/account' }, { label: signOutControl.busy ? 'Signing out…' : 'Sign out', disabled: signOutControl.busy, onSelect: signOutControl.request }]}
           />
+          </div>
         </header>
 
         <main className="px-4 py-6 sm:px-8">
