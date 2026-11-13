@@ -2,6 +2,7 @@
 // screens and the services agree; the services still enforce every rule on the server.
 import { navForRole } from 'ccms-shared/nav';
 import { ROLES } from 'ccms-shared/roles';
+import { queueNav } from '../ui/queue.js';
 
 export { landingForRole, navForRole } from 'ccms-shared/nav';
 export { ROLE_LABELS } from 'ccms-shared/roles';
@@ -72,5 +73,5 @@ export function appNavForRole(role, access = {}) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
   const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
-  return [...shared, transactionsNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
+  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
 }

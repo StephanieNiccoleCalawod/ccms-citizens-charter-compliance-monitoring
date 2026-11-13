@@ -15,6 +15,7 @@ export default function PublicHeader({ overlay = false }) {
           </div>
         </Link>
         <div className="flex items-center gap-3">
+        <Link href="/queue/take" className="text-sm font-semibold text-white/90 hover:underline">Take a queue number</Link>
         <Link href="/complaint" className="text-sm font-semibold text-white/90 hover:underline">File a complaint</Link>
         <Link href="/login" className="rounded-md border border-gold-500 px-4 py-2 text-sm font-semibold text-gold-400 hover:bg-white/10">
           Staff Login

@@ -292,5 +292,46 @@ export const LateRiskScoreCache = new EntitySchema({
   },
 });
 
+// ---- CC039 queue (Sprint 7 Wave 3) ----
+// Constraints and indexes in after-sync / migrations/1794900000000-Cc039QueueTickets.js. office_id is a plain ID (Core owns offices).
+export const QueueSequence = new EntitySchema({
+  name: 'QueueSequence',
+  tableName: 'queue_sequences',
+  columns: {
+    officeId: { name: 'office_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'queue_sequences_pkey' },
+    queueDate: { name: 'queue_date', type: 'date', primary: true, primaryKeyConstraintName: 'queue_sequences_pkey' },
+    lastSeq: { name: 'last_seq', type: 'int', default: 0 },
+    lastOrder: { name: 'last_order', type: 'int', default: 0 },
+  },
+});
+
+export const QueueTicket = new EntitySchema({
+  name: 'QueueTicket',
+  tableName: 'queue_tickets',
+  columns: {
+    ticketId: { name: 'ticket_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'queue_tickets_pkey' },
+    officeId: { name: 'office_id', type: 'uuid' },
+    officeCode: { name: 'office_code', type: 'varchar', length: 20 },
+    queueDate: { name: 'queue_date', type: 'date' },
+    seq: { type: 'int' },
+    ticketNo: { name: 'ticket_no', type: 'varchar', length: 40 },
+    lane: { type: 'varchar', length: 8 },
+    status: { type: 'varchar', length: 10, default: 'WAITING' },
+    queueOrder: { name: 'queue_order', type: 'int' },
+    issuedAt: { name: 'issued_at', type: 'timestamptz' },
+    issuedVia: { name: 'issued_via', type: 'varchar', length: 6 },
+    issuedBy: { name: 'issued_by', type: 'uuid', nullable: true },
+    calledAt: { name: 'called_at', type: 'timestamptz', nullable: true },
+    calledBy: { name: 'called_by', type: 'uuid', nullable: true },
+    callCount: { name: 'call_count', type: 'int', default: 0 },
+    skipCount: { name: 'skip_count', type: 'int', default: 0 },
+    lastSkippedAt: { name: 'last_skipped_at', type: 'timestamptz', nullable: true },
+    servedAt: { name: 'served_at', type: 'timestamptz', nullable: true },
+    transactionId: { name: 'transaction_id', type: 'uuid', nullable: true },
+    version: { type: 'int', default: 1 },
+  },
+});
+
 export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun,
-  AnalyticsOutboxEvent, RegistryImport, RegistryPerson, TransactionEmail, SeedRun, SeededTransaction, LateRiskRun, LateRiskScoreCache];
+  AnalyticsOutboxEvent, RegistryImport, RegistryPerson, TransactionEmail, SeedRun, SeededTransaction, LateRiskRun, LateRiskScoreCache,
+  QueueSequence, QueueTicket];

@@ -45,7 +45,9 @@ export const PUBLIC_API = {
   logs: ['/api/complaints', '/api/complaints/status', '/api/health'],
   analytics: ['/api/health'],
   reports: ['/api/health'],
-  operations: ['/api/health'],
+  // CC039: a walk-in takes a queue ticket without an account. Exactly this path; Operations rate limits it per client address.
+  // Every other queue route (panel, staff issuance, Call next, Skip) needs a token and is scoped by role and office in Operations.
+  operations: ['/api/queue/public/tickets', '/api/health'],
 };
 
 // EB6 / EB7: the one machine-to-machine route. FMS pulls the calendar snapshot with a machine key
