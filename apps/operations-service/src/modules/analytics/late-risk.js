@@ -166,7 +166,7 @@ function score(row, times, context, model) {
   return { transaction_id: row.transaction_id, tracking_no: row.tracking_no, service_name: row.service_name, started_by: row.started_by,
     level: classify(prediction?.probability ?? input.share, prediction ? MODEL_THRESHOLDS : RULE_THRESHOLDS),
     probability: prediction?.probability ?? null, reason: strongest === -1 ? shareReason : reasons[strongest],
-    working_minutes_left: Math.max(0, times.limit - times.used), rule_based: !prediction };
+    working_minutes_left: Math.max(0, times.limit - times.used), share_used: Math.round(input.share * 1000) / 1000, rule_based: !prediction };
 }
 
 const riskOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
