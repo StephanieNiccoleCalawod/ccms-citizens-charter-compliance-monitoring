@@ -8,10 +8,12 @@ import { afterSync as opsAfterSync } from '../apps/operations-service/src/lib/af
 import { entities as opsEntities } from '../apps/operations-service/src/lib/entities/index.js';
 import { dispatchAnalyticsOutbox } from '../apps/operations-service/src/modules/analytics/dispatch.js';
 import { exportAnalyticsPage, parseExportQuery } from '../apps/operations-service/src/modules/analytics/export.js';
+import { issueTicket } from '../apps/operations-service/src/modules/queue/tickets.js';
 import { completeTransaction } from '../apps/operations-service/src/modules/transaction/complete.js';
 import { createCoreClient } from '../apps/operations-service/src/modules/transaction/core-client.js';
 import { holdTransaction, resumeTransaction } from '../apps/operations-service/src/modules/transaction/hold.js';
 import { startTransaction } from '../apps/operations-service/src/modules/transaction/start.js';
+import { setSwitchGate } from '../apps/operations-service/src/modules/transaction/switches.js';
 import { startFakeCore } from '../apps/operations-service/test/fake-core.js';
 import { POST as ingestRoute } from '../apps/oversight-service/src/app/api/analytics-events/route.js';
 import { afterSync as ovsAfterSync } from '../apps/oversight-service/src/lib/after-sync.js';
@@ -33,6 +35,8 @@ let ovs;
 let writer;
 let core;
 before(async () => {
+  const switchState = { STAFF_HOLD_RESUME: true };
+  setSwitchGate({ all: async () => ({ ...switchState }), isEnabled: async (key) => switchState[key] === true, reset() {} });
   process.env.SERVICE_KEY = SERVICE_KEY;
   process.env.LOGS_WRITER_PASSWORD = 'tt2-e2e-writer-pw';
   process.env.OVERSIGHT_APP_PASSWORD = 'tt2-e2e-app-pw';
@@ -50,6 +54,7 @@ before(async () => {
     standards: [{ from: '2025-01-01', to: null, standard_id: '0d000000-0000-4000-8000-000000000001', days: 0, hours: 1, minutes: 0 }] });
 });
 after(async () => {
+  setSwitchGate(null);
   setDataSource(null);
   await writer?.destroy();
   await core?.close();
@@ -57,7 +62,7 @@ after(async () => {
   await ovs?.drop();
 });
 beforeEach(async () => {
-  for (const table of ['analytics_outbox', 'audit_outbox', 'transaction_emails', 'transactions', 'tracking_sequences']) await ops.dataSource.query(`DELETE FROM ${table}`);
+  for (const table of ['analytics_outbox', 'audit_outbox', 'transaction_emails', 'transactions', 'tracking_sequences', 'queue_tickets', 'queue_sequences']) await ops.dataSource.query(`DELETE FROM ${table}`);
   await ops.dataSource.query('UPDATE transaction_settings SET hold_enabled = true');
   await ovs.dataSource.query('DELETE FROM analytics_transactions');
   await ovs.dataSource.query('DELETE FROM analytics_backfill_state');
@@ -78,13 +83,11 @@ const toOversight = (url, init) => ingestRoute(new Request(url, init));
 const deliver = () => dispatchAnalyticsOutbox(ops.dataSource, { oversightUrl: 'http://oversight.test', serviceKey: SERVICE_KEY, fetchImpl: toOversight });
 // The Operations export, called the way its route does it (service key first).
 const exportFetch = (hook = async () => {}) => {
-  let n = 0;
   return async (url, init) => {
-    n += 1;
     const request = new Request(url, init);
     requireServiceKey(request);
     const page = await exportAnalyticsPage(ops.dataSource, parseExportQuery(new URL(url).searchParams));
-    await hook(n);
+    await hook(page);
     return Response.json(page);
   };
 };
@@ -119,29 +122,29 @@ describe('TT2 end to end', () => {
   });
 
   it('AC4: backfill with live updates during the pass converges, never regresses, and a second pass changes nothing', async () => {
-    const ids = [];
-    for (let i = 0; i < 4; i += 1) ids.push((await startTransaction(ops.dataSource, deps(`2026-10-06T1${i}:00:00+08:00`), staff(i), body)).transaction_id);
+    const actor = staff(0);
+    const issued = await issueTicket(ops.dataSource, deps('2026-10-06T09:48:00+08:00'), { officeId: OFFICE, lane: 'REGULAR' });
+    const [{ ticket_id }] = await ops.dataSource.query('SELECT ticket_id FROM queue_tickets WHERE ticket_no = $1', [issued.ticket_no]);
+    const { transaction_id } = await startTransaction(ops.dataSource, deps('2026-10-06T10:00:00+08:00'), actor, { ...body, queue_ticket_id: ticket_id });
+    for (let i = 1; i < 4; i += 1) await startTransaction(ops.dataSource, deps(`2026-10-06T1${i}:00:00+08:00`), staff(i), body);
     // Pre-existing history: rows with version 0 (as before the TT2 migration) and no outbox events.
     await ops.dataSource.query('UPDATE transactions SET analytics_event_version = 0');
     await ops.dataSource.query('DELETE FROM analytics_outbox');
-    const sorted = [...ids].sort();
-
-    // While the pass is running: change a row that was already exported (page 1) and deliver it live, and start a new one.
-    const fetchImpl = exportFetch(async (n) => {
-      if (n !== 1) return;
-      await holdTransaction(ops.dataSource, staff(STAFF.indexOf((await ops.dataSource.query('SELECT started_by FROM transactions WHERE transaction_id = $1', [sorted[0]]))[0].started_by)),
-        sorted[0], { reason: 'private hold reason' }, { now: () => new Date('2026-10-06T14:30:00+08:00') });
+    // Simulate a pre-CC040 export for the ticketed row, then deliver the newer hold before backfill ingests the page.
+    const fetchImpl = exportFetch(async (page) => {
+      const stale = page.items.find((row) => row.transaction_id === transaction_id);
+      if (!stale) return;
+      delete stale.queue_wait_minutes;
+      await holdTransaction(ops.dataSource, actor, transaction_id, { reason: 'private hold reason' }, { now: () => new Date('2026-10-06T14:30:00+08:00') });
       await deliver();
     });
     const first = await backfill(fetchImpl);
     assert.equal(first.pass_completed, true);
-    const held = (await projection()).find((r) => r.transaction_id === sorted[0]);
-    assert.deepEqual([held.status, held.event_version], ['ON_HOLD', 1], 'the live update survives the stale page');
+    const held = (await projection()).find((r) => r.transaction_id === transaction_id);
+    assert.deepEqual([held.status, held.event_version, held.queue_wait_minutes], ['ON_HOLD', 1, 12], 'the live update survives the stale page');
     await assertConverged();
 
-    // A stale export of version 0 after a live version 2 changes nothing.
-    const actor = staff(STAFF.indexOf((await ops.dataSource.query('SELECT started_by FROM transactions WHERE transaction_id = $1', [sorted[0]]))[0].started_by));
-    await resumeTransaction(ops.dataSource, deps('2026-10-06T15:00:00+08:00'), actor, sorted[0]);
+    await resumeTransaction(ops.dataSource, deps('2026-10-06T15:00:00+08:00'), actor, transaction_id);
     await deliver();
     await assertConverged();
 
@@ -149,6 +152,7 @@ describe('TT2 end to end', () => {
     const content = JSON.stringify((await projection()).map((r) => COMPARED.map((f) => r[f])));
     const second = await backfill(exportFetch());
     assert.deepEqual([second.pass_completed, second.applied, second.rows], [true, 0, 4]);
+    assert.equal((await projection()).find((r) => r.transaction_id === transaction_id).queue_wait_minutes, 12);
     assert.equal((await projection()).length, count);
     assert.equal(JSON.stringify((await projection()).map((r) => COMPARED.map((f) => r[f]))), content);
     const leaked = JSON.stringify(await projection());

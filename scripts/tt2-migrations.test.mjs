@@ -53,7 +53,9 @@ const fingerprint = (url) => q(url, 'SELECT 1').then(async () => {
 const OPS = 'Tt2AnalyticsOutbox1794355200000';
 const OVS = 'Tt2AnalyticsTransactions1794355300000';
 function revertAfterOperationsTt2(url) {
-  for (const migration of ['Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000', 'Cc043Registry1794441600000']) {
+  for (const migration of ['Cc045TransactionReceipts1794900200000', 'Cc040QueueTicketLink1794900100000', 'Cc039QueueTickets1794900000000',
+    'Cc052LateRisk1794531600000', 'Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000',
+    'Cc043Registry1794441600000']) {
     const reverted = cli('operations', url, ['revert']);
     assert.equal(reverted.code, 0, reverted.out);
     assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);
@@ -128,11 +130,21 @@ describe('Operations TT2 migration', () => {
   });
 });
 
+// Every Oversight migration newer than TT2, newest first (empty tables, so each revert is allowed).
+function revertAfterOversightTt2(url) {
+  for (const migration of ['Cc040QueueWait1794900000000', 'Cc034ComplaintHandling1794800000000', 'Cc029Reports1794700000000',
+    'Cc032Complaints1794600000000', 'Tt1AnalyticsTombstones1794528400000']) {
+    const reverted = cli('oversight', url, ['revert']);
+    assert.equal(reverted.code, 0, reverted.out);
+    assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);
+  }
+}
+
 describe('Oversight TT2 migration', () => {
   test('applies with exact grants, reruns without change, guards revert and leaves audit_log untouched', async () => {
     const url = await emptyDatabase('ovs');
     assert.equal(cli('oversight', url, ['run']).code, 0);
-    assert.match(cli('oversight', url, ['revert']).out, /Reverted: Tt1AnalyticsTombstones1794528400000/);
+    revertAfterOversightTt2(url);
     assert.match(cli('oversight', url, ['revert']).out, new RegExp(`Reverted: ${OVS}`));
     const auditOnly = await fingerprint(url);
     const run = cli('oversight', url, ['run']);
@@ -147,7 +159,7 @@ describe('Oversight TT2 migration', () => {
     assert.match(cli('oversight', url, ['run']).out, /No pending migrations/);
     assert.deepEqual(await fingerprint(url), schema);
 
-    assert.match(cli('oversight', url, ['revert']).out, /Reverted: Tt1AnalyticsTombstones1794528400000/);
+    revertAfterOversightTt2(url);
     await q(url, "INSERT INTO analytics_backfill_state (job_name) VALUES ('analytics-backfill')");
     const refused = cli('oversight', url, ['revert']);
     assert.equal(refused.code, 1);

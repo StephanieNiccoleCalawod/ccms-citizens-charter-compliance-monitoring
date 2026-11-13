@@ -371,7 +371,7 @@ describe('Sprint 5 numbered migrations', () => {
     const all = ['disapproval_notice_given', 'disapproval_reason', 'outcome', 'started_by_name', 'started_by_position', 'started_outside_hours'];
     assert.equal(cli('operations', db.url, ['run']).code, 0);
     assert.deepEqual(await columns(db.url, 'transactions', all), all);
-    for (const migration of ['Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000']) {
+    for (const migration of ['Cc045TransactionReceipts1794900200000', 'Cc040QueueTicketLink1794900100000', 'Cc039QueueTickets1794900000000', 'Cc052LateRisk1794531600000', 'Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000']) {
       assert.ok(cli('operations', db.url, ['revert']).out.includes(`Reverted: ${migration}`));
     }
     assert.match(cli('operations', db.url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
@@ -438,7 +438,7 @@ describe('Sprint 5 numbered migrations', () => {
       assert.match(run.out, /Applied: Cc/);
       // Verify the legacy-to-TT2 upgrade at that migration boundary.
       if (service === 'operations') {
-        for (const migration of ['Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000', 'Cc043Registry1794441600000']) {
+        for (const migration of ['Cc045TransactionReceipts1794900200000', 'Cc040QueueTicketLink1794900100000', 'Cc039QueueTickets1794900000000', 'Cc052LateRisk1794531600000', 'Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000', 'Cc043Registry1794441600000']) {
           assert.ok(cli(service, db.url, ['revert']).out.includes(`Reverted: ${migration}`));
         }
       }
