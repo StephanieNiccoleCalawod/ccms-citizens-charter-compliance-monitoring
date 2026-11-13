@@ -86,4 +86,34 @@ export const PasswordResetToken = new EntitySchema({
   indices: [{ name: 'password_reset_tokens_account_idx', columns: ['accountId'] }],
 });
 
-export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit, PermissionSwitch, AccountLastLogin];
+// Clerk sign-in (Landas 1): a CCMS account is bound to exactly one Clerk user by issuer and user ID (sub), never by
+// email (Shared Clerk Access Playbook R3). Only a Super Admin creates the binding. Keep identical to
+// migrations/sql/1795100000000-ClerkAccountLinks.up.sql. accounts itself is untouched.
+export const ClerkAccountLink = new EntitySchema({
+  name: 'ClerkAccountLink',
+  tableName: 'account_clerk_links',
+  columns: {
+    accountId: { name: 'account_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'account_clerk_links_pkey' },
+    clerkIssuer: { name: 'clerk_issuer', type: 'text' },
+    clerkUserId: { name: 'clerk_user_id', type: 'text' },
+    linkedBy: { name: 'linked_by', type: 'uuid' },
+    linkedAt: { name: 'linked_at', type: 'timestamptz', default: () => 'now()' },
+  },
+  uniques: [{ name: 'account_clerk_links_subject_uq', columns: ['clerkIssuer', 'clerkUserId'] }],
+});
+
+// Signed in with Clerk but not bound to a CCMS account yet ("No access yet"). The email is the token claim, a hint for the
+// Super Admin only; it never grants access. Removed when the person is bound or the request is dismissed.
+export const ClerkAccessRequest = new EntitySchema({
+  name: 'ClerkAccessRequest',
+  tableName: 'clerk_access_requests',
+  columns: {
+    clerkIssuer: { name: 'clerk_issuer', type: 'text', primary: true, primaryKeyConstraintName: 'clerk_access_requests_pkey' },
+    clerkUserId: { name: 'clerk_user_id', type: 'text', primary: true, primaryKeyConstraintName: 'clerk_access_requests_pkey' },
+    email: { type: 'text', nullable: true },
+    firstSeenAt: { name: 'first_seen_at', type: 'timestamptz', default: () => 'now()' },
+    lastSeenAt: { name: 'last_seen_at', type: 'timestamptz', default: () => 'now()' },
+  },
+});
+
+export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit, PermissionSwitch, AccountLastLogin, ClerkAccountLink, ClerkAccessRequest];

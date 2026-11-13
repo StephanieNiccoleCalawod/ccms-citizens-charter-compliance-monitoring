@@ -99,7 +99,7 @@ function cli(service, url, args, extraEnv = {}) {
 }
 
 function revertAfterIdentityCc046(url) {
-  for (const migration of ['Cc056PermissionSwitches1794650000000']) {
+  for (const migration of ['ClerkAccountLinks1795100000000', 'Cc056PermissionSwitches1794650000000']) {
     const reverted = cli('identity', url, ['revert']);
     assert.equal(reverted.code, 0, reverted.out);
     assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);

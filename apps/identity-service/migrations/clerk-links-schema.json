@@ -1,0 +1,20 @@
+{
+  "column:account_clerk_links.account_id": "uuid NOT NULL",
+  "column:account_clerk_links.clerk_issuer": "text NOT NULL",
+  "column:account_clerk_links.clerk_user_id": "text NOT NULL",
+  "column:account_clerk_links.linked_at": "timestamp with time zone NOT NULL DEFAULT now()",
+  "column:account_clerk_links.linked_by": "uuid NOT NULL",
+  "column:clerk_access_requests.clerk_issuer": "text NOT NULL",
+  "column:clerk_access_requests.clerk_user_id": "text NOT NULL",
+  "column:clerk_access_requests.email": "text",
+  "column:clerk_access_requests.first_seen_at": "timestamp with time zone NOT NULL DEFAULT now()",
+  "column:clerk_access_requests.last_seen_at": "timestamp with time zone NOT NULL DEFAULT now()",
+  "constraint:account_clerk_links.account_clerk_links_pkey": "PRIMARY KEY (account_id)",
+  "constraint:account_clerk_links.account_clerk_links_subject_uq": "UNIQUE (clerk_issuer, clerk_user_id)",
+  "constraint:clerk_access_requests.clerk_access_requests_pkey": "PRIMARY KEY (clerk_issuer, clerk_user_id)",
+  "index:account_clerk_links.account_clerk_links_pkey": "CREATE UNIQUE INDEX account_clerk_links_pkey ON public.account_clerk_links USING btree (account_id)",
+  "index:account_clerk_links.account_clerk_links_subject_uq": "CREATE UNIQUE INDEX account_clerk_links_subject_uq ON public.account_clerk_links USING btree (clerk_issuer, clerk_user_id)",
+  "index:clerk_access_requests.clerk_access_requests_pkey": "CREATE UNIQUE INDEX clerk_access_requests_pkey ON public.clerk_access_requests USING btree (clerk_issuer, clerk_user_id)",
+  "table:account_clerk_links": "",
+  "table:clerk_access_requests": ""
+}

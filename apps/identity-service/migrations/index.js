@@ -3,10 +3,11 @@ import { IdentityBaseline1793491200000 } from './1793491200000-IdentityBaseline.
 import { Cc046AccountPosition1794225600000 } from './1794225600000-Cc046AccountPosition.js';
 import { Cc046TrimmedPosition1794300400000 } from './1794300400000-Cc046TrimmedPosition.js';
 import { Cc056PermissionSwitches1794650000000 } from './1794650000000-Cc056PermissionSwitches.js';
+import { ClerkAccountLinks1795100000000 } from './1795100000000-ClerkAccountLinks.js';
 
 // Ordered migrations. Naming: <13-digit epoch ms>-<Name>.js exporting class <Name><timestamp>. Append only: never edit
 // or reorder a migration that may have run on the hosted database; add a new one instead.
-export const migrations = [IdentityBaseline1793491200000, Cc046AccountPosition1794225600000, Cc046TrimmedPosition1794300400000, Cc056PermissionSwitches1794650000000];
+export const migrations = [IdentityBaseline1793491200000, Cc046AccountPosition1794225600000, Cc046TrimmedPosition1794300400000, Cc056PermissionSwitches1794650000000, ClerkAccountLinks1795100000000];
 
 export const baseline = {
   allowedExtras: JSON.parse(readFileSync(new URL('./sprint5-schema.json', import.meta.url), 'utf8')),
