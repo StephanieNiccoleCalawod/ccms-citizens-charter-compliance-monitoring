@@ -168,7 +168,7 @@ export const NotificationRead = new EntitySchema({
   tableName: 'notification_reads',
   columns: {
     userId: { name: 'user_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'notification_reads_pkey' },
-    notificationKey: { name: 'notification_key', type: 'varchar', length: 200, primary: true },
+    notificationKey: { name: 'notification_key', type: 'varchar', length: 200, primary: true, primaryKeyConstraintName: 'notification_reads_pkey' },
     readAt: { name: 'read_at', type: 'timestamptz', default: () => 'now()' },
   },
 });
