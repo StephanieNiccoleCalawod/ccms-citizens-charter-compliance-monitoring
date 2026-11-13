@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import { apiFetch } from '../../lib/auth/session.js';
 import { OFFICES_API } from '../../lib/api/catalogue.js';
 import { acknowledgeComplaint, getComplaintForStaff, listComplaintsForStaff, resolveComplaint } from '../../lib/api/complaint-handling.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 import { notify } from '../../lib/ui/notify.js';
-import { REPLY_MAX, STATUS_FILTERS, STATUS_LABEL, canHandleComplaints, complaintActions, dueText, failureMessage, replyError, seesContact, statusText } from '../../lib/ui/complaint-handling.js';
+import { REPLY_MAX, STATUS_FILTERS, STATUS_LABEL, canHandleComplaints, complaintActions, dueText, failureMessage, replyError, seesContact } from '../../lib/ui/complaint-handling.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import DataTable from '../ui/DataTable.js';
@@ -85,24 +85,29 @@ export default function ComplaintsPage({ user }) {
   const [filters, setFilters] = useState({ officeId: '', status: '', overdue: false });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
-  const [list, setList] = useState({ items: [], total: 0, loading: true, error: '' });
+  const [result, setResult] = useState(null);
   const [complaint, setComplaint] = useState(null);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState('');
-  const reload = useRef(0);
+  const [revision, setRevision] = useState(0);
+  const query = useMemo(() => ({ ...filters, page, pageSize }), [filters, page, pageSize]);
+  const loading = result?.query !== query || result?.revision !== revision;
   const ownOffice = user.role === ROLES.OFFICE_HEAD || user.role === ROLES.OFFICE_STAFF;
 
   useEffect(() => { if (!ownOffice) apiFetch(OFFICES_API).then(({ items }) => setOffices(items ?? [])).catch(() => {}); }, [ownOffice]);
   const officeName = useMemo(() => new Map(offices.map((o) => [o.office_id, o.office_name])), [offices]);
 
-  const load = useCallback(() => {
-    const ticket = ++reload.current;
-    setList((l) => ({ ...l, loading: true, error: '' }));
-    listComplaintsForStaff({ ...filters, page, pageSize })
-      .then((data) => { if (ticket === reload.current) setList({ items: data.items ?? [], total: data.total ?? 0, loading: false, error: '' }); })
-      .catch((failure) => { if (ticket === reload.current) setList({ items: [], total: 0, loading: false, error: failureMessage(failure) }); });
-  }, [filters, page, pageSize]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    listComplaintsForStaff(query)
+      .then((data) => {
+        if (active) setResult({ query, revision, items: data.items ?? [], total: data.total ?? 0, error: '' });
+      })
+      .catch((failure) => {
+        if (active) setResult({ query, revision, items: [], total: 0, error: failureMessage(failure) });
+      });
+    return () => { active = false; };
+  }, [query, revision]);
 
   async function open(target) {
     setOpening(true); setError('');
@@ -110,7 +115,7 @@ export default function ComplaintsPage({ user }) {
   }
   const setFilter = (key) => (event) => { setPage(1); setFilters((f) => ({ ...f, [key]: event.target.value })); };
 
-  if (complaint) return <Detail key={complaint.complaint_id} complaint={complaint} role={user.role} onBack={() => { setComplaint(null); load(); }} onChanged={setComplaint} />;
+  if (complaint) return <Detail key={complaint.complaint_id} complaint={complaint} role={user.role} onBack={() => { setComplaint(null); setRevision((n) => n + 1); }} onChanged={setComplaint} />;
 
   const columns = [
     { key: 'reference', header: 'Reference', render: (c) => c.reference },
@@ -139,9 +144,9 @@ export default function ComplaintsPage({ user }) {
           </select></div>
         <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={filters.overdue} onChange={(e) => { setPage(1); setFilters((f) => ({ ...f, overdue: e.target.checked })); }} /> Overdue only</label>
       </div>
-      <DataTable columns={columns} data={list.items} keyExtractor={(c) => c.complaint_id} loading={list.loading} error={list.error || null}
+      <DataTable columns={columns} data={result?.items ?? []} keyExtractor={(c) => c.complaint_id} loading={loading} error={loading ? null : result.error || null}
         rowClassName={(c) => (c.overdue ? 'bg-red-50' : '')} emptyMessage="No complaints." minWidth="52rem"
-        pagination={{ page, pageSize, total: list.total, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }} />
+        pagination={{ page, pageSize, total: result?.total ?? 0, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }} />
       {!canHandleComplaints(user.role) ? <p className="text-xs text-slate-500">You can read complaints here. Super Admin and Office Heads acknowledge and resolve them.</p> : null}
     </div>
   );

@@ -14,35 +14,39 @@ import TableState from '../ui/TableState.js';
 export default function KpiHome({ user }) {
   const executive = user.role === ROLES.EXECUTIVE;
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
-  const [state, setState] = useState({ status: 'loading', answer: null, error: '' });
+  const [state, setState] = useState({ query: null, answer: null, error: '' });
   const [totals, setTotals] = useState(null);
   const [names, setNames] = useState(new Map());
+  const { id, fullName, officeId, role } = user;
+  const officeHead = role === ROLES.OFFICE_HEAD;
+  const query = useMemo(() => ({ period, officeId, role }), [period, officeId, role]);
 
   useEffect(() => {
     let active = true;
-    setState((s) => ({ ...s, status: 'loading', error: '' }));
-    const common = { period, officeId: executive ? undefined : user.officeId };
+    const common = { period: query.period, officeId: executive ? undefined : user.officeId };
     Promise.all([getKpis({ ...common, groupBy: groupByFor(user.role) }), getKpis({ ...common, groupBy: 'total' })])
-      .then(([grouped, total]) => { if (active) { setState({ status: 'ready', answer: grouped, error: '' }); setTotals(total); } })
-      .catch((failure) => { if (active) setState((s) => ({ ...s, status: 'error', error: failureMessage(failure) })); });
+      .then(([grouped, total]) => { if (active) { setState({ query, answer: grouped, error: '' }); setTotals(total); } })
+      .catch((failure) => { if (active) setState((s) => ({ ...s, query, error: failureMessage(failure) })); });
     return () => { active = false; };
-  }, [period, executive, user.officeId, user.role]);
+  }, [query, executive, user.officeId, user.role]);
 
   useEffect(() => {
     let active = true;
     if (executive) {
       getOfficeNames().then((map) => active && setNames(map)).catch(() => {});
-    } else if (user.role === ROLES.OFFICE_HEAD) {
+    } else if (officeHead) {
       getAccountNames().then((map) => active && setNames(map)).catch(() => {});
-    } else {
-      setNames(new Map([[user.id, user.fullName]]));
     }
     return () => { active = false; };
-  }, [executive, user.role, user.id, user.fullName]);
+  }, [executive, officeHead, id, fullName]);
 
   const tiles = useMemo(() => tilesFor(totals), [totals]);
-  const rows = useMemo(() => (executive ? officeRows(state.answer?.groups, names) : staffRows(state.answer?.groups, names)), [executive, state.answer, names]);
-  const loading = state.status === 'loading';
+  const rows = useMemo(() => {
+    const groups = state.answer?.groups;
+    if (executive) return officeRows(groups, names);
+    return staffRows(groups, officeHead ? names : new Map([[id, fullName]]));
+  }, [executive, officeHead, state.answer, names, id, fullName]);
+  const loading = state.query !== query;
   const label = periodLabel(state.answer);
 
   return (
@@ -59,7 +63,7 @@ export default function KpiHome({ user }) {
           <Link href="/" className="btn-secondary text-sm" data-testid="kpi-insights-link">Open Insights</Link>
         </div>
       </div>
-      <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: '' }))} />
+      <ErrorBanner message={loading ? '' : state.error} onDismiss={() => setState((s) => ({ ...s, error: '' }))} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="kpi-tiles" aria-busy={loading}>
         {tiles.map((tile) => (
           <div key={tile.key} className="card flex flex-col gap-1 p-4">

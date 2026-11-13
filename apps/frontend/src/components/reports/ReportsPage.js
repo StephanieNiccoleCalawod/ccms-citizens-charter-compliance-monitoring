@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import { apiFetch } from '../../lib/auth/session.js';
 import { OFFICES_API } from '../../lib/api/catalogue.js';
@@ -174,23 +174,28 @@ export default function ReportsPage({ user }) {
   const [filters, setFilters] = useState({ officeId: '', periodType: '', status: '' });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
-  const [list, setList] = useState({ items: [], total: 0, loading: true, error: '' });
+  const [result, setResult] = useState(null);
   const [report, setReport] = useState(null);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState('');
-  const reload = useRef(0);
+  const [revision, setRevision] = useState(0);
+  const query = useMemo(() => ({ ...filters, page, pageSize }), [filters, page, pageSize]);
+  const loading = result?.query !== query || result?.revision !== revision;
 
   useEffect(() => { apiFetch(OFFICES_API).then(({ items }) => setOffices(items ?? [])).catch(() => {}); }, []);
   const officeName = useMemo(() => new Map(offices.map((o) => [o.office_id, o.office_name])), [offices]);
 
-  const load = useCallback(() => {
-    const ticket = ++reload.current;
-    setList((l) => ({ ...l, loading: true, error: '' }));
-    listReports({ ...filters, page, pageSize })
-      .then((data) => { if (ticket === reload.current) setList({ items: data.items ?? [], total: data.total ?? 0, loading: false, error: '' }); })
-      .catch((failure) => { if (ticket === reload.current) setList({ items: [], total: 0, loading: false, error: failureMessage(failure) }); });
-  }, [filters, page, pageSize]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    listReports(query)
+      .then((data) => {
+        if (active) setResult({ query, revision, items: data.items ?? [], total: data.total ?? 0, error: '' });
+      })
+      .catch((failure) => {
+        if (active) setResult({ query, revision, items: [], total: 0, error: failureMessage(failure) });
+      });
+    return () => { active = false; };
+  }, [query, revision]);
 
   async function open(target) {
     setOpening(true); setError('');
@@ -199,7 +204,7 @@ export default function ReportsPage({ user }) {
   const setFilter = (key) => (event) => { setPage(1); setFilters((f) => ({ ...f, [key]: event.target.value })); };
 
   if (report) {
-    return <ReportDetail key={report.report_id} report={report} role={user.role} onBack={() => { setReport(null); load(); }} onOpen={open} onChanged={(r) => { setReport(r); }} />;
+    return <ReportDetail key={report.report_id} report={report} role={user.role} onBack={() => { setReport(null); setRevision((n) => n + 1); }} onOpen={open} onChanged={(r) => { setReport(r); }} />;
   }
 
   const columns = [
@@ -236,9 +241,9 @@ export default function ReportsPage({ user }) {
             </select></div>
         ) : null}
       </div>
-      <DataTable columns={columns} data={list.items} keyExtractor={(r) => r.report_id} loading={list.loading} error={list.error || null}
+      <DataTable columns={columns} data={result?.items ?? []} keyExtractor={(r) => r.report_id} loading={loading} error={loading ? null : result.error || null}
         emptyMessage={manage ? 'No reports yet. Generate one above.' : 'No published reports yet.'} minWidth="44rem"
-        pagination={{ page, pageSize, total: list.total, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }} />
+        pagination={{ page, pageSize, total: result?.total ?? 0, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }} />
     </div>
   );
 }
