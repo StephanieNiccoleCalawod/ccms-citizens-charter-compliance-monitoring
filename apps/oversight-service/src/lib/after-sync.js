@@ -67,6 +67,7 @@ export async function afterSync(dataSource) {
   await analyticsRules(dataSource);
   await complaintRules(dataSource);
   await reportRules(dataSource);
+  await notificationRules(dataSource);
   // Sprint 6 TT1 (keep identical to migrations/1794528400000-Tt1AnalyticsTombstones.js).
   await dataSource.query(PURGE_FUNCTION_SQL);
 
@@ -82,6 +83,7 @@ export async function afterSync(dataSource) {
     await analyticsGrants(runner);
     await complaintGrants(runner);
     await reportGrants(runner);
+    await notificationGrants(runner);
   } finally {
     await runner.query('SELECT pg_advisory_unlock(43436, 2)').catch(() => {});
     await runner.release();
@@ -156,6 +158,16 @@ async function reportRules(dataSource) {
 export async function reportGrants(dataSource) {
   await dataSource.query(`GRANT SELECT, INSERT, UPDATE ON reports TO ${LOGS_WRITER_ROLE}`);
   await dataSource.query(`GRANT SELECT ON reports TO ${OVERSIGHT_APP_ROLE}`);
+}
+
+// CC055 (keep identical to migrations/sql/1795000000000-Cc055NotificationReads.up.sql).
+async function notificationRules(dataSource) {
+  await dataSource.query('CREATE INDEX IF NOT EXISTS notification_reads_read_idx ON notification_reads (read_at)');
+}
+
+// Runtime access to notification_reads. Runs after auditLogGrants. ccms_logs_writer: SELECT, INSERT, DELETE (old reads are pruned). No UPDATE.
+export async function notificationGrants(dataSource) {
+  await dataSource.query(`GRANT SELECT, INSERT, DELETE ON notification_reads TO ${LOGS_WRITER_ROLE}`);
 }
 
 async function auditLogRules(dataSource) {

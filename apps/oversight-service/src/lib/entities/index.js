@@ -161,5 +161,16 @@ export const Report = new EntitySchema({
   },
 });
 
+// Sprint 7 CC055: the notifications a user has marked as read (the notification itself is worked out on each request, never stored).
+// Created with its index and grants in after-sync / migrations/1795000000000-Cc055NotificationReads.js.
+export const NotificationRead = new EntitySchema({
+  name: 'NotificationRead',
+  tableName: 'notification_reads',
+  columns: {
+    userId: { name: 'user_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'notification_reads_pkey' },
+    notificationKey: { name: 'notification_key', type: 'varchar', length: 200, primary: true },
+    readAt: { name: 'read_at', type: 'timestamptz', default: () => 'now()' },
+  },
+});
 
-export const entities = [AuditLog, AnalyticsTransaction, AnalyticsBackfillState, AnalyticsTombstone, Complaint, RateLimitHit, Report];
+export const entities = [AuditLog, AnalyticsTransaction, AnalyticsBackfillState, AnalyticsTombstone, Complaint, RateLimitHit, Report, NotificationRead];

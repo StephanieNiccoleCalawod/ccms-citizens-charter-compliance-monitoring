@@ -1,0 +1,12 @@
+{
+  "column:notification_reads.notification_key": "character varying(200) NOT NULL",
+  "column:notification_reads.read_at": "timestamp with time zone NOT NULL DEFAULT now()",
+  "column:notification_reads.user_id": "uuid NOT NULL",
+  "constraint:notification_reads.notification_reads_pkey": "PRIMARY KEY (user_id, notification_key)",
+  "grant:notification_reads.ccms_logs_writer.DELETE": "",
+  "grant:notification_reads.ccms_logs_writer.INSERT": "",
+  "grant:notification_reads.ccms_logs_writer.SELECT": "",
+  "index:notification_reads.notification_reads_pkey": "CREATE UNIQUE INDEX notification_reads_pkey ON public.notification_reads USING btree (user_id, notification_key)",
+  "index:notification_reads.notification_reads_read_idx": "CREATE INDEX notification_reads_read_idx ON public.notification_reads USING btree (read_at)",
+  "table:notification_reads": ""
+}
