@@ -132,7 +132,7 @@ describe('Operations TT2 migration', () => {
 
 // Every Oversight migration newer than TT2, newest first (empty tables, so each revert is allowed).
 function revertAfterOversightTt2(url) {
-  for (const migration of ['Cc040QueueWait1794900000000', 'Cc034ComplaintHandling1794800000000', 'Cc029Reports1794700000000',
+  for (const migration of ['Cc032RateLimitKeyName1794900100000', 'Cc040QueueWait1794900000000', 'Cc034ComplaintHandling1794800000000', 'Cc029Reports1794700000000',
     'Cc032Complaints1794600000000', 'Tt1AnalyticsTombstones1794528400000']) {
     const reverted = cli('oversight', url, ['revert']);
     assert.equal(reverted.code, 0, reverted.out);
