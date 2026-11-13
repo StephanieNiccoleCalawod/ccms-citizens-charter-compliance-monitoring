@@ -393,8 +393,14 @@ export async function revokeServerSession() {
  */
 export function signOut() {
   const viaClerk = methodsToTry()[0] === 'clerk';
+  // dual mode: also end a Clerk session this tab may hold, so "Sign out" never leaves the browser signed in to Clerk.
+  const revokeBoth = async () => {
+    const revoked = await revokeServerSession();
+    await signOutOfClerk();
+    return revoked;
+  };
   return performSignOut({
-    revoke: viaClerk ? signOutOfClerk : revokeServerSession,
+    revoke: viaClerk ? signOutOfClerk : clerkEnabled() ? revokeBoth : revokeServerSession,
     clearToken: () => {
       clearToken();
       saveMethod(null);

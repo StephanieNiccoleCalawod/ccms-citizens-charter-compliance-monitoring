@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import { registerClerk } from '../../src/lib/auth/clerk-bridge.js';
 import { authProvider, clerkEnabled, signInPath } from '../../src/lib/auth/provider.js';
 import { clerkAccessNav } from '../../src/lib/auth/permissions.js';
-import { accessPendingCopy, accountLabel, bindableAccounts } from '../../src/lib/ui/clerk-access.js';
+import { accessPendingCopy, accountLabel, bindableAccounts, clerkSessionState, pendingTaskLabel } from '../../src/lib/ui/clerk-access.js';
 
 // Clerk sign-in (Landas 1) in the browser session client, with a fake window, sessionStorage, fetch and Clerk instance.
 const claims = { sub: 'acc-1', employee_no: 'E-1', full_name: 'Test User', role: 'office_head', office_id: 'off-1' };
@@ -186,6 +186,14 @@ describe('session client in dual mode', () => {
     assert.deepEqual(calls, ['fetch /api/identity/auth/refresh']);
   });
 
+  it('signing out without a remembered sign-in ends both the password session and any Clerk session', async () => {
+    const session = await freshPage();
+    nextResponses.push(new Response(null, { status: 204 }));
+    await session.signOut();
+    assert.ok(calls.includes('fetch /api/identity/auth/logout'));
+    assert.equal(clerk.signOutCalls, 1);
+  });
+
   it('"No access yet" from Clerk stops there instead of trying another sign-in', async () => {
     store.set('ccms_auth_method', 'clerk');
     const session = await freshPage();
@@ -197,6 +205,15 @@ describe('session client in dual mode', () => {
 });
 
 describe('Clerk access screens', () => {
+  it('never treats a pending Clerk session as signed out (that would reload the sign-in page forever)', () => {
+    assert.equal(clerkSessionState(null), 'signed-out');
+    assert.equal(clerkSessionState({ status: 'active' }), 'active');
+    assert.equal(clerkSessionState({ status: 'pending', currentTask: { key: 'reset-password' } }), 'pending');
+    assert.equal(clerkSessionState({ status: 'something-new' }), 'pending');
+    assert.equal(pendingTaskLabel({ currentTask: { key: 'reset-password' } }), 'set a new password');
+    assert.equal(pendingTaskLabel({ currentTask: { key: 'unknown-task' } }), 'finish one more step');
+  });
+
   it('shows only known reasons, never text from the address bar', () => {
     assert.equal(accessPendingCopy('ACCOUNT_INACTIVE').title, 'Your CCMS access is turned off');
     assert.equal(accessPendingCopy('<script>').title, 'No access yet');

@@ -18,6 +18,25 @@ const COPY = Object.freeze({
   },
 });
 
+/**
+ * What the Clerk sign-in page should show for the browser's Clerk session:
+ *   'signed-out'  no session: show Clerk's sign-in form
+ *   'active'      signed in: trade the session for CCMS access
+ *   'pending'     signed in but Clerk still needs a step (a session task): never show the sign-in form, because Clerk sends a
+ *                 signed-in visitor of the form back to the redirect URL, which is this page again (an endless reload)
+ */
+export function clerkSessionState(session) {
+  if (!session) return 'signed-out';
+  return session.status === 'active' ? 'active' : 'pending';
+}
+
+/** The pending session task as a readable phrase (Clerk task keys such as "reset-password"); a generic phrase otherwise. */
+export function pendingTaskLabel(session) {
+  const key = session?.currentTask?.key;
+  const labels = { 'reset-password': 'set a new password', 'setup-mfa': 'set up two-step verification', 'choose-organization': 'choose an organization' };
+  return labels[key] ?? 'finish one more step';
+}
+
 /** The message for the "No access yet" page. Unknown or missing reasons get the pending message, never text from the URL. */
 export function accessPendingCopy(reason) {
   return COPY[reason] ?? COPY.CCMS_ACCESS_PENDING;
