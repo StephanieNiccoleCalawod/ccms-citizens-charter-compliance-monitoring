@@ -22,6 +22,7 @@ import { starterLabels } from '../../lib/ui/account-position.js';
 import { queueWaitText } from '../../lib/ui/queue.js';
 import { canSeeReceipts } from '../../lib/ui/receipts.js';
 import ReceiptPanel from './ReceiptPanel.js';
+import RatingCodePanel from '../ratings/RatingCodePanel.js';
 
 const LABEL = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 const VALUE = 'text-sm text-slate-800';
@@ -459,6 +460,8 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
         ) : null}
         {/* CC045: proof of payment, for Office Staff / Office Head / Super Admin only; an Executive never sees it (server 403 too). */}
         {!readOnly && canSeeReceipts(role) ? <ReceiptPanel transactionId={tx.transaction_id} /> : null}
+        {/* CC057: the one-time rating code of a completed transaction, for the citizen. Same roles as the receipt section. */}
+        {!readOnly && canSeeReceipts(role) && tx.status === 'COMPLETED' ? <RatingCodePanel transactionId={tx.transaction_id} /> : null}
       </section>
 
       <ConfirmDialog

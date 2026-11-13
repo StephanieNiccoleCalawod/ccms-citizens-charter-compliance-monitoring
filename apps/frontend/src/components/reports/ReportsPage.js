@@ -16,6 +16,7 @@ import DateHint from '../forms/DateHint.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import DataTable from '../ui/DataTable.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
+import RatingsSection from '../ratings/RatingsSection.js';
 
 // Reports (CC029 / CC030 / CC031). Office Head and Super Admin generate, publish and correct; the Executive reads published reports
 // of every office. Print to PDF prints the report only (see .report-print-area in globals.css).
@@ -105,6 +106,7 @@ function ReportDetail({ report, role, onBack, onOpen, onChanged }) {
           {report.supersede_reason ? <div className="sm:col-span-2"><dt className="inline font-semibold">Reason for this version: </dt><dd className="inline">{report.supersede_reason}</dd></div> : null}
         </dl>
         <FiguresTable report={report} />
+        <RatingsSection officeId={report.office_id} from={report.period_from} to={report.period_to} />
       </article>
       <ConfirmDialog open={confirm === 'publish'} title="Publish this report?" confirmLabel="Publish" busy={busy === 'publish'} busyLabel="Publishing…" onConfirm={doPublish} onCancel={() => setConfirm(null)}
         message="Publishing freezes these figures as the official record for this office and period. A later change needs a new version with a reason." />
