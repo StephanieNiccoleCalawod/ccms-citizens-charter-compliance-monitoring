@@ -5,8 +5,8 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import { GET as cellRoute } from '../src/app/api/analytics/insights/cell/route.js';
 import { GET as overviewRoute } from '../src/app/api/analytics/insights/overview/route.js';
 import { FLAG_FAR_LONGER, FLAG_NOT_ENOUGH, FLAG_OFTEN_MISSED, charterCheck } from '../src/modules/insights/charter.js';
-import { buildHeatmap, previousPeriod } from '../src/modules/insights/insights.js';
-import { buildSentences } from '../src/modules/insights/sentences.js';
+import { buildHeatmap, buildOfficeTrend, previousPeriod } from '../src/modules/insights/insights.js';
+import { buildSentences, rankSentences } from '../src/modules/insights/sentences.js';
 import { OFFICE_A, OFFICE_B, call, req, setupTestEnv, tokens } from './helpers.js';
 
 const SVC = '11111111-1111-4111-8111-111111111111';
@@ -65,29 +65,56 @@ describe('CC053 heatmap and sentences', () => {
     assert.deepEqual(previousPeriod({ from: '2026-10-01', to: '2026-10-31' }), { from: '2026-08-31', to: '2026-09-30' });
     assert.deepEqual(previousPeriod({ from: '2026-11-02', to: '2026-11-08' }), { from: '2026-10-26', to: '2026-11-01' });
   });
-  const base = { scope: 'campus', heatmap: [], offices: [], services: [], totals: { on_time_rate: null, previous_on_time_rate: null, results: 0 }, charter: { services: [] }, auto_closed: 0, received: 0 };
-  it('says nothing when there is nothing to say, and hides sentence 5 until a flag exists', () => {
+  const base = { period: 'monthly', services: [], officeTrend: [], charter: { services: [], unusual: [] } };
+  it('says nothing when there is nothing to say', () => {
     assert.deepEqual(buildSentences(base), []);
-    const none = buildSentences({ ...base, charter: { services: [{ office_id: OFFICE_A, service_id: SVC, flags: [FLAG_NOT_ENOUGH], completed: 3, late_rate: 0 }] } });
-    assert.ok(!none.some((s) => s.template === 5));
-    const flagged = buildSentences({ ...base, charter: { services: [{ office_id: OFFICE_A, service_id: SVC, service_code: 'S', flags: [FLAG_OFTEN_MISSED], completed: 30, late: 9, late_rate: 30, p90_share_of_limit: 90 }] } });
-    assert.deepEqual(flagged.map((s) => s.template), [5]);
+    const thin = buildSentences({ ...base, services: [{ service_id: SVC, service_code: 'S', completed: 19, late: 19 }], officeTrend: [{ office_id: OFFICE_A, completed: 29, first_completed: 10, first_late: 0, last_completed: 10, last_late: 9 }] });
+    assert.deepEqual(thin, []); // 19 completed (sentence 2) and 29 completed (sentence 3) are under the minimum
   });
-  it('every sentence carries the numbers of its chart, at most six, ranked by effect x volume', () => {
+  it('sentence 2: a service late 20% or more, with 20 or more completed', () => {
+    const at = buildSentences({ ...base, services: [{ service_id: SVC, service_code: 'S1', completed: 20, late: 4 }] }); // exactly 20%
+    assert.deepEqual(at.map((s) => s.template), [2]);
+    assert.equal(at[0].params.late_rate, 20); assert.equal(at[0].params.period, 'monthly');
+    assert.deepEqual(buildSentences({ ...base, services: [{ service_id: SVC, service_code: 'S1', completed: 20, late: 3 }] }), []); // 15%
+  });
+  it('sentence 3: first against last third, a change of 10 points or more, 30 or more completed', () => {
+    const fell = buildSentences({ ...base, officeTrend: [{ office_id: OFFICE_A, completed: 30, first_completed: 10, first_late: 6, last_completed: 10, last_late: 2 }] });
+    assert.deepEqual(fell.map((s) => s.template), [3]);
+    assert.deepEqual([fell[0].params.from_rate, fell[0].params.to_rate, fell[0].params.direction, fell[0].kind], [60, 20, 'fell', 'positive']);
+    const rose = buildSentences({ ...base, officeTrend: [{ office_id: OFFICE_A, completed: 30, first_completed: 10, first_late: 1, last_completed: 10, last_late: 3 }] });
+    assert.equal(rose[0].params.direction, 'rose');
+    const exactly = buildSentences({ ...base, officeTrend: [{ office_id: OFFICE_A, completed: 30, first_completed: 10, first_late: 2, last_completed: 10, last_late: 3 }] }); // 20% to 30%: exactly 10 points counts
+    assert.equal(exactly.length, 1);
+    assert.deepEqual(buildSentences({ ...base, officeTrend: [{ office_id: OFFICE_A, completed: 200, first_completed: 100, first_late: 20, last_completed: 100, last_late: 29 }] }), []); // 20% to 29%: 9 points does not
+  });
+  it('the thirds are cut by the date a transaction ended', () => {
+    const rows = [
+      ...many(5, { ended_at: '2026-10-02T03:00:00Z', is_compliant: false, elapsed_working_minutes: 130, variance_minutes: 10 }), // first third
+      ...many(5, { ended_at: '2026-10-15T03:00:00Z' }), // middle: in no third
+      ...many(5, { ended_at: '2026-10-30T03:00:00Z' }), // last third
+    ];
+    const [o] = buildOfficeTrend(rows, { from: '2026-10-01', to: '2026-10-31' });
+    assert.deepEqual([o.completed, o.first_completed, o.first_late, o.last_completed, o.last_late], [15, 5, 5, 5, 0]);
+  });
+  it('sentence 4: the Charter check flag "far longer" becomes "usually done in x% of the limit"', () => {
+    const out = buildSentences({ ...base, charter: { services: [{ office_id: OFFICE_A, service_id: SVC, service_code: 'S', flags: [FLAG_FAR_LONGER], completed: 20, p90_share_of_limit: 16.7 }], unusual: [] } });
+    assert.deepEqual(out.map((s) => s.template), [4]); assert.equal(out[0].params.share_of_limit, 16.7);
+    assert.deepEqual(buildSentences({ ...base, charter: { services: [{ office_id: OFFICE_A, service_id: SVC, flags: [FLAG_OFTEN_MISSED], completed: 30, p90_share_of_limit: 90 }], unusual: [] } }), []);
+  });
+  it('sentence 5: one sentence with the number of unusual cases, once there is at least one', () => {
+    const out = buildSentences({ ...base, charter: { services: [], unusual: [{}, {}] } });
+    assert.deepEqual(out.map((s) => [s.template, s.params.n]), [[5, 2]]);
+  });
+  it('every sentence carries the numbers of its chart and a score; the six are ranked by effect x volume and cut', () => {
     const out = buildSentences({
       ...base,
-      heatmap: [{ office_id: OFFICE_A, service_id: SVC, service_code: 'S1', completed: 10, late: 6, late_rate: 60 }, { office_id: OFFICE_A, service_id: SVC2, service_code: 'S2', completed: 4, late: 4, late_rate: 100 }],
-      offices: [{ office_id: OFFICE_A, completed: 14, late: 10, on_time_rate: 28.6 }],
-      services: [{ service_id: SVC, service_code: 'S1', completed: 10, late: 6 }],
-      totals: { on_time_rate: 28.6, previous_on_time_rate: 50, results: 14 }, auto_closed: 2, received: 20,
+      services: Array.from({ length: 8 }, (_, i) => ({ service_id: `s${i}`, service_code: `S${i}`, completed: 20 + i, late: 10 + i })),
+      charter: { services: [], unusual: [{}] },
     });
-    assert.ok(out.length <= 6 && out.length >= 4);
-    const bottleneck = out.find((s) => s.template === 1);
-    assert.equal(bottleneck.params.service_code, 'S1'); // the 4-completed cell is ignored (too few)
-    assert.equal(bottleneck.params.late_rate, 60);
-    assert.equal(out.find((s) => s.template === 2).params.change, -21.4);
-    assert.equal(out.find((s) => s.template === 6).params.auto_closed, 2);
-    assert.ok(out.every((s) => s.chart && s.kind && !('score' in s)));
+    assert.ok(out.every((s) => s.chart && s.kind && typeof s.score === 'number' && s.params));
+    assert.ok(out.every((s, i) => i === 0 || out[i - 1].score >= s.score));
+    assert.equal(rankSentences(out).length, 6);
+    assert.equal(rankSentences(out)[0].params.service_code, 'S7'); // the most late transactions first
   });
 });
 
@@ -128,11 +155,12 @@ describe('Insights routes', () => {
     assert.equal((await get(tokens.officeStaffA, OCT)).status, 200);
     assert.equal((await get(null, OCT)).status, 401);
   });
-  it('the Charter check and sentence 5 appear once a flag exists; the response has no per-staff fields', async () => {
+  it('the Charter check and sentences appear once a flag exists; the response has no per-staff fields', async () => {
     await seed(many(20, (i) => (i < 8 ? { is_compliant: false, elapsed_working_minutes: 130, variance_minutes: 10 } : {})));
     const r = await get(tokens.executive, OCT);
     assert.ok(r.body.charter.services[0].flags.includes(FLAG_OFTEN_MISSED));
-    assert.ok(r.body.sentences.some((s) => s.template === 5));
+    assert.ok(r.body.sentences.some((s) => s.template === 2)); // 40% late with 20 completed
+    assert.equal(r.body.max_sentences, 6);
     assert.ok(!JSON.stringify(r.body).includes('started_by') && !JSON.stringify(r.body).includes('ended_by'));
   });
   it('the cell route gives the weekly trend and the late transactions, within the caller scope', async () => {

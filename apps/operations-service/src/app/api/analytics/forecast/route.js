@@ -1,6 +1,7 @@
 import { Errors, ROLES, ROLE_LIST, isUuid, json, requirePermission, route } from 'ccms-shared';
 import { getDb } from '../../../../lib/data-source.js';
 import { createCalendarClient } from '../../../../lib/forecast/calendar-client.js';
+import { buildHistorySeries } from '../../../../lib/forecast/aggregator.js';
 import { computeForecast, getLatestForecastRun, saveForecastRun } from '../../../../lib/forecast/forecast-service.js';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +40,9 @@ export const GET = route(async (request) => {
   // Try to serve from the latest stored run (computed today by the nightly job or a previous on-demand call)
   const stored = await getLatestForecastRun(db, officeId, serviceId ?? null);
   if (stored) {
-    return json(formatStoredRun(stored));
+    const run = formatStoredRun(stored);
+    run.history = await recentHistory(db, { officeId, serviceId });
+    return json(run);
   }
 
   // No stored run → compute on demand
@@ -49,11 +52,24 @@ export const GET = route(async (request) => {
   return json(formatResult(result));
 });
 
+/**
+ * A stored run does not keep the daily counts, and the Insights page (CC053, sentence 1) compares the forecast with the last 5
+ * working days. The counts are read again here, cheaply; if Core cannot be reached the run is still served, with no history.
+ */
+async function recentHistory(db, { officeId, serviceId }) {
+  try {
+    const { dates, counts } = await buildHistorySeries(db, createCalendarClient(), { officeId, serviceId, maxWorkingDays: 30 });
+    return dates.map((date, i) => ({ date, count: counts[i] }));
+  } catch {
+    return [];
+  }
+}
+
 function formatStoredRun(row) {
   return {
     status: row.status,
     scope: { officeId: row.office_id, serviceId: row.service_id ?? null },
-    history: [], // history is not persisted in the run; re-compute for history
+    history: [], // not persisted in the run; filled in by recentHistory() on read
     forecast: Array.isArray(row.forecast_payload) ? row.forecast_payload : (row.forecast_payload ?? []),
     weeklyTotal: row.weekly_total ?? 0,
     model: { name: row.selected_model, mae: row.mae != null ? Number(row.mae) : null },

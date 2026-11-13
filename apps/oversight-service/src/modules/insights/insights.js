@@ -2,7 +2,7 @@ import { ROLES, Errors, isUuid, officeFilter, assertOfficeAccess, isOfficeBound,
 import { computeKpis } from '../analytics/kpi.js';
 import { addDays, resolvePeriod } from '../analytics/period.js';
 import { charterCheck } from './charter.js';
-import { MIN_CELL_COMPLETED, buildSentences } from './sentences.js';
+import { MAX_SENTENCES, MIN_CELL_COMPLETED, buildSentences } from './sentences.js';
 
 // CC053: the numbers behind the Insights page, from the analytics store only (one KPI module, TT3). What lives in Operations
 // (open transactions at High late risk, the request forecast, the late-risk model and its accuracy) is read by the screen from
@@ -58,6 +58,22 @@ export function buildHeatmap(rows, period) {
     .sort((a, b) => String(a.office_id).localeCompare(String(b.office_id)) || String(a.service_code).localeCompare(String(b.service_code)));
 }
 
+/** Per office: completed and late in the first and the last third of the period (by the Manila date of ended_at). Spec 3.3, sentence 3. */
+export function buildOfficeTrend(rows, { from, to }) {
+  const days = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
+  const offices = new Map();
+  for (const r of completedIn(rows, { from, to })) {
+    if (typeof r.is_compliant !== 'boolean') continue;
+    const index = Math.round((Date.parse(`${toManilaDate(r.ended_at)}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+    const o = offices.get(r.office_id) ?? { office_id: r.office_id, completed: 0, first_completed: 0, first_late: 0, last_completed: 0, last_late: 0 };
+    o.completed += 1;
+    if (index < days / 3) { o.first_completed += 1; if (!r.is_compliant) o.first_late += 1; }
+    else if (index >= (2 * days) / 3) { o.last_completed += 1; if (!r.is_compliant) o.last_late += 1; }
+    offices.set(r.office_id, o);
+  }
+  return [...offices.values()];
+}
+
 export async function getInsights(db, actor, query, now = new Date()) {
   const { officeId } = scopeOffice(actor, query);
   const period = resolvePeriod(query, now);
@@ -84,20 +100,16 @@ export async function getInsights(db, actor, query, now = new Date()) {
     results: totals.results.on_time + totals.results.late_total,
   };
   const sentences = buildSentences({
-    scope: officeId ? 'office' : 'campus',
-    heatmap,
-    offices: current.groups.map((g) => ({ office_id: g.office_id, completed: g.results.on_time + g.results.late_total, late: g.results.late_total, on_time_rate: g.results.on_time_rate })),
+    period: period.type,
     services: byService.groups.map((g) => ({ service_id: g.service_id, service_code: codeOf.get(g.service_id) ?? null, completed: g.results.on_time + g.results.late_total, late: g.results.late_total })),
-    totals: { on_time_rate: pulse.on_time_rate, previous_on_time_rate: pulse.previous_on_time_rate, results: pulse.results },
+    officeTrend: buildOfficeTrend(periodRows, period),
     charter,
-    auto_closed: totals.auto_closed,
-    received: totals.received,
   });
   const completedAll = rows.filter((r) => r.status === 'COMPLETED');
   return {
     period: period.type, from: period.from, to: period.to, previous: prev, generated_at: now.toISOString(),
     scope: officeId ? { kind: 'office', office_id: officeId } : { kind: 'campus' },
-    pulse, heatmap, min_cell_completed: MIN_CELL_COMPLETED, sentences, charter,
+    pulse, heatmap, min_cell_completed: MIN_CELL_COMPLETED, sentences, max_sentences: MAX_SENTENCES, charter,
     about: {
       rows_in_store: rows.length, completed_rows: completedAll.length, late_cases: completedAll.filter((r) => r.is_compliant === false).length,
       earliest_started_at: rows.reduce((min, r) => (!min || r.started_at < min ? r.started_at : min), null),

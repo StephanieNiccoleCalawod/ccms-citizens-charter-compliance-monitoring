@@ -1,59 +1,80 @@
-// CC053: the insight sentences. They are FIXED TEMPLATES, not a language model: each one is a pure function of numbers that are
-// also on the linked chart. The server sends the template id and its numbers (`params`, with ids, never names: names belong to
-// the catalogue); the screen writes the words (frontend lib/ui/insights.js) from the same params, so the sentence and its chart
-// cannot disagree.
+// CC053: the insight sentences, as in the Sprint 5-8 technical specification, section 3.3 (E1). They are FIXED TEMPLATES, not a
+// language model (H4, I15): each one is a pure function of numbers that are also on the linked chart. The server sends the
+// template number and its numbers (`params`, with ids, never names: names belong to the catalogue); the screen writes the words
+// (frontend lib/ui/insights.js) from the same params, so a sentence and its chart cannot disagree.
 //
-// PROPOSED TEMPLATES, to be checked against the spec (Sprint 5-8 technical specification, section 3.3): the spec file was not
-// available when these were written. Thresholds that are not in the backlog (5 completed for a heatmap cell) are the backlog's own.
-// Ranking: effect x volume (score), highest first, up to MAX_SENTENCES. Sentence 5 (CHARTER) only exists when CC054 found a flag.
-import { FLAG_FAR_LONGER, FLAG_OFTEN_MISSED } from './charter.js';
-
+//   1  "{Office} requests are expected to rise {x}% next week"   forecast weekly total vs the last 5 working days, x >= 20
+//   2  "{Service} was late {x}% of the time in {period}"         x >= 20 and completed >= 20 (B-11)
+//   3  "{Office}'s late rate fell (rose) from {a}% to {b}%"      first vs last third of the period, change >= 10 points, completed >= 30
+//   4  "{Service} is usually done in {x}% of its time limit"     90th percentile below 25% of the limit, completed >= 20 (B-11)
+//   5  "{n} unusual cases took more than three times the usual time"   n >= 1 (B-10, CC054)
+//   6  "{n} open transactions are at high risk of being late"    n >= 1
+//
+// Templates 1 and 6 need Operations (the request forecast and the late-risk model), which Oversight holds no copy of: the screen
+// builds those two from Operations' answers and ranks all candidates together. This file builds 2 to 5 and gives each a `score`.
+// Ranking is effect x volume (the spec gives no formula beyond that; the score is written next to each template below, and the
+// same rule is used on the screen for 1 and 6). Up to MAX_SENTENCES are shown.
 export const MAX_SENTENCES = 6;
 export const MIN_CELL_COMPLETED = 5;
+export const MIN_SERVICE_COMPLETED = 20;
+export const MIN_OFFICE_COMPLETED = 30;
+export const LATE_RATE_MIN = 20;
+export const LATE_RATE_CHANGE_MIN = 10;
 
 export const TEMPLATES = Object.freeze({
-  BOTTLENECK: 1, // the heatmap cell with the highest late rate
-  TREND: 2, // on-time rate against the previous period of the same length
-  LATE_SERVICE: 3, // the service with the most late transactions
-  OFFICE_GAP: 4, // the office furthest below the 100% target (campus), or this office against it
-  CHARTER: 5, // a Charter limit often missed / far longer than real work (CC054)
-  AUTO_CLOSED: 6, // transactions closed by the system after the maximum working days (counted late, K27)
+  FORECAST_RISE: 1, // built on the screen (Operations forecast)
+  SERVICE_LATE: 2,
+  OFFICE_TREND: 3,
+  SERVICE_FAST: 4,
+  UNUSUAL: 5,
+  HIGH_RISK: 6, // built on the screen (Operations late-risk)
 });
 
+const oneDecimal = (v) => Math.round(v * 10) / 10;
+
 /**
- * input: { scope: 'campus'|'office', heatmap: [{office_id, service_id, service_code, completed, late, late_rate}],
- *          offices: [{office_id, completed, late, on_time_rate}], services: [{service_id, service_code, completed, late}],
- *          totals: { on_time_rate, previous_on_time_rate, results }, charter: {services}, auto_closed, received }
+ * input: {
+ *   services: [{ service_id, service_code, completed, late }],                         over the period (completed = on time + late)
+ *   officeTrend: [{ office_id, completed, first_completed, first_late, last_completed, last_late }],
+ *   charter: { services: [{ office_id, service_id, service_code, completed, p90_share_of_limit, flags }], unusual: [...] },
+ *   period: 'weekly' | 'monthly' | 'half_year' | 'annual' | 'custom',
+ * }
+ * Returns candidates [{ id, template, kind, chart, score, params }] ranked, NOT cut: the screen adds 1 and 6, then cuts to MAX_SENTENCES.
  */
 export function buildSentences(input) {
   const out = [];
-  const add = (template, kind, chart, score, params) => out.push({ id: `t${template}`, template, kind, chart, score, params });
+  const add = (template, id, kind, chart, score, params) => out.push({ id, template, kind, chart, score, params });
 
-  const cells = input.heatmap.filter((c) => c.completed >= MIN_CELL_COMPLETED && c.late > 0).sort((a, b) => b.late_rate - a.late_rate || b.late - a.late);
-  if (cells[0]) add(TEMPLATES.BOTTLENECK, 'warning', 'heatmap', cells[0].late, { office_id: cells[0].office_id, service_id: cells[0].service_id, service_code: cells[0].service_code, late_rate: cells[0].late_rate, late: cells[0].late, completed: cells[0].completed });
-
-  const t = input.totals;
-  if (t.on_time_rate !== null && t.previous_on_time_rate !== null && t.on_time_rate !== t.previous_on_time_rate) {
-    const change = Math.round((t.on_time_rate - t.previous_on_time_rate) * 10) / 10;
-    add(TEMPLATES.TREND, change > 0 ? 'positive' : 'warning', 'pulse', Math.abs(change) * (t.results ?? 0) / 100, { on_time_rate: t.on_time_rate, previous_on_time_rate: t.previous_on_time_rate, change });
+  // 2: effect = late rate, volume = completed, so the score is the number of late transactions.
+  for (const s of input.services) {
+    if (s.completed < MIN_SERVICE_COMPLETED) continue;
+    const lateRate = oneDecimal((s.late / s.completed) * 100);
+    if (lateRate < LATE_RATE_MIN) continue;
+    add(TEMPLATES.SERVICE_LATE, `t2-${s.service_id}`, 'warning', 'heatmap', s.late, { service_id: s.service_id, service_code: s.service_code, late_rate: lateRate, late: s.late, completed: s.completed, period: input.period });
   }
 
-  const lateService = [...input.services].filter((s) => s.late > 0).sort((a, b) => b.late - a.late || b.completed - a.completed)[0];
-  if (lateService) add(TEMPLATES.LATE_SERVICE, 'attention', 'heatmap', lateService.late, { service_id: lateService.service_id, service_code: lateService.service_code, late: lateService.late, completed: lateService.completed });
-
-  const rated = input.offices.filter((o) => o.on_time_rate !== null && o.completed >= MIN_CELL_COMPLETED && o.on_time_rate < 100);
-  const gap = [...rated].sort((a, b) => a.on_time_rate - b.on_time_rate || b.completed - a.completed)[0];
-  if (gap) add(TEMPLATES.OFFICE_GAP, 'attention', 'pulse', (100 - gap.on_time_rate) * gap.completed / 100, { scope: input.scope, office_id: gap.office_id, on_time_rate: gap.on_time_rate, completed: gap.completed });
-
-  const flagged = input.charter.services.filter((s) => s.flags.includes(FLAG_OFTEN_MISSED) || s.flags.includes(FLAG_FAR_LONGER))
-    .sort((a, b) => (b.flags.includes(FLAG_OFTEN_MISSED) ? b.late : 0) - (a.flags.includes(FLAG_OFTEN_MISSED) ? a.late : 0) || b.completed - a.completed)[0];
-  if (flagged) {
-    const flag = flagged.flags.includes(FLAG_OFTEN_MISSED) ? FLAG_OFTEN_MISSED : FLAG_FAR_LONGER;
-    add(TEMPLATES.CHARTER, 'attention', 'charter', flagged.completed * (flag === FLAG_OFTEN_MISSED ? flagged.late_rate / 100 : 0.2), { office_id: flagged.office_id, service_id: flagged.service_id, service_code: flagged.service_code, flag, late_rate: flagged.late_rate, p90_share_of_limit: flagged.p90_share_of_limit, completed: flagged.completed });
+  // 3: effect = change in points, volume = completed in the period.
+  for (const o of input.officeTrend) {
+    if (o.completed < MIN_OFFICE_COMPLETED || !o.first_completed || !o.last_completed) continue;
+    const from = oneDecimal((o.first_late / o.first_completed) * 100);
+    const to = oneDecimal((o.last_late / o.last_completed) * 100);
+    const change = oneDecimal(to - from);
+    if (Math.abs(change) < LATE_RATE_CHANGE_MIN) continue;
+    add(TEMPLATES.OFFICE_TREND, `t3-${o.office_id}`, change < 0 ? 'positive' : 'warning', 'pulse', (Math.abs(change) / 100) * o.completed, { office_id: o.office_id, from_rate: from, to_rate: to, change, direction: change < 0 ? 'fell' : 'rose', completed: o.completed });
   }
 
-  if (input.auto_closed > 0) add(TEMPLATES.AUTO_CLOSED, 'attention', 'pulse', input.auto_closed, { auto_closed: input.auto_closed, received: input.received });
+  // 4: effect = how much of the limit is unused, volume = completed. Uses the Charter check's own flag (same 25% rule, same 20 minimum).
+  for (const s of input.charter.services) {
+    if (!s.flags.includes('LIMIT_FAR_LONGER') || s.p90_share_of_limit === null) continue;
+    add(TEMPLATES.SERVICE_FAST, `t4-${s.office_id}-${s.service_id}`, 'positive', 'charter', ((100 - s.p90_share_of_limit) / 100) * s.completed, { office_id: s.office_id, service_id: s.service_id, service_code: s.service_code, share_of_limit: s.p90_share_of_limit, completed: s.completed });
+  }
 
-  return out.sort((a, b) => b.score - a.score || a.template - b.template).slice(0, MAX_SENTENCES)
-    .map(({ score, ...sentence }) => sentence);
+  // 5: one sentence for all unusual cases in scope. effect = the cases, volume = 1 each, so the score is n.
+  const n = input.charter.unusual.length;
+  if (n >= 1) add(TEMPLATES.UNUSUAL, 't5', 'attention', 'charter', n, { n });
+
+  return out.sort((a, b) => b.score - a.score || a.template - b.template || String(a.id).localeCompare(String(b.id)));
 }
+
+/** The six rank by the same rule on the screen: highest score first, then template order. */
+export const rankSentences = (candidates) => [...candidates].sort((a, b) => b.score - a.score || a.template - b.template).slice(0, MAX_SENTENCES);

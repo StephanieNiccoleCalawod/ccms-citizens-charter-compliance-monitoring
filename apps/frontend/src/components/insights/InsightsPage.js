@@ -7,7 +7,7 @@ import { fetchAllPages } from '../../lib/api/client.js';
 import { getInsightsCell, getInsightsOverview, getOfficeForecast, getOfficeLateRisk, retrainOfficeModels } from '../../lib/api/insights.js';
 import { apiFetch } from '../../lib/auth/session.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
-import { FLAG_HELP, FLAG_LABEL, PERIODS, filterByFlag, heatClass, heatLabel, minutesText, sentenceText, sortRows } from '../../lib/ui/insights.js';
+import { FLAG_HELP, FLAG_LABEL, PERIODS, filterByFlag, heatClass, heatLabel, minutesText, sentenceText, sortRows, CHART_ANCHOR, forecastSentence, highRiskSentence, mergeSentences, todayForecast } from '../../lib/ui/insights.js';
 import { notify } from '../../lib/ui/notify.js';
 import { seededHistoryDisclosure } from '../../lib/ui/seeded-history.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
@@ -22,7 +22,6 @@ const Tile = ({ label, value, note, testId }) => (
     {note ? <p className="mt-1 text-xs text-slate-600">{note}</p> : null}
   </div>
 );
-const rate = (v) => (v === null || v === undefined ? '–' : `${v}%`);
 
 export default function InsightsPage({ user }) {
   const isAdmin = user?.role === ROLES.SUPER_ADMIN;
@@ -88,6 +87,10 @@ export default function InsightsPage({ user }) {
   const highCount = risk.state === 'ok' ? (risk.value?.items ?? []).filter((i) => i.level === 'HIGH').length : null;
   const services_ = useMemo(() => sortRows(filterByFlag(data?.charter?.services ?? [], flagFilter), sortKey), [data, flagFilter, sortKey]);
   const disclosure = seededHistoryDisclosure();
+  const sentences = useMemo(() => (data ? mergeSentences(data.sentences, [forecastSentence(forecast.state === 'ok' ? forecast.value : null, modelOffice), highRiskSentence(risk.state === 'ok' ? risk.value : null)], data.max_sentences ?? 6) : []), [data, forecast, risk, modelOffice]);
+  const todays = useMemo(() => todayForecast(forecast.state === 'ok' ? forecast.value : null, pulse), [forecast, pulse]);
+  const riskModel = risk.state === 'ok' ? risk.value?.model : null;
+  const fcModel = forecast.state === 'ok' && forecast.value?.status === 'SUCCESS' ? forecast.value.model : null;
   const heat = data?.heatmap ?? [];
   const heatOffices = [...new Set(heat.map((c) => c.office_id))];
   const heatServices = [...new Map(heat.map((c) => [c.service_id, c.service_code])).entries()];
@@ -130,21 +133,21 @@ export default function InsightsPage({ user }) {
       {loading && !data ? <p className="text-sm text-slate-600">Loading…</p> : null}
 
       {data ? (<>
-        <section aria-label="Pulse" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section aria-label="Pulse" id="insights-pulse" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Tile testId="pulse-open" label="Open now" value={pulse.open_now} note={pulse.oldest_open_age_minutes != null ? `Oldest open ${minutesText(pulse.oldest_open_age_minutes)}` : null} />
+          <Tile testId="pulse-high" label="At risk now (High)" value={highCount === null ? 'Not available' : highCount} note={risk.state === 'pick' ? 'Choose an office' : null} />
           <Tile testId="pulse-today" label="Completed today" value={pulse.completed_today} note={`${pulse.received_today} received today`} />
-          <Tile testId="pulse-ontime" label="On time" value={rate(pulse.on_time_rate)} note={pulse.previous_on_time_rate != null ? `Previous period ${pulse.previous_on_time_rate}%` : 'No earlier period to compare'} />
-          <Tile testId="pulse-high" label="High late-risk" value={highCount === null ? 'Not available' : highCount} note={risk.state === 'pick' ? 'Choose an office' : null} />
+          <Tile testId="pulse-forecast" label="Today's forecast" value={todays ? `${todays.expected}` : 'Not available'} note={todays ? `${todays.status === 'behind' ? 'Behind' : 'On track'} (expected ${todays.lower} to ${todays.upper})` : forecast.state === 'pick' ? 'Choose an office' : null} />
         </section>
 
         <section aria-label="What stands out" className="card p-4" data-testid="insights-sentences">
           <h2 className="text-lg font-bold text-maroon-950">What stands out</h2>
-          {data.sentences.length === 0 ? <p className="mt-2 text-sm text-slate-600">Not enough completed transactions in this period to say anything yet.</p> : (
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{data.sentences.map((s) => <li key={s.id} data-testid={`sentence-${s.template}`}>{sentenceText(s, names)}</li>)}</ul>
+          {sentences.length === 0 ? <p className="mt-2 text-sm text-slate-600">Not enough completed transactions in this period to say anything yet.</p> : (
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{sentences.map((s) => <li key={s.id} data-testid={`sentence-${s.template}`}>{sentenceText(s, names)} <a className="text-xs font-semibold underline" href={`#${CHART_ANCHOR[s.chart] ?? ''}`}>See the numbers</a></li>)}</ul>
           )}
         </section>
 
-        <section aria-label="Heatmap" className="card p-4" data-testid="insights-heatmap">
+        <section aria-label="Heatmap" id="insights-heatmap" className="card p-4" data-testid="insights-heatmap">
           <h2 className="text-lg font-bold text-maroon-950">Late rate by office and service</h2>
           <p className="text-xs text-slate-600">Grey means fewer than {data.min_cell_completed} completed, too few to judge. Select a cell for its detail.</p>
           {heat.length === 0 ? <p className="mt-2 text-sm text-slate-600">No completed transactions in this period.</p> : (
@@ -175,7 +178,7 @@ export default function InsightsPage({ user }) {
           ) : null}
         </section>
 
-        <section aria-label="Charter check" className="space-y-2" data-testid="insights-charter">
+        <section aria-label="Charter check" id="insights-charter" className="space-y-2" data-testid="insights-charter">
           <h2 className="text-lg font-bold text-maroon-950">Charter check</h2>
           <div className="flex flex-wrap gap-3 text-sm">
             <label>Show <select className="input" value={flagFilter} onChange={(e) => setFlagFilter(e.target.value)} data-testid="charter-filter">
@@ -192,19 +195,25 @@ export default function InsightsPage({ user }) {
           <DataTable columns={unusualCols} data={data.charter.unusual} keyExtractor={(r) => r.transaction_id} emptyMessage="No unusual cases." minWidth="38rem" />
         </section>
 
-        <section aria-label="Forecast and models" className="card p-4" data-testid="insights-models">
+        <section aria-label="Forecast and models" id="insights-models" className="card p-4" data-testid="insights-models">
           <h2 className="text-lg font-bold text-maroon-950">Forecast and models</h2>
           {forecast.state === 'pick' ? <p className="text-sm text-slate-600">Choose an office to see its forecast and late-risk model.</p> : null}
           {forecast.state === 'error' || risk.state === 'error' ? <p className="text-sm text-slate-600">Forecast or late-risk is not available right now.</p> : null}
-          {forecast.state === 'ok' && forecast.value?.status === 'READY' ? <p className="text-sm">Expected this week: <strong>{forecast.value.weeklyTotal}</strong> requests (typical error ±{forecast.value.model?.mae}).</p> : null}
-          {forecast.state === 'ok' && forecast.value?.status !== 'READY' ? <p className="text-sm text-slate-600">The forecast is not ready for this office yet.</p> : null}
+          {forecast.state === 'ok' && forecast.value?.status === 'SUCCESS' ? <p className="text-sm">Expected this week: <strong>{forecast.value.weeklyTotal}</strong> requests (typical error ±{forecast.value.model?.mae}).</p> : null}
+          {forecast.state === 'ok' && forecast.value?.status !== 'SUCCESS' ? <p className="text-sm text-slate-600">The forecast is not ready for this office yet.</p> : null}
           {risk.state === 'ok' && risk.value?.model ? <p className="text-sm">Late-risk model: {risk.value.model.method === 'trained' ? 'trained' : 'rule-based'}{risk.value.model.metrics ? `, accuracy ${Math.round(risk.value.model.metrics.accuracy * 100)}%` : ''}.</p> : null}
-          {isAdmin && modelOffice ? <button type="button" className="btn-primary mt-3" disabled={retraining} onClick={retrain} data-testid="insights-retrain">{retraining ? 'Retraining…' : 'Retrain models'}</button> : null}
         </section>
 
         <section aria-label="About these numbers" className="card p-4 text-sm" data-testid="insights-about">
           <h2 className="text-lg font-bold text-maroon-950">About these numbers</h2>
           <p>{data.about.completed_rows} completed transactions and {data.about.late_cases} late cases are in the store{data.about.earliest_started_at ? `, from ${formatDateTime(data.about.earliest_started_at)}` : ''}. Updated {formatDateTime(data.generated_at)}.</p>
+          {riskModel ? (<>
+            <p className="mt-1" data-testid="about-training">Late-risk model: {riskModel.method === 'trained' ? 'trained' : 'rule-based'}{riskModel.trained_at ? ` on ${formatDateTime(riskModel.trained_at)}` : ''}{riskModel.training_rows != null ? `, using ${riskModel.training_rows} transactions (${riskModel.late_cases ?? 0} late)` : ''}.</p>
+            {riskModel.metrics ? <p className="mt-1" data-testid="about-metrics">Accuracy {Math.round(riskModel.metrics.accuracy * 100)}%, precision {Math.round(riskModel.metrics.precision * 100)}%, recall {Math.round(riskModel.metrics.recall * 100)}%.</p> : null}
+            {riskModel.thresholds ? <p className="mt-1" data-testid="about-thresholds">Risk levels: Medium from {riskModel.thresholds.medium}, High from {riskModel.thresholds.high}.</p> : null}
+          </>) : null}
+          {fcModel ? <p className="mt-1" data-testid="about-forecast">Forecast model: {fcModel.name}, typical error ±{fcModel.mae} requests a day for this office.</p> : null}
+          {isAdmin && modelOffice ? <button type="button" className="btn-primary mt-2" disabled={retraining} onClick={retrain} data-testid="insights-retrain">{retraining ? 'Retraining…' : 'Retrain models'}</button> : null}
           {disclosure ? <p className="mt-1" data-testid="insights-disclosure">{disclosure}</p> : null}
         </section>
       </>) : null}
