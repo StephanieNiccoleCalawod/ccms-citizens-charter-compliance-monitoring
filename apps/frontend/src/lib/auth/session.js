@@ -8,9 +8,19 @@
 
 
 import { IDENTITY_API } from '../api/identity.js';
+import { whenClerk } from './clerk-bridge.js';
 import { ROLE_NOT_RECOGNIZED, ROLE_NOT_RECOGNIZED_MESSAGE, userFromClaims } from './guards.js';
+import { ACCESS_PENDING_PATH, authProvider, clerkEnabled, signInPath } from './provider.js';
 import { performSignOut } from './sign-out-flow.js';
 const REFRESH_MARGIN_MS = 30_000;
+
+// Clerk sign-in (Landas 1): the browser trades a Clerk session token for the usual CCMS access token at Identity. There is
+// no CCMS refresh cookie in that case: when the access token is close to expiry, a fresh Clerk token is traded again.
+export const CLERK_EXCHANGE_API = `${IDENTITY_API}/auth/clerk/exchange`;
+/** Identity's 403 codes for a valid Clerk sign-in that has no CCMS access: shown on the "No access yet" page. */
+export const ACCESS_REJECTIONS = Object.freeze(['CCMS_ACCESS_PENDING', 'ACCOUNT_INACTIVE', 'IMPERSONATION_NOT_ALLOWED']);
+// Which sign-in this tab used ('password' | 'clerk'), so a refresh asks the right place. Only matters in dual mode.
+const METHOD_KEY = 'ccms_auth_method';
 
 const STORAGE_KEY = 'ccms_access';
 
@@ -191,6 +201,93 @@ function storeToken(data) {
   return true;
 }
 
+function savedMethod() {
+  try {
+    const value = window.sessionStorage.getItem(METHOD_KEY);
+    return value === 'clerk' || value === 'password' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveMethod(method) {
+  try {
+    if (method) window.sessionStorage.setItem(METHOD_KEY, method);
+    else window.sessionStorage.removeItem(METHOD_KEY);
+  } catch {
+    /* storage blocked: dual mode then tries the password session first, which is harmless */
+  }
+}
+
+/** The sign-ins to try, in order. legacy: password only (unchanged behavior). clerk: Clerk only. dual: this tab's, else both. */
+function methodsToTry() {
+  const provider = clerkEnabled() ? authProvider() : 'legacy';
+  if (provider === 'legacy') return ['password'];
+  if (provider === 'clerk') return ['clerk'];
+  const saved = savedMethod();
+  return saved ? [saved] : ['password', 'clerk'];
+}
+
+/** The password session: a new access token from the refresh cookie. */
+async function refreshWithPassword() {
+  let response;
+  try {
+    response = await fetch(`${IDENTITY_API}/auth/refresh`, { method: 'POST', credentials: 'same-origin' });
+  } catch {
+    throw identityUnavailable();
+  }
+  if (response.status >= 500) throw identityUnavailable();
+  if (!response.ok) {
+    rejection = null;
+    clearToken();
+    return null;
+  }
+  storeToken(await response.json());
+  return currentUser();
+}
+
+/**
+ * The Clerk session: trades a fresh Clerk token for a CCMS access token. Signed out of Clerk -> null. A valid Clerk sign-in
+ * without CCMS access -> null with sessionRejection() set to Identity's code (the "No access yet" page explains it).
+ */
+async function refreshWithClerk() {
+  let clerk;
+  try {
+    clerk = await whenClerk();
+  } catch {
+    throw identityUnavailable();
+  }
+  if (!clerk?.session) {
+    clearToken();
+    return null;
+  }
+  let clerkToken;
+  try {
+    clerkToken = await clerk.session.getToken();
+  } catch {
+    throw identityUnavailable();
+  }
+  if (!clerkToken) {
+    clearToken();
+    return null;
+  }
+  let response;
+  try {
+    response = await fetch(CLERK_EXCHANGE_API, { method: 'POST', credentials: 'same-origin', headers: { authorization: `Bearer ${clerkToken}` } });
+  } catch {
+    throw identityUnavailable();
+  }
+  if (response.status >= 500) throw identityUnavailable();
+  if (!response.ok) {
+    const error = await toApiError(response);
+    clearToken();
+    rejection = response.status === 403 && ACCESS_REJECTIONS.includes(error.code) ? error.code : null;
+    return null;
+  }
+  if (!storeToken(await response.json())) return null;
+  return currentUser();
+}
+
 /**
  * Resolves the signed-in user, or null if signed out. A token that is still valid is used as it is
  * (no call to Identity); pass force to ask Identity for a new one. Throws IDENTITY_UNAVAILABLE when
@@ -201,25 +298,26 @@ export function refreshSession(force = false) {
   if (!force && tokenIsFresh()) return Promise.resolve(currentUser());
   if (!refreshing) {
     refreshing = (async () => {
-      let response;
-      try {
-        response = await fetch(`${IDENTITY_API}/auth/refresh`, { method: 'POST', credentials: 'same-origin' });
-      } catch {
-        throw identityUnavailable();
+      for (const method of methodsToTry()) {
+        const user = method === 'clerk' ? await refreshWithClerk() : await refreshWithPassword();
+        if (user) {
+          if (authProvider() === 'dual') saveMethod(method);
+          return user;
+        }
+        if (rejection && ACCESS_REJECTIONS.includes(rejection)) return null; // a definite answer: do not try the next sign-in
       }
-      if (response.status >= 500) throw identityUnavailable();
-      if (!response.ok) {
-        rejection = null;
-        clearToken();
-        return null;
-      }
-      storeToken(await response.json());
-      return currentUser();
+      return null;
     })().finally(() => {
       refreshing = null;
     });
   }
   return refreshing;
+}
+
+/** After the Clerk sign-in page: trade the new Clerk session for CCMS access (resolves to the user or null). */
+export function completeClerkSignIn() {
+  saveMethod('clerk');
+  return refreshSession(true);
 }
 
 export async function getAccessToken() {
@@ -236,9 +334,10 @@ export async function getAccessToken() {
 }
 
 export function redirectToLogin() {
-  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-    window.location.assign('/login');
-  }
+  if (typeof window === 'undefined') return;
+  // A Clerk sign-in without CCMS access goes to the page that says so, not back to a sign-in page that would loop.
+  const target = rejection && ACCESS_REJECTIONS.includes(rejection) ? `${ACCESS_PENDING_PATH}?reason=${encodeURIComponent(rejection)}` : signInPath();
+  if (window.location.pathname !== target.split('?')[0]) window.location.assign(target);
 }
 
 export async function signIn(email, password) {
@@ -257,7 +356,19 @@ export async function signIn(email, password) {
   if (!storeToken(await response.json())) {
     throw new ApiError(ROLE_NOT_RECOGNIZED_MESSAGE, { code: ROLE_NOT_RECOGNIZED, status: 403 });
   }
+  if (authProvider() === 'dual') saveMethod('password');
   return currentUser();
+}
+
+/** Ends the Clerk session in this browser (Clerk's own sign-out). Resolves true when Clerk confirmed it. */
+async function signOutOfClerk() {
+  try {
+    const clerk = await whenClerk();
+    if (clerk) await clerk.signOut();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -281,10 +392,15 @@ export async function revokeServerSession() {
  * never silently kept in. Never rejects.
  */
 export function signOut() {
+  const viaClerk = methodsToTry()[0] === 'clerk';
   return performSignOut({
-    revoke: revokeServerSession,
-    clearToken,
-    navigate: (url) => window.location.assign(url),
+    revoke: viaClerk ? signOutOfClerk : revokeServerSession,
+    clearToken: () => {
+      clearToken();
+      saveMethod(null);
+      rejection = null;
+    },
+    navigate: (url) => window.location.assign(viaClerk && url === '/login' ? signInPath() : url),
   });
 }
 

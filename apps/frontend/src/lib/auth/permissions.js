@@ -3,6 +3,7 @@
 import { navForRole } from 'ccms-shared/nav';
 import { ROLES } from 'ccms-shared/roles';
 import { queueNav } from '../ui/queue.js';
+import { clerkEnabled } from './provider.js';
 
 export { landingForRole, navForRole } from 'ccms-shared/nav';
 export { ROLE_LABELS } from 'ccms-shared/roles';
@@ -26,6 +27,14 @@ export function logsNav(role) {
 /** Settings > Roles and permissions (CC056) is for Super Admin only: the four staff switches and the role matrix. The Identity service also answers 403 to everyone else. */
 export function rolesNav(role) {
   return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Roles and permissions', href: '/settings/roles' } : null;
+}
+
+/**
+ * Clerk sign-in access (Landas 1): the Super Admin approves people who signed in with Clerk. Shown only while Clerk sign-in is
+ * switched on (NEXT_PUBLIC_AUTH_PROVIDER dual or clerk, with a publishable key); Identity answers 404/403 otherwise.
+ */
+export function clerkAccessNav(role) {
+  return role === ROLES.SUPER_ADMIN && clerkEnabled() ? { section: 'Administration', label: 'Clerk sign-in access', href: '/settings/clerk-access' } : null;
 }
 
 /** The Student and Alumni Registry import (CC043) is for Super Admin only: nobody else gets the menu item (the page and the services check the role too). */
@@ -73,5 +82,5 @@ export function appNavForRole(role, access = {}) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
   const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
-  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
+  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), clerkAccessNav(role), logsNav(role)].filter(Boolean);
 }

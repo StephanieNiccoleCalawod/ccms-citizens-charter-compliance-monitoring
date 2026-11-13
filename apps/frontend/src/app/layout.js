@@ -1,6 +1,9 @@
 import { DM_Sans, DM_Serif_Display } from 'next/font/google';
+import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
+import ClerkRegistrar from '../components/auth/ClerkRegistrar.js';
 import { BRAND } from '../lib/constants/brand.js';
+import { CLERK_SIGN_IN_PATH, PASSWORD_SIGN_IN_PATH, clerkEnabled, clerkPublishableKey } from '../lib/auth/provider.js';
 
 // DM Serif Display is for headings only (h1-h3 use it through the font-serif utility). Everything
 // else stays on the sans-serif stack. Regular weight is the only one the font has.
@@ -14,10 +17,21 @@ export const metadata = {
   description: "Citizen's Charter Compliance/Monitoring System",
 };
 
+// Clerk sign-in (Landas 1): Clerk is loaded only when NEXT_PUBLIC_AUTH_PROVIDER is dual or clerk AND a publishable key is
+// set (lib/auth/provider.js). Otherwise the page is exactly as before and no Clerk script is requested. Passing the key
+// explicitly also keeps Clerk's "keyless" development mode from ever starting.
 export default function RootLayout({ children }) {
+  const content = clerkEnabled() ? (
+    <ClerkProvider publishableKey={clerkPublishableKey()} signInUrl={CLERK_SIGN_IN_PATH} afterSignOutUrl={PASSWORD_SIGN_IN_PATH}>
+      <ClerkRegistrar />
+      {children}
+    </ClerkProvider>
+  ) : (
+    children
+  );
   return (
     <html lang="en" className={`${dmSerifDisplay.variable} ${dmSans.variable}`}>
-      <body>{children}</body>
+      <body>{content}</body>
     </html>
   );
 }

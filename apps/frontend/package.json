@@ -17,6 +17,7 @@
     "ci": "npm run lint && npm test && npm run build"
   },
   "dependencies": {
+    "@clerk/nextjs": "7.9.26",
     "ccms-shared": "0.1.0",
     "next": "16.4.5",
     "react": "19.3.0",
