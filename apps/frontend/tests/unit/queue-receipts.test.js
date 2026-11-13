@@ -1,4 +1,4 @@
-// CC039 queue and CC040 queue wait browser-side rules.
+// CC039 (Take a ticket, queue panel), CC040 (ticket picker, queue wait figures) and CC045 (receipts): the browser-side rules.
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
@@ -8,6 +8,8 @@ import { buildStartBody, EMPTY_START_FORM, startErrorResult } from '../../src/li
 import { figureRows } from '../../src/lib/ui/reports.js';
 import { tilesFor } from '../../src/lib/ui/kpi-home.js';
 import { appNavForRole } from '../../src/lib/auth/permissions.js';
+import { canSeeReceipts, formatAmount, receiptFailure, receiptFormErrors } from '../../src/lib/ui/receipts.js';
+import { fetchReceiptImage } from '../../src/lib/api/receipts.js';
 
 const read = (p) => readFileSync(new URL(`../../src/${p}`, import.meta.url), 'utf8');
 const reply = (status, body, headers = {}) => ({ ok: status < 400, status, headers: { get: (k) => headers[k.toLowerCase()] ?? null }, json: async () => body, blob: async () => body });
@@ -99,5 +101,41 @@ describe('CC040 ticket at Start', () => {
     assert.equal(queueWaitFigure({ queue_wait: { measured: 0, average_minutes: null } }), 'Not measured');
     const rows = figureRows({ figures: { services: [], total: { received: 3, results: {} } } });
     assert.equal(rows.at(-1).queueWait, '-');
+  });
+});
+
+describe('CC045 receipts', () => {
+  const file = (name, size) => ({ name, size });
+  const ok = { file: file('r.jpg', 1000), or_number: '0001234', amount: '150.00', receipt_date: '2026-11-12' };
+  it('checks the photo and the details like the server', () => {
+    assert.deepEqual(receiptFormErrors(ok, '2026-11-13'), {});
+    assert.deepEqual(receiptFormErrors({ ...ok, file: file('r.PNG', 2 * 1024 * 1024) }, '2026-11-13'), {}, '2 MB inclusive');
+    assert.ok(receiptFormErrors({ ...ok, file: file('r.jpg', 2 * 1024 * 1024 + 1) }, '2026-11-13').file);
+    assert.ok(receiptFormErrors({ ...ok, file: file('r.gif', 10) }, '2026-11-13').file);
+    assert.ok(receiptFormErrors({ ...ok, file: null }, '2026-11-13').file);
+    for (const amount of ['0', '0.00', '1.234', '-1', 'abc', '']) assert.ok(receiptFormErrors({ ...ok, amount }, '2026-11-13').amount, amount);
+    assert.ok(receiptFormErrors({ ...ok, or_number: 'a b' }, '2026-11-13').or_number);
+    assert.ok(receiptFormErrors({ ...ok, receipt_date: '2026-11-14' }, '2026-11-13').receipt_date);
+  });
+
+  it('formats the fixed-precision amount without floats and maps server failures to fields', () => {
+    assert.equal(formatAmount('1234567.50'), '₱1,234,567.50');
+    assert.equal(formatAmount(null), '-');
+    assert.deepEqual(receiptFailure({ status: 400, details: { file: 'Use a JPG or PNG photo.' } }).fields, { file: 'Use a JPG or PNG photo.' });
+    assert.match(receiptFailure({ status: 403 }).message, /permission/);
+  });
+
+  it('Executive never gets the receipt section; the photo is fetched with the session, not linked', async () => {
+    assert.equal(canSeeReceipts('executive'), false);
+    assert.ok(['office_staff', 'office_head', 'super_admin'].every(canSeeReceipts));
+    const detail = read('components/transactions/TransactionDetail.js');
+    assert.match(detail, /!readOnly && canSeeReceipts\(role\) \? <ReceiptPanel/);
+    const seen = [];
+    const blob = await fetchReceiptImage('t1', { token: async () => 'tok', fetchImpl: async (url, init) => { seen.push([url, init.headers.authorization, init.cache]); return reply(200, 'BYTES'); } });
+    assert.equal(blob, 'BYTES');
+    assert.deepEqual(seen, [['/api/operations/transactions/t1/receipt/image', 'Bearer tok', 'no-store']]);
+    const panel = read('components/transactions/ReceiptPanel.js');
+    assert.match(panel, /URL\.revokeObjectURL/);
+    assert.ok(!/src=\{`\/api|src="\/api/.test(panel), 'no direct image URL');
   });
 });

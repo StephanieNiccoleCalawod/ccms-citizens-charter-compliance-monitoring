@@ -28,6 +28,7 @@
     "ci": "npm run lint && npm run check:time && npm test && npm run build"
   },
   "dependencies": {
+    "@vercel/blob": "2.8.2",
     "ccms-shared": "0.1.0",
     "csv-parse": "7.0.3",
     "jose": "6.2.12",

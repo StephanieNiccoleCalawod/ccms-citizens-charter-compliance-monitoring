@@ -20,6 +20,8 @@ import ElapsedTime from '../ui/ElapsedTime.js';
 import { officeName } from '../../lib/ui/names.js';
 import { starterLabels } from '../../lib/ui/account-position.js';
 import { queueWaitText } from '../../lib/ui/queue.js';
+import { canSeeReceipts } from '../../lib/ui/receipts.js';
+import ReceiptPanel from './ReceiptPanel.js';
 
 const LABEL = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 const VALUE = 'text-sm text-slate-800';
@@ -455,6 +457,8 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
             ) : null}
           </div>
         ) : null}
+        {/* CC045: proof of payment, for Office Staff / Office Head / Super Admin only; an Executive never sees it (server 403 too). */}
+        {!readOnly && canSeeReceipts(role) ? <ReceiptPanel transactionId={tx.transaction_id} /> : null}
       </section>
 
       <ConfirmDialog

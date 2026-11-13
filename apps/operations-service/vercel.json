@@ -32,6 +32,10 @@
     {
       "path": "/api/jobs/late-risk",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/jobs/receipt-storage-cleanup",
+      "schedule": "40 1 * * *"
     }
   ]
 }

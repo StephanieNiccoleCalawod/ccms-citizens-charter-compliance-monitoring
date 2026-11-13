@@ -183,8 +183,11 @@ describe('the detail page after CC027', () => {
     assert.equal(canCancel({ status: 'ON_HOLD' }, ROLES.OFFICE_STAFF), false);
     assert.equal(canComplete({ status: 'COMPLETED' }), false);
   });
-  it('shows no receipt action: the service has no receipt endpoint for the browser (it sends receipt emails by itself)', () => {
-    assert.ok(!/receipt/i.test(detail));
+  it('shows no receipt EMAIL action (the service sends receipt emails by itself); CC045 proof of payment is its own panel', () => {
+    const body = detail.split(/\r?\n/).filter((line) => !/^import /.test(line)).join('\n');
+    assert.ok(!/receipt_email|resend.*receipt|sendReceipt/i.test(body));
+    // CC045: the only receipt UI is the proof-of-payment panel, never for a read-only (Executive) viewer.
+    assert.match(detail, /\{!readOnly && canSeeReceipts\(role\) \? <ReceiptPanel transactionId=\{tx\.transaction_id\} \/> : null\}/);
   });
 });
 

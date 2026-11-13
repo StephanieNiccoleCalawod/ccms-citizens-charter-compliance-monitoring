@@ -1,10 +1,12 @@
-// CC039: only Take a ticket is public at the gateway.
+// CC039: exactly one queue path is public (Take a ticket). Every other queue route and every CC045 receipt route needs a token at
+// the gateway; Operations then checks the role and the office. The receipt image passes through unchanged and uncached.
 import { strict as assert } from 'node:assert';
 import http from 'node:http';
 import { after, before, describe, it } from 'node:test';
 import { isPublicApi, resolveRoute } from '../src/lib/routes.js';
 import { listen, makeWithGateway } from './helpers.js';
 
+const IMAGE = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
 const seen = [];
 let server;
 let targets;
@@ -14,6 +16,10 @@ before(async () => {
     req.on('data', (c) => chunks.push(c));
     req.on('end', () => {
       seen.push({ method: req.method, url: req.url, headers: req.headers, bytes: Buffer.concat(chunks) });
+      if (req.url.endsWith('/receipt/image')) {
+        res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' });
+        return res.end(IMAGE);
+      }
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end('{}');
     });
@@ -23,6 +29,7 @@ before(async () => {
 after(() => server.close());
 const withGateway = makeWithGateway(() => targets);
 const rejectAll = async () => ({ ok: false, status: 401, code: 'UNAUTHORIZED', message: 'Authentication required' });
+const acceptAll = async () => ({ ok: true });
 
 describe('CC039 public queue path', () => {
   it('only POST-able Take a ticket path is public; the panel, Call next, Skip and staff issuance are not', () => {
@@ -45,6 +52,28 @@ describe('CC039 public queue path', () => {
         const r = await fetch(`${base}/api/operations${path}`, { method });
         assert.equal(r.status, 401, `${method} ${path}`);
       }
+    });
+  });
+});
+
+describe('CC045 receipts through the gateway', () => {
+  it('a multipart upload reaches Operations intact and the image comes back byte for byte, uncached', async () => {
+    await withGateway({ tokenCheck: acceptAll }, async (base) => {
+      const form = new FormData();
+      form.append('file', new File([IMAGE], 'r.jpg', { type: 'image/jpeg' }));
+      form.append('or_number', '0001');
+      const up = await fetch(`${base}/api/operations/transactions/abc/receipt`, { method: 'POST', headers: { authorization: 'Bearer a.b.c' }, body: form });
+      assert.equal(up.status, 200);
+      const got = seen.at(-1);
+      assert.match(got.headers['content-type'], /^multipart\/form-data; boundary=/);
+      assert.ok(got.bytes.includes(IMAGE) && got.bytes.includes(Buffer.from('0001')));
+      assert.equal(got.headers.authorization, 'Bearer a.b.c');
+
+      const image = await fetch(`${base}/api/operations/transactions/abc/receipt/image`, { headers: { authorization: 'Bearer a.b.c' } });
+      assert.equal(image.status, 200);
+      assert.equal(image.headers.get('cache-control'), 'private, no-store');
+      assert.equal(image.headers.get('content-type'), 'image/jpeg');
+      assert.ok(Buffer.from(await image.arrayBuffer()).equals(IMAGE));
     });
   });
 });

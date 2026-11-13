@@ -4,6 +4,7 @@ import { migrateSprint6Operations } from './migrations/sprint6.js';
 import { REGISTRY_CHECK, REGISTRY_CHECK_NAME } from '../../migrations/1794528100000-Cc044RegistryAtStart.js';
 import { QUEUE_CONSTRAINTS, QUEUE_INDEXES } from '../../migrations/1794900000000-Cc039QueueTickets.js';
 import { QUEUE_LINK_CONSTRAINTS, QUEUE_LINK_INDEX } from '../../migrations/1794900100000-Cc040QueueTicketLink.js';
+import { RECEIPT_CONSTRAINTS, RECEIPT_INDEXES } from '../../migrations/1794900200000-Cc045TransactionReceipts.js';
 // Runs after TypeORM has created the tables. Everything here is idempotent.
 // TypeORM cannot declare expression indexes, partial unique indexes, foreign keys with our names or CHECK
 // constraints, so the Transaction data rules live here as well as in the service code.
@@ -31,6 +32,13 @@ export async function afterSync(dataSource) {
   await transactionEmailRules(dataSource);
   await seedProvenanceRules(dataSource);
   await queueRules(dataSource);
+  await receiptRules(dataSource);
+}
+
+// CC045 (keep identical to migrations/1794900200000-Cc045TransactionReceipts.js).
+async function receiptRules(dataSource) {
+  for (const [name, definition] of RECEIPT_CONSTRAINTS) await addConstraint(dataSource, 'transaction_receipts', name, definition);
+  for (const sql of RECEIPT_INDEXES) await dataSource.query(sql);
 }
 
 // CC039 (keep identical to migrations/1794900000000-Cc039QueueTickets.js).

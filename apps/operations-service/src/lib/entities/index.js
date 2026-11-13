@@ -332,6 +332,33 @@ export const QueueTicket = new EntitySchema({
   },
 });
 
+// ---- CC045 proof of payment (Sprint 7 Wave 3) ----
+// Constraints and indexes in after-sync / migrations/1794900200000-Cc045TransactionReceipts.js. The image itself is in private
+// storage (src/modules/receipts/storage.js); storage_key never leaves Operations.
+export const TransactionReceipt = new EntitySchema({
+  name: 'TransactionReceipt',
+  tableName: 'transaction_receipts',
+  columns: {
+    attachmentId: { name: 'attachment_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'transaction_receipts_pkey' },
+    transactionId: { name: 'transaction_id', type: 'uuid' },
+    officeId: { name: 'office_id', type: 'uuid' },
+    status: { type: 'varchar', length: 10, default: 'PENDING' },
+    storageKey: { name: 'storage_key', type: 'varchar', length: 200 },
+    contentType: { name: 'content_type', type: 'varchar', length: 20 },
+    sizeBytes: { name: 'size_bytes', type: 'int' },
+    sha256: { type: 'varchar', length: 64 },
+    orNumber: { name: 'or_number', type: 'varchar', length: 30, nullable: true },
+    amount: { type: 'numeric', precision: 12, scale: 2, nullable: true },
+    receiptDate: { name: 'receipt_date', type: 'date', nullable: true },
+    uploadedBy: { name: 'uploaded_by', type: 'uuid' },
+    createdAt: { name: 'created_at', type: 'timestamptz', default: () => 'now()' },
+    confirmedAt: { name: 'confirmed_at', type: 'timestamptz', nullable: true },
+    deletedAt: { name: 'deleted_at', type: 'timestamptz', nullable: true },
+    deletedBy: { name: 'deleted_by', type: 'uuid', nullable: true },
+    storagePurgedAt: { name: 'storage_purged_at', type: 'timestamptz', nullable: true },
+  },
+});
+
 export const entities = [TransactionSettings, Counter, TrackingSequence, Transaction, OutboxEvent, RateLimitHit, ForecastRun,
   AnalyticsOutboxEvent, RegistryImport, RegistryPerson, TransactionEmail, SeedRun, SeededTransaction, LateRiskRun, LateRiskScoreCache,
-  QueueSequence, QueueTicket];
+  QueueSequence, QueueTicket, TransactionReceipt];
