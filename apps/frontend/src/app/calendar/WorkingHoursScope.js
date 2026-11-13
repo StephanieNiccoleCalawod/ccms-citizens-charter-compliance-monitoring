@@ -68,7 +68,7 @@ function Records({ records, note, canRemove, onRemove }) {
       {records.length === 0 ? (
         <p className="px-5 py-8 text-center text-sm text-slate-500">{note}</p>
       ) : (
-        <ul className="divide-y divide-[#EAE3D9]">
+        <ul className="divide-y divide-line">
           {records.map((record) => (
             <li key={record.id} className="space-y-3 px-5 py-4" data-testid="record">
               <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -245,7 +245,7 @@ export default function WorkingHoursScope({ user, canWrite, onChanged }) {
           <p className="text-sm font-semibold text-slate-700">Schedule of: Campus</p>
         )}
         {mayEdit ? (
-          <button type="button" className="btn-primary px-5 py-2.5" onClick={() => setAdding(true)}>
+          <button type="button" className="btn-primary btn-lg" onClick={() => setAdding(true)}>
             + Add working hours
           </button>
         ) : null}

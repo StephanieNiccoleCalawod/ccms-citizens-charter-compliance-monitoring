@@ -295,7 +295,7 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
                   type="radio"
                   name={`${id}-service_scope`}
                   data-field={index === 0 ? 'service_scope' : undefined}
-                  className="accent-[#800000]"
+                  className="accent-pup-maroon"
                   value={scope.value}
                   checked={form.service_scope === scope.value}
                   onChange={set('service_scope')}
@@ -324,7 +324,7 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
                 <input
                   type="checkbox"
                   data-field={index === 0 ? 'transaction_types' : undefined}
-                  className="mt-0.5 accent-[#800000]"
+                  className="mt-0.5 accent-pup-maroon"
                   checked={checked}
                   onChange={() => toggleType(t.value)}
                 />
@@ -388,7 +388,7 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
                   <input
                     type="checkbox"
                     data-field={index === 0 ? 'allowed_client_types' : undefined}
-                    className="mt-0.5 accent-[#800000]"
+                    className="mt-0.5 accent-pup-maroon"
                     checked={checked}
                     onChange={() => toggleAllowed(t.value)}
                   />

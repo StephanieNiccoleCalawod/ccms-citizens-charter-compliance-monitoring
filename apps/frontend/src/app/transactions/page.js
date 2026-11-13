@@ -368,7 +368,7 @@ function TransactionList({ user }) {
 /** The way into Transaction Settings (/settings): an icon at the right of the page heading. The page checks the role itself and the service decides what can be changed. */
 function SettingsLink() {
   return (
-    <Link href="/settings" className="btn-secondary h-10 w-10 px-0" aria-label="Transaction Settings" title="Transaction Settings" data-testid="transaction-settings">
+    <Link href="/settings" className="btn-secondary btn-icon" aria-label="Transaction Settings" title="Transaction Settings" data-testid="transaction-settings">
       <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 4v6M7 14v6" />
       </svg>

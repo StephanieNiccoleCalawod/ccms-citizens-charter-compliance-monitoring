@@ -39,7 +39,7 @@ function OfficePill({ user }) {
   }, [user.officeId]);
 
   return (
-    <p className="inline-flex items-center gap-2 rounded-full border border-[#EAE3D9] bg-white px-4 py-2 text-sm text-slate-500" data-testid="own-office">
+    <p className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm text-slate-500" data-testid="own-office">
       Your office
       <span className="font-semibold text-slate-900">{office ? office.office_name : '—'}</span>
     </p>

@@ -4,7 +4,7 @@ import { splitLinks } from '../../lib/ui/parseProcedure.js';
 // They only read the fields they are given; nothing here fetches or invents data.
 
 export const NOT_SET = 'Not set';
-export const DETAIL_CARD = 'rounded-2xl border border-[#EAE3D9] bg-white p-6';
+export const DETAIL_CARD = 'card p-6';
 export const CARD_TITLE = 'font-sans text-xl font-bold text-maroon-900';
 export const HEADER_CHIP = 'rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white';
 export const GLANCE_LABEL = 'text-xs font-bold uppercase tracking-wider text-slate-500';
@@ -52,7 +52,7 @@ export function ProcedureStepList({ steps }) {
             {step.substeps.length > 0 ? (
               <ul className="mt-3 space-y-2">
                 {step.substeps.map((sub) => (
-                  <li key={sub.label} className="rounded-xl bg-[#FAF7F2] px-4 py-3 text-sm text-slate-800">
+                  <li key={sub.label} className="rounded-xl bg-surface-muted px-4 py-3 text-sm text-slate-800">
                     <p>
                       <span className="font-bold text-maroon-800">{sub.label}</span> {sub.text}
                     </p>

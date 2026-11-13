@@ -1,3 +1,5 @@
+import EmptyState from '../ui/EmptyState.js';
+
 const STYLE = {
   positive: { label: 'Positive', icon: 'M5 12l4 4 10-10', tone: 'text-emerald-700' },
   warning: { label: 'Warning', icon: 'M12 7v6M12 16.5h.01', tone: 'text-amber-700' },
@@ -11,11 +13,11 @@ export default function KeyInsightsPanel({ insights, sample }) {
       <h3 id="key-insights-title" className="title-card">Key insights</h3>
       <p className="mt-1 text-sm text-slate-600">{sample ? 'Sample observations, not verified findings.' : 'What stands out in the figures.'}</p>
       {insights.length === 0 ? (
-        <div role="status" data-testid="insights-sentences-empty" className="mt-4 flex-1 rounded-xl border border-dashed border-[#EAE3D9] bg-[#FBF8F3] px-4 py-10 text-center text-sm text-slate-600">
+        <EmptyState role="status" data-testid="insights-sentences-empty" className="mt-4 flex-1">
           No observations to report yet.
-        </div>
+        </EmptyState>
       ) : (
-        <ul className="mt-4 flex-1 divide-y divide-[#EAE3D9]">
+        <ul className="mt-4 flex-1 divide-y divide-line">
           {insights.map((s) => {
             const style = STYLE[s.kind] ?? STYLE.attention;
             return (

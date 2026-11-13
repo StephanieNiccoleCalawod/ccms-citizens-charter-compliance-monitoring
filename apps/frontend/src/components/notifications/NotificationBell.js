@@ -6,6 +6,7 @@ import { getNotificationFeeds, markNotificationsRead } from '../../lib/api/notif
 import { createPoller } from '../../lib/ui/analytics.js';
 import { KIND_LABEL, badgeText, markedAsRead, mergeNotifications, unreadItems } from '../../lib/ui/notifications.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
+import IconButton from '../ui/IconButton.js';
 
 // Notification bell (CC055): the count of unread notices and a list. Worked out by the services on each request and refreshed every
 // 60 seconds while the page is visible. No emails. A notice is marked read when it is opened, or all at once.
@@ -46,14 +47,14 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={box} data-testid="notification-bell">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="dialog"
-        aria-label={unread.length ? `Notifications, ${unread.length} unread` : 'Notifications, none unread'}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700">
+      <IconButton onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="dialog"
+        label={unread.length ? `Notifications, ${unread.length} unread` : 'Notifications, none unread'}
+        className="relative">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
           <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 19a2 2 0 0 0 4 0" />
         </svg>
         {unread.length ? <span className="absolute -right-0.5 -top-0.5 min-w-[1.1rem] rounded-full bg-maroon-700 px-1 text-center text-[0.65rem] font-bold leading-[1.1rem] text-white" data-testid="bell-count">{badgeText(unread.length)}</span> : null}
-      </button>
+      </IconButton>
       {open ? (
         <div role="dialog" aria-label="Notifications" className="absolute right-0 z-40 mt-2 w-80 max-w-[90vw] rounded-lg border border-slate-200 bg-white shadow-lg" data-testid="bell-panel">
           <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">

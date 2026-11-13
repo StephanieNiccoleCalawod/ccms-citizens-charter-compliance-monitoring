@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import { BRAND } from '../../lib/constants/brand.js';
@@ -21,6 +22,7 @@ function retryRevocation() {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -53,7 +55,9 @@ export default function LoginPage() {
       .then((user) => {
         if (cancelled) return;
         if (user) {
-          window.location.assign('/');
+          // A client-side navigation (not a full page reload, which would flash a blank page before the
+          // Dashboard's own chrome has a chance to paint): the token is already in memory from refreshSession().
+          router.push('/');
           return;
         }
         // A session whose role is not recognized was dropped: say why and keep the form here.
@@ -66,7 +70,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   async function onSubmit(event) {
     event.preventDefault();
@@ -74,7 +78,7 @@ export default function LoginPage() {
     setError(null);
     try {
       await signIn(email, password);
-      window.location.assign('/');
+      router.push('/');
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -174,7 +178,7 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <ErrorBanner message={LOGIN_NOTICES[notice]} />
                 <div className="flex flex-wrap items-center gap-3">
-                  <button type="button" className="btn-secondary px-3 py-1.5" onClick={retryRevoke} disabled={retry.busy}>
+                  <button type="button" className="btn-secondary btn-sm" onClick={retryRevoke} disabled={retry.busy}>
                     {retry.busy ? 'Trying again…' : 'Try again'}
                   </button>
                   {retry.result === 'failed' ? (
@@ -191,7 +195,7 @@ export default function LoginPage() {
             ) : null}
 
             <header className="pb-1">
-              <h2 className="font-serif text-[34px] leading-tight tracking-tight text-[#3D0606] xl:text-[40px] [@media(max-height:760px)]:text-[32px]">Welcome back</h2>
+              <h2 className="font-sans text-[34px] font-bold leading-tight tracking-tight text-[#3D0606] xl:text-[40px] [@media(max-height:760px)]:text-[32px]">Welcome back</h2>
               <p className="mt-2 text-[15px] text-[#5F5950] xl:mt-2 xl:text-base">Sign in with your CCCMS staff account.</p>
             </header>
 

@@ -14,7 +14,7 @@ function TrendTooltip({ active, payload, label, series, unit }) {
   const rows = series.map((s) => ({ s, value: payload.find((p) => p.dataKey === s.key)?.value })).filter((r) => r.value !== null && r.value !== undefined);
   if (rows.length === 0) return null;
   return (
-    <div className="rounded-lg border border-[#EAE3D9] bg-white px-3 py-2 text-sm shadow-md">
+    <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm shadow-md">
       <p className="text-xs font-semibold text-slate-500">{label}</p>
       {rows.map(({ s, value }) => (
         <p key={s.key} className="mt-1 flex items-center gap-2 text-slate-900">

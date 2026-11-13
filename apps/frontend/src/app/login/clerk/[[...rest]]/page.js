@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { SignIn, useAuth, useClerk } from '@clerk/nextjs';
 import { landingForRole } from 'ccms-shared/nav';
@@ -18,6 +19,7 @@ import { clerkSessionState, pendingTaskLabel } from '../../../../lib/ui/clerk-ac
 // ONLY when there is no Clerk session at all; a pending session (Clerk still needs a step) must not count as signed out here,
 // or the page reloads forever.
 function ClerkSignInPanel() {
+  const router = useRouter();
   const clerk = useClerk();
   const { isLoaded } = useAuth({ treatPendingAsSignedOut: false });
   const state = isLoaded ? clerkSessionState(clerk.session) : 'loading';
@@ -29,12 +31,14 @@ function ClerkSignInPanel() {
     started.current = true;
     completeClerkSignIn()
       .then((user) => {
-        if (user) window.location.assign(landingForRole(user.role));
+        // A client-side navigation, not a full reload: the token is already set, so the destination paints
+        // straight away instead of flashing a blank tab while the whole app re-downloads and re-initializes.
+        if (user) router.push(landingForRole(user.role));
         else if (sessionRejection()) redirectToLogin(); // goes to the "No access yet" page with the reason
         else setError('Your sign-in could not be completed. Sign out and sign in again.');
       })
       .catch((err) => setError(err?.message ?? 'Sign-in is not available right now. Please try again in a few minutes.'));
-  }, [state]);
+  }, [state, router]);
 
   if (state === 'loading') return <p className="text-sm text-slate-600">Loading sign-in…</p>;
   // Path routing (Clerk's way for the Next.js App Router): each step has its own address under /login/clerk, served by this

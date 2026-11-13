@@ -8,6 +8,7 @@ import { DEFAULT_PERIOD, HOME_MESSAGES, PERIOD_OPTIONS, failureMessage, groupByF
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 import TableState from '../ui/TableState.js';
+import StatCard from '../ui/StatCard.js';
 
 // The home screen of Office Head / Office Staff (CC036) and of the Executive (CC037): the KPI tiles for a period, a table below,
 // and a link to Insights. The Executive never gets a per-staff table (the server refuses it as well).
@@ -50,26 +51,22 @@ export default function KpiHome({ user }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <label htmlFor="kpi-period" className="label">Period</label>
-          <select id="kpi-period" className="input mt-1" value={period} onChange={(event) => setPeriod(event.target.value)}>
+          <select id="kpi-period" className="input select-chevron" value={period} onChange={(event) => setPeriod(event.target.value)}>
             {PERIOD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-4">
           {label ? <p className="text-xs text-slate-500" data-testid="kpi-period-range">{label}</p> : null}
-          <Link href="/" className="btn-secondary text-sm" data-testid="kpi-insights-link">Open Insights</Link>
+          <Link href="/" className="btn-secondary" data-testid="kpi-insights-link">Open Insights</Link>
         </div>
       </div>
       <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: '' }))} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="kpi-tiles" aria-busy={loading}>
         {tiles.map((tile) => (
-          <div key={tile.key} className="card flex flex-col gap-1 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{tile.label}</p>
-            <p className="text-2xl font-bold leading-tight text-maroon-950">{loading && !totals ? '-' : tile.value}</p>
-            {tile.note ? <p className="text-xs text-slate-600">{tile.note}</p> : null}
-          </div>
+          <StatCard key={tile.key} label={tile.label} value={loading && !totals ? '-' : tile.value} note={tile.note} />
         ))}
       </div>
-      <h2 className="text-sm font-bold text-maroon-950">{executive ? 'By office' : user.role === ROLES.OFFICE_HEAD ? 'By staff member' : 'Your figures'}</h2>
+      <h2 className="title-card">{executive ? 'By office' : user.role === ROLES.OFFICE_HEAD ? 'By staff member' : 'Your figures'}</h2>
       <TableShell>
         <Table busy={loading} minWidth="40rem" label={executive ? 'Figures by office' : 'Figures by staff member'}
           head={<tr><Th>{executive ? 'Office' : 'Staff'}</Th><Th align="right">Received</Th><Th align="right">On time</Th><Th align="right">Late</Th><Th align="right">On-time rate</Th><Th align="right">Pending</Th></tr>}>

@@ -78,7 +78,7 @@ function ResetForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-page px-4 py-10">
       <div className="card w-full max-w-md space-y-5 p-8">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-maroon-800">{BRAND.system} · {BRAND.campus}</p>

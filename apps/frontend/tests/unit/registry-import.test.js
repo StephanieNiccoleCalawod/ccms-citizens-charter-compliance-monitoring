@@ -296,18 +296,23 @@ describe('the import screen\'s behaviour (source checks, not a browser)', () => 
   it('offers choose, replace and remove, shows the file name and size, and accepts only CSV and XLSX', () => {
     assert.match(panel, /accept=\{ACCEPT_ATTRIBUTE\}/);
     assert.match(panel, />Replace</);
-    assert.match(panel, />Remove</);
+    // Remove is the shared IconButton (an X glyph with an accessible label), not a text button.
+    assert.match(panel, /onClick=\{remove\}/);
+    assert.match(panel, /label="Remove the selected file"/);
     assert.match(panel, /formatBytes\(file\.size\)/);
   });
 
   it('has loading, empty, error and success states in each part', () => {
     const overview = read('src/app/registry/RegistryOverview.js');
-    const history = read('src/app/registry/ImportHistory.js');
-    for (const text of [overview, history]) {
-      assert.match(text, /kind="loading"/);
-      assert.match(text, /kind="error"/);
-    }
+    assert.match(overview, /kind="loading"/);
+    assert.match(overview, /kind="error"/);
     assert.match(overview, /No registry records yet/);
+    // The history table moved onto the shared DataTable (CCMS-wide "History" view), which owns loading/error/empty
+    // itself; ImportHistory.js only needs to pass the right props.
+    const history = read('src/app/registry/ImportHistory.js');
+    assert.match(history, /<DataTable/);
+    assert.match(history, /loading=\{loading\}/);
+    assert.match(history, /error=\{error \? /);
     assert.match(history, /No imports yet/);
     assert.match(panel, /The file passed the check/);
   });

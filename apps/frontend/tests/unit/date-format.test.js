@@ -166,7 +166,7 @@ describe('every screen uses the shared helpers', () => {
       const inputs = [...text.matchAll(/<input\b[\s\S]*?\/>/g)].filter(([input]) => /type="date"/.test(input));
       for (const [input] of inputs) assert.match(input, /aria-describedby=/, `${rel(file)}: ${input.slice(0, 60)}`);
       const dateHints = [...text.matchAll(/<DateHint /g)].length;
-      if (['src/app/logs/page.js', 'src/app/transactions/page.js'].includes(rel(file))) assert.equal(dateHints, 0, `${rel(file)} uses native date fields without redundant hints`);
+      if (['src/app/logs/page.js', 'src/app/transactions/page.js', 'src/components/reports/ReportsPage.js', 'src/components/transactions/ReceiptPanel.js'].includes(rel(file))) assert.equal(dateHints, 0, `${rel(file)} uses native date fields without redundant hints`);
       else assert.equal(dateHints, inputs.length, `${rel(file)} needs one DateHint per date input`);
     }
     assert.match(read('src/components/forms/DateHint.js'), /MM\/DD\/YYYY/);

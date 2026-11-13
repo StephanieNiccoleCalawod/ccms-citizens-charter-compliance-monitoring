@@ -30,8 +30,10 @@ export function rolesNav(role) {
 }
 
 /**
- * Clerk sign-in access (Landas 1): the Super Admin approves people who signed in with Clerk. Shown only while Clerk sign-in is
- * switched on (NEXT_PUBLIC_AUTH_PROVIDER dual or clerk, with a publishable key); Identity answers 404/403 otherwise.
+ * Clerk sign-in access (Landas 1): the Super Admin approves people who signed in with Clerk. It lives in the Accounts page's
+ * own "Clerk Sign-in Access" tab now, not a sidebar item of its own, so this no longer feeds appNavForRole; kept for the
+ * Accounts page (and old links to /settings/clerk-access) to ask the same question: is Clerk switched on for this role.
+ * (NEXT_PUBLIC_AUTH_PROVIDER dual or clerk, with a publishable key); Identity answers 404/403 otherwise.
  */
 export function clerkAccessNav(role) {
   return role === ROLES.SUPER_ADMIN && clerkEnabled() ? { section: 'Administration', label: 'Clerk sign-in access', href: '/settings/clerk-access' } : null;
@@ -82,5 +84,5 @@ export function appNavForRole(role, access = {}) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
   const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
-  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), clerkAccessNav(role), logsNav(role)].filter(Boolean);
+  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
 }

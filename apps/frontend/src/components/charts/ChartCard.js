@@ -1,3 +1,4 @@
+import EmptyState from '../ui/EmptyState.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 
 // The frame every Insights chart sits in: title, one-line description, legend, the chart itself or an empty state, and a table
@@ -56,9 +57,9 @@ export default function ChartCard({ id, title, description, legend = null, empty
       {legend && !empty ? <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1" aria-label="Legend">{legend}</ul> : null}
       <div className="mt-4 flex-1">
         {empty ? (
-          <div role="status" data-testid={`${id}-empty`} className="rounded-xl border border-dashed border-[#EAE3D9] bg-[#FBF8F3] px-4 py-10 text-center text-sm text-slate-600">
+          <EmptyState role="status" data-testid={`${id}-empty`}>
             {emptyMessage}
-          </div>
+          </EmptyState>
         ) : (
           children
         )}

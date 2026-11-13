@@ -103,10 +103,15 @@ describe('the toast and the save button (source checks, not a browser)', () => {
     assert.ok(toaster.includes('aria-label="Dismiss notification"'));
   });
   it('the save button shows a spinner and the busy label, and is disabled while busy', () => {
-    assert.ok(button.includes('animate-spin'));
-    assert.ok(button.includes('disabled={busy || disabled}'));
-    assert.ok(button.includes('aria-busy={busy || undefined}'));
-    assert.ok(button.includes('{busy ? busyLabel : label}'));
+    // SubmitButton is a preset of the shared <Button>, which owns the loading behaviour for every CCMS button.
+    const shared = read('src/components/ui/Button.js');
+    assert.ok(button.includes("import Button from './Button.js'"));
+    assert.ok(button.includes('loading={busy} loadingLabel={busyLabel} disabled={disabled}'));
+    assert.ok(read('src/components/ui/Spinner.js').includes('animate-spin'));
+    assert.ok(shared.includes('{busy ? <Spinner /> : leadingIcon}'));
+    assert.ok(shared.includes('disabled={busy || disabled}'));
+    assert.ok(shared.includes('aria-busy={busy || undefined}'));
+    assert.ok(shared.includes('{busy && loadingLabel ? loadingLabel : children}'));
   });
 });
 

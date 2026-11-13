@@ -36,7 +36,13 @@ export function sentenceText(sentence, names = {}) {
 
 export const FORECAST_RISE_MIN = 20;
 const byDate = (a, b) => String(a.date).localeCompare(String(b.date));
-export const manilaToday = (now = new Date()) => now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+// Asia/Manila has no daylight saving, so a fixed UTC+08:00 offset always gives the right calendar date
+// (the same approach as lib/ui/date-format.js, which this file does not import to stay a standalone util).
+export function manilaToday(now = new Date()) {
+  const manila = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${manila.getUTCFullYear()}-${pad(manila.getUTCMonth() + 1)}-${pad(manila.getUTCDate())}`;
+}
 
 /** Template 1: the forecast weekly total against the last 5 working days. Only when the forecast is ready and the rise is 20% or more. */
 export function forecastSentence(forecast, officeId) {

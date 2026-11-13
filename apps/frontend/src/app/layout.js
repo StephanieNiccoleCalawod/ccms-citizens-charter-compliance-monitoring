@@ -5,11 +5,13 @@ import ClerkRegistrar from '../components/auth/ClerkRegistrar.js';
 import { BRAND } from '../lib/constants/brand.js';
 import { CLERK_SIGN_IN_PATH, PASSWORD_SIGN_IN_PATH, clerkEnabled, clerkPublishableKey } from '../lib/auth/provider.js';
 
-// DM Serif Display is for headings only (h1-h3 use it through the font-serif utility). Everything
-// else stays on the sans-serif stack. Regular weight is the only one the font has.
+// DM Serif Display is for each page's own title only (the <h1> in PageHeader, via the title-page utility).
+// Regular weight is the only one the font has.
 const dmSerifDisplay = DM_Serif_Display({ weight: '400', style: ['normal', 'italic'], subsets: ['latin'], display: 'swap', variable: '--font-dm-serif' });
 
-// DM Sans is the sidebar's font (see AppShell). It is a variable font, so no weight list is needed.
+// DM Sans is everything else (body text, section and card headings, buttons, tables, forms, modals): it is
+// Tailwind's own --font-sans token (see globals.css), so the font-sans utility and the plain default body font both
+// resolve to it. It is a variable font, so no weight list is needed.
 const dmSans = DM_Sans({ subsets: ['latin'], display: 'swap', variable: '--font-dm-sans' });
 
 export const metadata = {

@@ -78,7 +78,7 @@ function ViewToggle({ view, onView }) {
     );
   };
   return (
-    <div role="group" aria-label="Services view" className="inline-flex gap-1 rounded-xl border border-[#EAE3D9] bg-white p-1 shadow-sm">
+    <div role="group" aria-label="Services view" className="inline-flex gap-1 rounded-xl border border-line bg-white p-1 shadow-sm">
       {button('grid', 'Grid', GridIcon)}
       {button('list', 'List', ListIcon)}
     </div>
@@ -140,7 +140,7 @@ function rememberServicePosition(item) {
 
 function ServiceCard({ item }) {
   return (
-    <li id={`service-${item.service_id}`} className="scroll-mt-6 flex min-w-0 flex-col rounded-2xl border border-[#EAE3D9] bg-white p-5 shadow-sm">
+    <li id={`service-${item.service_id}`} className="scroll-mt-6 flex min-w-0 flex-col rounded-2xl border border-line bg-white p-5 shadow-sm">
       <div>
         <StatusBadge variant={item.classification}>{classificationLabel(item.classification)}</StatusBadge>
       </div>
@@ -150,7 +150,7 @@ function ServiceCard({ item }) {
         <span className="min-w-0 break-words">{item.office_name}</span>
       </p>
       <div className="mt-auto pt-4">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-t border-[#EAE3D9] pt-3 text-sm text-slate-800">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-t border-line pt-3 text-sm text-slate-800">
           <ClockIcon />
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Standard</span>
           <span className="min-w-0 break-words font-semibold">{item.standard_text}</span>
@@ -165,7 +165,7 @@ function ServiceCard({ item }) {
 
 function ServiceRow({ item }) {
   return (
-    <li id={`service-${item.service_id}`} className="scroll-mt-6 min-w-0 rounded-xl border border-l-4 border-[#EAE3D9] border-l-maroon-900 bg-white shadow-sm">
+    <li id={`service-${item.service_id}`} className="scroll-mt-6 min-w-0 rounded-xl border border-l-4 border-line border-l-maroon-900 bg-white shadow-sm">
       <div className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,13rem)_auto] md:items-center md:gap-5">
         <div className="min-w-0">
           <h3 className="break-words font-sans text-base font-bold leading-snug text-maroon-950">{item.service_name}</h3>
@@ -203,7 +203,7 @@ function ServiceResults({ catalogue }) {
     <section id="services" className="scroll-mt-4">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="font-serif text-3xl text-maroon-950">{search ? `Results for "${search}"` : 'All services'}</h2>
+          <h2 className="font-sans text-3xl font-bold text-maroon-950">{search ? `Results for "${search}"` : 'All services'}</h2>
           {!state.loading && !state.error ? (
             <p className="mt-1 text-sm text-slate-500" data-testid="service-count">
               Showing {total} {total === 1 ? 'service' : 'services'}

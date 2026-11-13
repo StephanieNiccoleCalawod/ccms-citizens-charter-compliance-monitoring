@@ -127,7 +127,7 @@ export default function RegistryPicker({ clientType, value, onChange, errors = {
         <label className="flex items-start gap-3 text-sm text-slate-800">
           <input
             type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-[#800000]"
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon"
             checked={value.choice === 'not_found'}
             disabled={disabled}
             onChange={(e) => choose(e.target.checked ? { choice: 'not_found', record: null } : { choice: 'none', reason: '', note: '' })}

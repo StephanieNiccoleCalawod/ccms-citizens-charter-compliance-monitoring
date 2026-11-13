@@ -11,25 +11,18 @@ import { ROLE_NOT_RECOGNIZED, ROLE_NOT_RECOGNIZED_MESSAGE, isRoleAllowed } from 
 import { getAccessToken, redirectToLogin, refreshSession, sessionRejection } from '../../lib/auth/session.js';
 import { useSignOut } from '../../lib/auth/useSignOut.js';
 import { getMe } from '../../lib/api/account.js';
-import { staffAccessFrom } from '../../lib/ui/account.js';
+import { initials, staffAccessFrom } from '../../lib/ui/account.js';
 import Breadcrumb from '../navigation/Breadcrumb.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import Toaster from '../feedback/Toaster.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import BrandMark from '../ui/BrandMark.js';
 import NavIcon from './NavIcon.js';
+import PageHeader from './PageHeader.js';
+import IconButton from '../ui/IconButton.js';
 import RowActionMenu from '../ui/RowActionMenu.js';
 import NotificationBell from '../notifications/NotificationBell.js';
 import { hasBell } from '../../lib/ui/notifications.js';
-
-function initials(name) {
-  return (name ?? '?')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join('');
-}
 
 // Active verified session and sidebar state. Populated only after verification post-hydration.
 // On server and during first client hydration, activeSessionUser is null, guaranteeing
@@ -174,11 +167,14 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
   }, [state.status]);
 
   if (state.status === 'loading') {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Checking your session…</div>;
+    // bg-page even though <body> already has it: this div paints before the stylesheet's own background rule can be
+    // trusted to have taken effect on a fresh navigation, so without its own background it can show as a stark white
+    // flash instead of the page's usual light grey for that first instant.
+    return <div className="flex min-h-screen items-center justify-center bg-page text-sm text-slate-500">Checking your session…</div>;
   }
   if (state.status === 'rejected') {
     return (
-      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-4">
+      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 bg-page px-4">
         <ErrorBanner message={state.message} />
         {/* A full page load on purpose: the sign-in page starts from a clean session. */}
         <a className="btn-primary" href="/login">
@@ -189,7 +185,7 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
   }
   if (state.status === 'error') {
     return (
-      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-4">
+      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 bg-page px-4">
         <ErrorBanner message={state.message} />
         <button type="button" className="btn-primary" onClick={() => window.location.reload()}>
           Try again
@@ -308,18 +304,16 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
       <div className={`min-w-0 flex-1 ${pageClassName ?? ''}`.trim()}>
         <header className="flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
+            <IconButton
               onClick={wide ? toggleCollapsed : () => setMenuOpen((open) => !open)}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700"
-              aria-label={toggleLabel}
+              label={toggleLabel}
               aria-expanded={wide ? !collapsed : menuOpen}
               aria-controls="app-sidebar"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5" aria-hidden="true">
                 <path d="M4 7h16M4 12h16M4 17h16" />
               </svg>
-            </button>
+            </IconButton>
             {breadcrumb ? <Breadcrumb items={breadcrumb} className="min-w-0 text-base text-slate-800" /> : <span className="truncate text-base font-bold text-slate-800">{title}</span>}
           </div>
           <div className="flex items-center gap-2">
@@ -351,14 +345,14 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
         </header>
 
         <main className="px-4 py-6 sm:px-8">
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              {eyebrow ? <div className="mb-2">{eyebrow}</div> : null}
-              <h1 className={titleClassName ?? 'text-3xl'}>{title}</h1>
-              {subtitle ? <p className={subtitleClassName ?? 'mt-1 text-sm text-slate-600'}>{subtitle}</p> : null}
-            </div>
-            {allowed && headerRight ? (typeof headerRight === 'function' ? headerRight(user) : headerRight) : null}
-          </div>
+          <PageHeader
+            title={title}
+            description={subtitle}
+            eyebrow={eyebrow}
+            titleClassName={titleClassName}
+            descriptionClassName={subtitleClassName}
+            actions={allowed && headerRight ? (typeof headerRight === 'function' ? headerRight(user) : headerRight) : null}
+          />
           {allowed ? (
             typeof children === 'function' ? children(user) : children
           ) : (

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useSyncExternalStore } from 'react';
+import { useRouter } from 'next/navigation';
 import { landingForRole } from 'ccms-shared/nav';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
-import BrandMark from '../../components/ui/BrandMark.js';
+import Button from '../../components/ui/Button.js';
 import { BRAND } from '../../lib/constants/brand.js';
 import { accessPendingCopy } from '../../lib/ui/clerk-access.js';
 import { completeClerkSignIn, sessionRejection, signOut } from '../../lib/auth/session.js';
@@ -16,6 +17,7 @@ const reasonFromAddress = () => new URLSearchParams(window.location.search).get(
 const noReason = () => null;
 
 export default function AccessPendingPage() {
+  const router = useRouter();
   const addressReason = useSyncExternalStore(noSubscription, reasonFromAddress, noReason);
   const [checkedReason, setReason] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -30,7 +32,9 @@ export default function AccessPendingPage() {
     try {
       const user = await completeClerkSignIn();
       if (user) {
-        window.location.assign(landingForRole(user.role));
+        // A client-side navigation, not a full reload: the token is already set, so the next page can paint
+        // straight away instead of flashing a blank tab while the whole app re-downloads and re-initializes.
+        router.push(landingForRole(user.role));
         return;
       }
       const code = sessionRejection();
@@ -44,24 +48,19 @@ export default function AccessPendingPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-      <div className="card w-full max-w-md space-y-4">
-        <div className="flex items-center gap-3">
-          <BrandMark />
-          <p className="text-sm font-semibold text-slate-800">{BRAND.system}</p>
+    <main className="flex min-h-screen items-center justify-center bg-page px-4 py-10">
+      <div className="card w-full max-w-md space-y-5 p-8">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-maroon-800">{BRAND.system} &middot; {BRAND.campus}</p>
+          <h1 className="mt-1 text-2xl">{copy.title}</h1>
         </div>
-        <h1 className="title-section">{copy.title}</h1>
         <p className="text-sm text-slate-700">{copy.body}</p>
         <ErrorBanner message={error} onDismiss={() => setError(null)} />
         <div className="flex flex-wrap gap-2">
           {copy.canRetry ? (
-            <button type="button" className="btn-primary" onClick={checkAgain} disabled={busy}>
-              {busy ? 'Checking…' : 'Check again'}
-            </button>
+            <Button onClick={checkAgain} loading={busy} loadingLabel="Checking…">Check again</Button>
           ) : null}
-          <button type="button" className="btn-secondary" onClick={() => signOut()} disabled={busy}>
-            Sign out
-          </button>
+          <Button variant="secondary" onClick={() => signOut()} disabled={busy}>Sign out</Button>
         </div>
       </div>
     </main>

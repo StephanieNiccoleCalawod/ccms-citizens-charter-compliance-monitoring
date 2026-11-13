@@ -181,7 +181,7 @@ export default function RequestForecastSection({ user }) {
         {isSuperAdmin && (
           <button
             type="button"
-            className="ml-auto rounded-lg border border-slate-200 bg-transparent px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="btn-secondary btn-sm ml-auto"
             onClick={() => setConfirmRetrain(true)}
             disabled={retraining || loading}
           >

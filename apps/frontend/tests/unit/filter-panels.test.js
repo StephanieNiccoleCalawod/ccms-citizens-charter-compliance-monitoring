@@ -40,10 +40,10 @@ describe('every admin filter panel works the same way (source checks, not a brow
     assert.ok(offices.includes("{search.trim() || status !== 'active' ? ("));
     assert.ok(offices.includes("setSearch('');\n                setStatus('active');"));
     const accounts = read('src/app/accounts/page.js');
-    // CC046 added the Position filter to Accounts, so the condition and the reset include it.
-    assert.ok(accounts.includes("{filters.q.trim() || filters.position.trim() || filters.role || filters.office_id || filters.status !== 'active' ? ("));
-    assert.ok(accounts.includes("setFilters({ ...NO_FILTERS });\n                setAppliedQuery('');\n                setAppliedPosition('');\n                setPage(1);"));
-    assert.ok(accounts.includes("const NO_FILTERS = { q: '', role: '', office_id: '', status: 'active', position: '' };"));
+    // CC046's position search was folded into the one Search box (the service already matches q against the position too).
+    assert.ok(accounts.includes("{filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active' ? ("));
+    assert.ok(accounts.includes("setFilters({ ...NO_FILTERS });\n                setAppliedQuery('');\n                setPage(1);"));
+    assert.ok(accounts.includes("const NO_FILTERS = { q: '', role: '', office_id: '', status: 'active' };"));
     const services = read('src/app/services/page.js');
     assert.ok(services.includes("applied.search.trim() || applied.office_id || applied.classification || applied.status !== 'active'"));
     assert.ok(services.includes("applyFilters({ search: '', office_id: '', classification: '', status: 'active' })"));
@@ -56,7 +56,7 @@ describe('every admin filter panel works the same way (source checks, not a brow
 
   it('a filter change goes back to page 1', () => {
     assert.ok(read('src/app/services/page.js').includes('setPage(1);'));
-    assert.ok(read('src/app/accounts/page.js').includes("if (key !== 'q' && key !== 'position') setPage(1);"), 'the two typed filters restart at page 1 after their own pause');
+    assert.ok(read('src/app/accounts/page.js').includes("if (key !== 'q') setPage(1);"), 'the search box restarts at page 1 after its own pause');
     assert.ok(read('src/app/transactions/page.js').includes('run(next, 1, pageSize)'));
     assert.ok(read('src/app/logs/page.js').includes('// A new search or date range always starts again at page 1.'));
   });

@@ -1,4 +1,4 @@
-import TableShell, { Table, Th } from '../ui/TableShell.js';
+import TableShell, { GroupRow, RowHeader, Table, Th } from '../ui/TableShell.js';
 import { accessLabel, groupRows, hasAccess } from '../../lib/ui/account.js';
 
 /**
@@ -23,16 +23,10 @@ export default function RolesMatrix({ matrix, switchOn }) {
         }
       >
         {groupRows(matrix.rows).flatMap((group) => [
-          <tr key={`g-${group.name}`} className="bg-slate-50">
-            <th scope="colgroup" colSpan={matrix.roles.length + 1} className="td text-xs font-bold uppercase tracking-wide text-slate-500">
-              {group.name}
-            </th>
-          </tr>,
+          <GroupRow key={`g-${group.name}`} colSpan={matrix.roles.length + 1}>{group.name}</GroupRow>,
           ...group.rows.map((row) => (
             <tr key={row.key} className="tr-row">
-              <th scope="row" className="td text-left text-sm font-medium text-slate-800">
-                {row.label}
-              </th>
+              <RowHeader className="whitespace-normal text-sm">{row.label}</RowHeader>
               {matrix.roles.map((r) => (
                 <td key={r.role} className={`td text-sm font-semibold ${tone(row.cells[r.role])}`}>
                   {cellText(row.cells[r.role])}

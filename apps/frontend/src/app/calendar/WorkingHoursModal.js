@@ -26,6 +26,7 @@ import {
   togglePill,
 } from '../../lib/ui/working-hours.js';
 import ScheduleDayRow, { TimeField } from './ScheduleDayRow.js';
+import Button from '../../components/ui/Button.js';
 
 
 /**
@@ -172,10 +173,10 @@ export default function WorkingHoursModal({ scopes, initialScope, onClose, onSav
         widthClass="max-w-2xl"
         footer={
           <>
-            <button type="button" className="btn-secondary bg-transparent" onClick={onClose} disabled={saving}>Cancel</button>
-            <button type="submit" form="working-hours-form" className="inline-flex items-center justify-center rounded-lg bg-green-700 px-6 py-2.5 text-sm font-bold text-white hover:bg-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-700/40 disabled:cursor-not-allowed disabled:opacity-60" disabled={locked || !anyWorking} aria-busy={saving || undefined}>
-              {saving ? 'Saving…' : 'Save & publish'}
-            </button>
+            <Button variant="secondary" size="lg" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button type="submit" form="working-hours-form" variant="success" size="lg" disabled={locked || !anyWorking} loading={saving} loadingLabel="Saving…">
+              Save & publish
+            </Button>
           </>
         }
       >
@@ -248,7 +249,7 @@ export default function WorkingHoursModal({ scopes, initialScope, onClose, onSav
                   ) : null}
                 </>
               ) : (
-                <ul className="divide-y divide-[#EAE3D9] rounded-lg border border-slate-200 px-4" data-testid="schedule-editor">
+                <ul className="divide-y divide-line rounded-lg border border-slate-200 px-4" data-testid="schedule-editor">
                   {inWeekOrder(rows).filter((r) => r.is_working).map((row) => (
                     <ScheduleDayRow key={row.day_of_week} row={row} errors={errors} disabled={locked} showLunch={!isCampus} onChange={changeRow} />
                   ))}

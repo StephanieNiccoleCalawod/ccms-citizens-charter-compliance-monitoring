@@ -10,9 +10,11 @@ const ITEM_CLASS =
   'flex h-10 w-full items-center px-4 text-left text-sm hover:bg-slate-50 focus:bg-slate-50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50';
 
 /**
- * Horizontal three-dot (⋯) menu for table rows, shared by every CCMS table.
- * items: [{ label, onSelect?, href?, danger?, disabled? }] - an item with `href` renders as a link
- * (for example View), any other item renders as a button that calls `onSelect`.
+ * Horizontal three-dot (⋯) menu for table rows, shared by every CCMS table (and, with `vertical`, the kebab
+ * menu on a page header, e.g. the Registry page's "History").
+ * items: [{ label, onSelect?, href?, icon?, danger?, disabled? }] - an item with `href` renders as a link
+ * (for example View), any other item renders as a button that calls `onSelect`. `icon` is an optional small
+ * decorative glyph (an inline SVG) shown before the label.
  * The menu is positioned with `fixed` so the table's overflow clipping never cuts it off.
  * Callers decide which items a user may see; pass an empty list to render nothing.
  * `vertical` draws the dots top to bottom.
@@ -135,10 +137,16 @@ export default function RowActionMenu({ items, label = 'Row actions', vertical =
         >
           {items.map((item) => {
             const tone = item.danger ? 'text-red-700' : 'text-slate-700';
+            const content = (
+              <>
+                {item.icon ? <span aria-hidden="true" className="mr-2.5 inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-500">{item.icon}</span> : null}
+                {item.label}
+              </>
+            );
             if (item.href) {
               return (
                 <Link key={item.label} role="menuitem" href={item.href} onClick={() => close()} className={`${ITEM_CLASS} ${tone}`}>
-                  {item.label}
+                  {content}
                 </Link>
               );
             }
@@ -156,7 +164,7 @@ export default function RowActionMenu({ items, label = 'Row actions', vertical =
                 }}
                 className={`${ITEM_CLASS} ${tone}`}
               >
-                {item.label}
+                {content}
               </button>
             );
           })}

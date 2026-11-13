@@ -42,9 +42,9 @@ export default function Terms() {
   return (
     <div className="space-y-4">
       <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: null }))} />
-      <div role="note" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-l-4 border-[#EAE3D9] border-l-gold-500 bg-white px-5 py-4">
+      <div role="note" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-l-4 border-line border-l-gold-500 bg-white px-5 py-4">
         <p className="flex items-start gap-3 text-sm text-slate-800">
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="mt-0.5 h-5 w-5 shrink-0 text-[#7A5C00]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="mt-0.5 h-5 w-5 shrink-0 text-tag-text" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="9" />
             <path d="M12 11v5M12 8h.01" />
           </svg>

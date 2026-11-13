@@ -32,7 +32,7 @@ function ForecastTooltip({ active, payload, label }) {
   const lower    = find('lower');
   const upper    = find('upper');
   return (
-    <div className="rounded-lg border border-[#EAE3D9] bg-white px-3 py-2 text-sm shadow-md">
+    <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm shadow-md">
       <p className="text-xs font-semibold text-slate-500">{label}</p>
       {actual   != null && <p className="mt-1 text-slate-900"><span className="font-bold">{actual}</span> <span className="text-xs text-slate-500">requests (actual)</span></p>}
       {forecast != null && (

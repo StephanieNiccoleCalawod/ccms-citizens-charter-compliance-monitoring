@@ -393,9 +393,9 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
           {/* CC044: the registry check made at Start. The private note is shown only here, to staff who may open the transaction. */}
           {!readOnly && tx.registry_status && tx.registry_status !== 'NONE' ? (
             <Item label="Registry" testId="registry">
-              <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${tx.registry_status === 'MATCHED' ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'}`} data-testid="registry-badge">
+              <StatusBadge variant={tx.registry_status === 'MATCHED' ? 'success' : 'warning'} data-testid="registry-badge">
                 {REGISTRY_STATUS_LABELS[tx.registry_status] ?? tx.registry_status}
-              </span>
+              </StatusBadge>
               {tx.registry_student_number ? <span className="block font-mono text-xs text-slate-700">{tx.registry_student_number}</span> : null}
               {tx.registry_miss_reason ? <span className="block text-xs text-slate-600">{registryReasonLabel(tx.registry_miss_reason)}</span> : null}
               {tx.registry_miss_note ? <span className="block whitespace-pre-line text-xs text-slate-600" data-testid="registry-note">{tx.registry_miss_note}</span> : null}
@@ -480,7 +480,7 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
           <div className="flex flex-wrap gap-4">
             {OUTCOMES.map((value) => (
               <label key={value} className="flex items-center gap-2 text-sm text-slate-800">
-                <input type="radio" name="complete-outcome" id={`complete-outcome-${value.toLowerCase()}`} value={value} className="h-4 w-4 accent-[#800000]" checked={outcomeChoice.outcome === value} disabled={busy === 'complete'} onChange={() => pickOutcome(value)} aria-invalid={outcomeFieldErrors.outcome ? true : undefined} data-testid={`outcome-${value.toLowerCase()}`} />
+                <input type="radio" name="complete-outcome" id={`complete-outcome-${value.toLowerCase()}`} value={value} className="h-4 w-4 accent-pup-maroon" checked={outcomeChoice.outcome === value} disabled={busy === 'complete'} onChange={() => pickOutcome(value)} aria-invalid={outcomeFieldErrors.outcome ? true : undefined} data-testid={`outcome-${value.toLowerCase()}`} />
                 {OUTCOME_LABELS[value]}
               </label>
             ))}
@@ -496,7 +496,7 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
               </div>
               <div>
                 <label className="flex items-center gap-2 text-sm text-slate-800">
-                  <input id="complete-disapproval-notice" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-[#800000]" checked={outcomeChoice.notice} disabled={busy === 'complete'} onChange={(e) => { const notice = e.target.checked; setOutcomeChoice((c) => ({ ...c, notice })); setOutcomeFieldErrors((x) => ({ ...x, disapproval_notice_given: undefined })); }} aria-invalid={noticeError ? true : undefined} aria-describedby={noticeError ? 'complete-disapproval-notice-error' : undefined} />
+                  <input id="complete-disapproval-notice" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={outcomeChoice.notice} disabled={busy === 'complete'} onChange={(e) => { const notice = e.target.checked; setOutcomeChoice((c) => ({ ...c, notice })); setOutcomeFieldErrors((x) => ({ ...x, disapproval_notice_given: undefined })); }} aria-invalid={noticeError ? true : undefined} aria-describedby={noticeError ? 'complete-disapproval-notice-error' : undefined} />
                   {NOTICE_LABEL}
                 </label>
                 {noticeError ? <p id="complete-disapproval-notice-error" className="mt-1 text-xs text-red-700">{noticeError}</p> : null}
@@ -506,7 +506,7 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
         </fieldset>
         <div className="mt-4 space-y-3">
           <label className="flex items-center gap-2 text-sm text-slate-800">
-            <input id="complete-manual-end" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-[#800000]" checked={manualEnd.enabled} disabled={busy === 'complete'} onChange={(e) => { setManualEnd({ ...EMPTY_MANUAL_END, enabled: e.target.checked }); setManualErrors({}); }} />
+            <input id="complete-manual-end" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={manualEnd.enabled} disabled={busy === 'complete'} onChange={(e) => { setManualEnd({ ...EMPTY_MANUAL_END, enabled: e.target.checked }); setManualErrors({}); }} />
             Enter end time manually
           </label>
           {manualEnd.enabled ? (

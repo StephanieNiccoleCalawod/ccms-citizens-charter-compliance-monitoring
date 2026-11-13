@@ -7,6 +7,7 @@ import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import AccountDetails from '../../components/account/AccountDetails.js';
 import ChangePasswordForm from '../../components/account/ChangePasswordForm.js';
 import WhatICanDo from '../../components/account/WhatICanDo.js';
+import LoadingState from '../../components/ui/LoadingState.js';
 import { getMe, getOfficeName } from '../../lib/api/account.js';
 
 function MyAccount() {
@@ -32,22 +33,21 @@ function MyAccount() {
   }, []);
 
   if (error) return <ErrorBanner message={error} />;
-  if (!me) return <p className="text-sm text-slate-500">Loading your account…</p>;
+  if (!me) return <LoadingState>Loading your account…</LoadingState>;
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <section className="card p-6 lg:col-span-2" aria-labelledby="acct-details">
-        <h2 id="acct-details" className="mb-4 text-lg">Account details</h2>
+    <div className="space-y-6">
+      <section className="card p-6" aria-label="Account profile">
         <AccountDetails account={me.account} officeName={officeName} />
-        <p className="mt-4 text-xs text-slate-500">To change your name, email, role or office, ask your Super Admin.</p>
       </section>
-      <section className="card p-6" aria-labelledby="acct-password">
-        <h2 id="acct-password" className="mb-4 text-lg">Change password</h2>
-        <ChangePasswordForm />
-      </section>
-      <section className="card p-6" aria-labelledby="acct-can-do">
-        <h2 id="acct-can-do" className="mb-4 text-lg">What I can do</h2>
-        <WhatICanDo items={me.what_i_can_do} />
-      </section>
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        <section className="card p-6" aria-labelledby="acct-password">
+          <h2 id="acct-password" className="mb-4 title-card">Change password</h2>
+          <ChangePasswordForm />
+        </section>
+        <section className="card p-6" aria-label="What I can do">
+          <WhatICanDo items={me.what_i_can_do} />
+        </section>
+      </div>
     </div>
   );
 }

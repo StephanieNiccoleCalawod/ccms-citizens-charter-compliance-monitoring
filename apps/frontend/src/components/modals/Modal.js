@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { register } from '../../lib/ui/dirty-registry.js';
+import IconButton from '../ui/IconButton.js';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -163,26 +164,21 @@ export default function Modal({
         className={`relative flex w-full ${widthClass} card flex-col overflow-hidden focus:outline-none ${fullScreenOnMobile ? 'h-full max-h-full rounded-none sm:h-auto sm:max-h-[90vh] sm:rounded-xl' : 'max-h-[90vh]'}`}
       >
         {hideHeader ? <h2 id={titleId} className="sr-only">{title}</h2> : (
-        <div className={'flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-6 py-4'}>
-          <h2 id={titleId} className="text-xl">
+        <div className={'flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-6'}>
+          <h2 id={titleId} className="title-section">
             {title}
           </h2>
           {showClose && onClose ? (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="-mr-2 -mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500"
-            >
+            <IconButton onClick={onClose} aria-label="Close" className="-mr-2 -mt-1">
               <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 <path d="m5 5 10 10M15 5 5 15" />
               </svg>
-            </button>
+            </IconButton>
           ) : null}
         </div>
         )}
-        <div className={flushBody ? 'flex min-h-0 flex-1 flex-col' : 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5'}>{children}</div>
-        {footer ? <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-6 py-4">{footer}</div> : null}
+        <div className={flushBody ? 'flex min-h-0 flex-1 flex-col' : 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 sm:px-6'}>{children}</div>
+        {footer ? <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-200 px-4 py-4 sm:px-6">{footer}</div> : null}
       </div>
     </div>
   );

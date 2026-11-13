@@ -4,7 +4,7 @@ import { seededHistoryDisclosure } from '../../lib/ui/seeded-history.js';
 export default function AboutAnalyticsPanel({ sample }) {
   const disclosure = seededHistoryDisclosure();
   return (
-    <details className="rounded-xl border border-[#EAE3D9] bg-[#FBF8F3] px-4 py-3 text-sm text-slate-700" data-testid="insights-about">
+    <details className="rounded-xl border border-line bg-surface-muted px-4 py-3 text-sm text-slate-700" data-testid="insights-about">
       <summary className="cursor-pointer font-semibold text-slate-800">About these analytics</summary>
       <dl className="mt-3 space-y-2">
         <div><dt className="inline font-semibold text-slate-900">Compliance: </dt><dd className="inline">the share of transactions finished within their charter deadline in a period. Higher is better.</dd></div>

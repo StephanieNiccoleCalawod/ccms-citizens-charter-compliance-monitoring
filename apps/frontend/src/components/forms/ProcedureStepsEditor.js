@@ -85,7 +85,7 @@ export default function ProcedureStepsEditor({ id, steps, onChange, describedBy 
           );
         })}
       </ol>
-      <button type="button" className="btn-secondary px-3 py-1.5" data-what="add" onClick={add}>
+      <button type="button" className="btn-secondary btn-sm" data-what="add" onClick={add}>
         + Add step
       </button>
     </div>

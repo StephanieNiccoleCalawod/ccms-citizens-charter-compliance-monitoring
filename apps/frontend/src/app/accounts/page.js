@@ -12,8 +12,10 @@ import SearchInput from '../../components/forms/SearchInput.js';
 import ClearFiltersButton from '../../components/forms/ClearFiltersButton.js';
 import { RequiredMark } from '../../components/forms/Field.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ROLES, ROLE_LABELS, ROLE_LIST, isOfficeBound } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
+import ClerkAccessPanel from '../../components/account/ClerkAccessPanel.js';
 import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import Modal from '../../components/modals/Modal.js';
@@ -21,23 +23,26 @@ import RowActionMenu from '../../components/ui/RowActionMenu.js';
 import StatusBadge from '../../components/ui/StatusBadge.js';
 import RoleBadge from '../../components/ui/RoleBadge.js';
 import TableState from '../../components/ui/TableState.js';
+import Tabs, { tabPanelProps } from '../../components/ui/Tabs.js';
 import Pager from '../../components/navigation/Pager.js';
 import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
 import { ACCOUNTS_API } from '../../lib/api/identity.js';
 import { OFFICES_API } from '../../lib/api/catalogue.js';
 import { apiFetch } from '../../lib/auth/session.js';
+import { clerkEnabled } from '../../lib/auth/provider.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
 import { POSITION_MAX, accountBody, accountToForm, accountsParams, positionCounter, positionError, positionLabel } from '../../lib/ui/account-position.js';
 import { FieldError } from '../../components/forms/Field.js';
 
+const ACCOUNTS_TABS = [{ id: 'accounts', label: 'Accounts' }, { id: 'clerk', label: 'Clerk Sign-in Access' }];
+
 const DEFAULT_PAGE_SIZE = 10;
 const EMPTY_FORM = { employee_no: '', full_name: '', email: '', role: ROLES.OFFICE_STAFF, office_id: '', position: '', password: '' };
-const NO_FILTERS = { q: '', role: '', office_id: '', status: 'active', position: '' };
+const NO_FILTERS = { q: '', role: '', office_id: '', status: 'active' };
 
 function AccountsManager() {
   const [filters, setFilters] = useState({ ...NO_FILTERS });
   const [appliedQuery, setAppliedQuery] = useState('');
-  const [appliedPosition, setAppliedPosition] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [list, setList] = useState({ loading: true, items: [], total: 0, error: null });
@@ -85,15 +90,6 @@ function AccountsManager() {
     return () => clearTimeout(timer);
   }, [filters.q]);
 
-  // The position filter waits for a pause in typing too; the service does the matching (any letter case, part of a title).
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAppliedPosition(filters.position);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [filters.position]);
-
   // Depend on the individual filter values, not the whole `filters` object: that object is replaced on
   // every keystroke in the search box, which would re-run the request before the debounce above fires.
   const { role, office_id, status } = filters;
@@ -107,7 +103,7 @@ function AccountsManager() {
     try {
       // The service returns accounts A to Z in pages, so all pages of this search are read and ordered newest first here.
       const all = await fetchEveryPage(apiFetch, (pageNo, size) => {
-        return `${ACCOUNTS_API}?${accountsParams({ page: pageNo, pageSize: size, q: appliedQuery, role, office_id, status, position: appliedPosition })}`;
+        return `${ACCOUNTS_API}?${accountsParams({ page: pageNo, pageSize: size, q: appliedQuery, role, office_id, status })}`;
       });
       if (request !== latestRequest.current) return;
       const items = sortNewestFirst(all);
@@ -116,7 +112,7 @@ function AccountsManager() {
       if (request !== latestRequest.current) return;
       setList((current) => ({ ...current, loading: false, error: err.message }));
     }
-  }, [appliedQuery, appliedPosition, role, office_id, status]);
+  }, [appliedQuery, role, office_id, status]);
 
   useEffect(() => {
     load();
@@ -138,7 +134,7 @@ function AccountsManager() {
 
   function setFilter(key, value) {
     setFilters((current) => ({ ...current, [key]: value }));
-    if (key !== 'q' && key !== 'position') setPage(1);
+    if (key !== 'q') setPage(1);
   }
 
   function openForm(account) {
@@ -235,13 +231,9 @@ function AccountsManager() {
 
       <div className="card p-5 sm:p-6">
         <div className="flex flex-wrap items-end gap-x-5 gap-y-4">
-          <div className="w-full sm:w-64">
-            <label className="label" htmlFor="account-search">Search name</label>
+          <div className="w-full sm:w-72">
+            <label className="label" htmlFor="account-search">Search</label>
             <SearchInput id="account-search" value={filters.q} onChange={(e) => setFilter('q', e.target.value)} />
-          </div>
-          <div className="w-full sm:w-56">
-            <label className="label" htmlFor="filter-position">Position</label>
-            <SearchInput id="filter-position" value={filters.position} onChange={(e) => setFilter('position', e.target.value)} />
           </div>
           <div className="w-full sm:w-44">
             <label className="label" htmlFor="filter-role">Role</label>
@@ -269,13 +261,12 @@ function AccountsManager() {
               <option value="inactive">Inactive</option>
             </select>
           </div>
-          {filters.q.trim() || filters.position.trim() || filters.role || filters.office_id || filters.status !== 'active' ? (
+          {filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active' ? (
             <ClearFiltersButton
               className="w-full sm:w-auto"
               onClick={() => {
                 setFilters({ ...NO_FILTERS });
                 setAppliedQuery('');
-                setAppliedPosition('');
                 setPage(1);
               }}
             />
@@ -446,10 +437,53 @@ function AccountsManager() {
   );
 }
 
+// The Clerk Sign-in Access tab only exists while Clerk sign-in is switched on; Accounts looks and behaves exactly as
+// before (no tab bar at all) when it is off. A visit with ?tab=clerk while Clerk is off falls back to the Accounts tab
+// rather than showing an empty or broken one. Once the Clerk tab has been opened, it stays mounted (just hidden) so
+// switching back to it does not refetch or lose what was on screen.
+function AccountsTabs() {
+  // All hooks run on every render, in the same order, whether or not Clerk is on: clerkEnabled() comes from build-time
+  // env vars, so it cannot change between renders, but the early return below (for the "Clerk is off" case) must still
+  // come after every hook call.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const clerkOn = clerkEnabled();
+  const tab = clerkOn && searchParams.get('tab') === 'clerk' ? 'clerk' : 'accounts';
+  // True once the Clerk tab has been opened, and stays true: it then stays mounted (just hidden) so switching back
+  // to it never refetches. The initial value covers arriving straight on ?tab=clerk; changeTab (an event handler,
+  // called for every click or keyboard switch, per Tabs.js) covers switching to it after the page has loaded.
+  const [clerkVisited, setClerkVisited] = useState(tab === 'clerk');
+
+  function changeTab(id) {
+    if (id === 'clerk') setClerkVisited(true);
+    const params = new URLSearchParams(searchParams);
+    if (id === 'clerk') params.set('tab', 'clerk');
+    else params.delete('tab');
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
+
+  // No Clerk sign-in, no tab to switch to: the page looks and behaves exactly as it did before this tab existed.
+  if (!clerkOn) return <AccountsManager />;
+
+  return (
+    <div className="space-y-4">
+      <Tabs label="Accounts sections" idPrefix="accounts" tabs={ACCOUNTS_TABS} value={tab} onChange={changeTab} />
+      <div {...tabPanelProps('accounts', 'accounts')} hidden={tab !== 'accounts'}>
+        <AccountsManager />
+      </div>
+      <div {...tabPanelProps('accounts', 'clerk')} hidden={tab !== 'clerk'}>
+        {clerkVisited ? <ClerkAccessPanel /> : null}
+      </div>
+    </div>
+  );
+}
+
 export default function AccountsPage() {
   return (
     <AppShell title="Accounts" subtitle="Create CCCMS accounts and control who can sign in." allowedRoles={[ROLES.SUPER_ADMIN]}>
-      <AccountsManager />
+      <AccountsTabs />
     </AppShell>
   );
 }

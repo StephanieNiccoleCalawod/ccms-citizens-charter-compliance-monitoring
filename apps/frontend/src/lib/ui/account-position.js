@@ -51,14 +51,17 @@ export function accountBody(form, { officeBound }) {
   };
 }
 
-/** The query for one page of the accounts list. Only filters that have a value are sent; the service matches position in any letter case. */
-export function accountsParams({ page, pageSize, q, role, office_id, status, position }) {
+/**
+ * The query for one page of the accounts list. Only filters that have a value are sent. `q` is the one search box: the
+ * service matches it (any letter case, any part) against the name, email, employee number AND position in one search,
+ * so the screen needs no separate position field.
+ */
+export function accountsParams({ page, pageSize, q, role, office_id, status }) {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
   if (normalizePosition(q)) params.set('q', normalizePosition(q));
   if (role) params.set('role', role);
   if (office_id) params.set('office_id', office_id);
   if (status) params.set('status', status);
-  if (normalizePosition(position)) params.set('position', normalizePosition(position));
   return params;
 }
 

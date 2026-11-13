@@ -287,7 +287,7 @@ function AuditLog() {
                           {ROLE_LABELS[event.actor_role] ? <span className="mt-1 block"><RoleBadge role={event.actor_role} /></span> : roleLabel ? <span className="block text-slate-500">{roleLabel}</span> : null}
                         </td>
                         <td className="td">
-                          <span className="inline-flex max-w-full items-center rounded-full border border-[#F0DDB0] bg-[#FBEFCF] px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-[#5C3B00]">{event.action || '-'}</span>
+                          <span className="badge-tag max-w-full text-[11px] tracking-wide">{event.action || '-'}</span>
                         </td>
                         <td className="td">
                           {subject ? (
@@ -350,11 +350,11 @@ function AuditLog() {
                               </div>
                             </dl>
                             <div className="grid gap-4 md:grid-cols-2">
-                              <section aria-label="Before" className="rounded-lg border border-[#E7DFD7] bg-white p-4">
+                              <section aria-label="Before" className="rounded-lg border border-line bg-white p-4">
                                 <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-stone-500">Before</h3>
                                 <AuditValue node={auditValueTree(event.before_value)} />
                               </section>
-                              <section aria-label="After" className="rounded-lg border border-[#E7DFD7] bg-white p-4">
+                              <section aria-label="After" className="rounded-lg border border-line bg-white p-4">
                                 <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-stone-500">After</h3>
                                 <AuditValue node={auditValueTree(event.after_value)} />
                               </section>

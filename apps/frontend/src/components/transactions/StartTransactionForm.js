@@ -533,7 +533,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
 
       <Section flat={embedded} title="Late entry" id="past-heading">
         <label className="flex items-start gap-3 text-sm text-slate-800">
-          <input id="start-past" type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-[#800000]" checked={past.enabled} onChange={(e) => togglePast(e.target.checked)} />
+          <input id="start-past" type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={past.enabled} onChange={(e) => togglePast(e.target.checked)} />
           <span>
             This was already done. I am recording it now.
             <span className="block text-xs text-slate-500">Enter the real start and end time. A reason is required, and this transaction will be marked as a late entry in the records. Times are Philippine time. The service standard that was in effect on the start date is used automatically.</span>
@@ -549,7 +549,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
               </div>
               <div>
                 <label className="flex items-center gap-2 pt-6 text-sm text-slate-800">
-                  <input id="start-manual-end" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-[#800000]" checked={past.manual_end} onChange={(e) => setPast((p) => ({ ...p, manual_end: e.target.checked, ended_at: e.target.checked ? p.ended_at : '' }))} />
+                  <input id="start-manual-end" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={past.manual_end} onChange={(e) => setPast((p) => ({ ...p, manual_end: e.target.checked, ended_at: e.target.checked ? p.ended_at : '' }))} />
                   Enter end time manually
                 </label>
               </div>
@@ -685,7 +685,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
                     <label className="flex items-start gap-3 text-sm text-slate-800">
                       <input
                         type="checkbox"
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-[#800000]"
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon"
                         checked={checks[item.id] === true}
                         onChange={(e) => {
                           setChecks((c) => ({ ...c, [item.id]: e.target.checked }));

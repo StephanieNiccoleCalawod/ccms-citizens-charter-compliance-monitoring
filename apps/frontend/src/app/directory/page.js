@@ -14,7 +14,7 @@ function Directory() {
 
 export default function DirectoryPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-slate-500" aria-busy="true">Loading services…</div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-page text-sm text-slate-500" aria-busy="true">Loading services…</div>}>
       <Directory />
     </Suspense>
   );

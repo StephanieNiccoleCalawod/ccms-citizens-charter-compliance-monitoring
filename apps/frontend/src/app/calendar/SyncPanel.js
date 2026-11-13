@@ -89,7 +89,7 @@ export default function SyncPanel({ refreshKey }) {
           </h2>
           <p className="mt-1 text-sm text-slate-500">These are separate systems. CCCMS sends them the campus calendar.</p>
         </div>
-        <button type="button" className="btn-secondary bg-transparent px-4 py-1.5" onClick={load}>
+        <button type="button" className="btn-secondary btn-sm" onClick={load}>
           Refresh
         </button>
       </div>

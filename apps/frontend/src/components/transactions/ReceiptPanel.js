@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
-import DateHint from '../forms/DateHint.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import { notify } from '../../lib/ui/notify.js';
 import { todayManila } from '../../lib/api/calendar.js';
@@ -142,8 +141,7 @@ export default function ReceiptPanel({ transactionId }) {
             </div>
             <div>
               <label className="label" htmlFor="receipt-receipt_date">Receipt date</label>
-              <input id="receipt-receipt_date" type="date" className="input" max={todayManila()} value={form.receipt_date} onChange={(e) => setForm((f) => ({ ...f, receipt_date: e.target.value }))} aria-invalid={errors.receipt_date ? true : undefined} aria-describedby={errors.receipt_date ? 'receipt-date-hint receipt-receipt_date-error' : 'receipt-date-hint'} />
-              <DateHint id="receipt-date-hint" />
+              <input id="receipt-receipt_date" type="date" className="input" max={todayManila()} value={form.receipt_date} onChange={(e) => setForm((f) => ({ ...f, receipt_date: e.target.value }))} aria-invalid={errors.receipt_date ? true : undefined} aria-describedby={errors.receipt_date ? 'receipt-receipt_date-error' : undefined} />
               {fieldError('receipt_date')}
             </div>
           </div>

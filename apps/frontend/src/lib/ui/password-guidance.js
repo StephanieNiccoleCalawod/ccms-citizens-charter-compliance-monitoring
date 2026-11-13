@@ -9,9 +9,26 @@ export const PASSWORD_MAX = 200;
 export const PASSWORD_REQUIREMENTS = [
   'Use at least 16 characters if you can.',
   'A passphrase of 4–7 unrelated words is easy to remember and hard to guess.',
-  'Uppercase and lowercase letters, numbers and symbols are all allowed, and none is required.',
+  'Letters, numbers and symbols are all allowed, and none is required.',
   'The absolute minimum is 8 characters.',
 ];
+
+/**
+ * The strength bar's segments for a password's current `passwordStatus().level`: how many of 4 bars are filled, and
+ * their colour. Purely a visual summary of the same levels passwordStatus already reports; it adds no new rule.
+ */
+export function passwordStrengthMeter(level) {
+  switch (level) {
+    case 'error':
+      return { filled: 1, tone: 'bg-red-500' };
+    case 'ok':
+      return { filled: 2, tone: 'bg-amber-500' };
+    case 'good':
+      return { filled: 4, tone: 'bg-green-600' };
+    default:
+      return { filled: 0, tone: 'bg-slate-200' };
+  }
+}
 
 /**
  * How the typed password stands: { level: 'empty' | 'error' | 'ok' | 'good', message, blocking }.

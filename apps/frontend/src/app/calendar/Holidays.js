@@ -20,6 +20,7 @@ import { suspensionTimes, timeInputValue, unmatchedErrorMessages } from '../../l
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
 import StatusBanner from '../../components/feedback/StatusBanner.js';
 import { FieldError } from '../../components/forms/Field.js';
+import IconButton from '../../components/ui/IconButton.js';
 import {
   REASON_CATEGORIES,
   REASON_NOT_STORED_NOTICE,
@@ -365,7 +366,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
         ) : null}
         {canWrite ? (
           <div className="ml-auto">
-            <button type="button" className="btn-primary bg-maroon-900 px-5 py-2.5" onClick={() => openForm(null)}>
+            <button type="button" className="btn-primary btn-lg" onClick={() => openForm(null)}>
               + Add Holiday
             </button>
           </div>
@@ -507,26 +508,16 @@ export default function Holidays({ canWrite = false, onChanged }) {
               <span className="font-bold">{MONTH_NAMES[month.month - 1]}</span> <span className="font-normal text-slate-500">{month.year}</span>
             </h3>
             <div className="flex gap-2">
-              <button
-                type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                onClick={() => goToMonth(prev)}
-                aria-label="Previous month"
-              >
+              <IconButton variant="outline" className="rounded-full" onClick={() => goToMonth(prev)} label="Previous month">
                 <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path d="M12 4l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </button>
-              <button
-                type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                onClick={() => goToMonth(next)}
-                aria-label="Next month"
-              >
+              </IconButton>
+              <IconButton variant="outline" className="rounded-full" onClick={() => goToMonth(next)} label="Next month">
                 <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path d="M8 4l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </button>
+              </IconButton>
             </div>
           </div>
           <ul className="mt-2 flex flex-wrap gap-4 text-xs text-slate-600">

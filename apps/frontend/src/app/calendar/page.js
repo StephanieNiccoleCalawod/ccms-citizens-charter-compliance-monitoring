@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
+import Tabs, { tabPanelProps } from '../../components/ui/Tabs.js';
 import Holidays from './Holidays.js';
 import SyncPanel from './SyncPanel.js';
 import Terms from './Terms.js';
@@ -22,23 +23,8 @@ function CalendarManager({ user, tab, setTab }) {
 
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="Calendar sections" className="flex flex-wrap gap-2 border-b border-slate-200">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            id={`tab-${t.id}`}
-            aria-selected={tab === t.id}
-            aria-controls={`panel-${t.id}`}
-            onClick={() => setTab(t.id)}
-            className={`-mb-px border-b-4 px-4 py-2 text-sm font-semibold ${tab === t.id ? 'border-gold-500 text-maroon-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+      <Tabs label="Calendar sections" idPrefix="calendar" tabs={TABS} value={tab} onChange={setTab} />
+      <div {...tabPanelProps('calendar', tab)} className="focus:outline-none">
         {tab === 'hours' ? <WorkingHoursScope user={user} canWrite={canWrite} onChanged={changed} /> : null}
         {tab === 'holidays' ? <Holidays canWrite={canWrite} onChanged={changed} /> : null}
         {tab === 'terms' ? <Terms /> : null}

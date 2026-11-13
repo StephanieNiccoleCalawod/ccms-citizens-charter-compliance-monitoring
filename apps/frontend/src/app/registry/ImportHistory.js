@@ -1,9 +1,26 @@
 import StatusBanner from '../../components/feedback/StatusBanner.js';
-import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
-import TableState from '../../components/ui/TableState.js';
+import DataTable from '../../components/ui/DataTable.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 
 const n = (value) => Number(value).toLocaleString('en-PH');
+
+const COLUMNS = [
+  { key: 'at', header: 'Date & time', render: (row) => formatDateTime(row.at) || '-' },
+  { key: 'processed', header: 'Processed', align: 'right', render: (row) => n(row.processed) },
+  { key: 'added', header: 'Added', align: 'right', render: (row) => n(row.added) },
+  { key: 'updated', header: 'Updated', align: 'right', render: (row) => n(row.updated) },
+  { key: 'unchanged', header: 'Unchanged', align: 'right', render: (row) => n(Math.max(0, row.processed - row.added - row.updated)) },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (row) =>
+      row.failed ? (
+        <span className="font-semibold text-red-700">Failed</span>
+      ) : (
+        <span className="font-semibold text-emerald-700">{row.status ? row.status[0] + row.status.slice(1).toLowerCase() : 'Completed'}</span>
+      ),
+  },
+];
 
 /** Previous imports from the service, newest first. A failed import is marked, never shown as done. */
 export default function ImportHistory({ history }) {
@@ -12,44 +29,17 @@ export default function ImportHistory({ history }) {
     <section aria-labelledby="registry-history" className="space-y-4">
       <h2 id="registry-history" className="title-section">Import history</h2>
       {error ? <StatusBanner variant={error.unavailable ? 'warning' : 'error'} message={error.message} /> : null}
-      <TableShell>
-        <Table
-          busy={loading}
-          label="Registry import history"
-          minWidth="40rem"
-          head={
-            <tr>
-              <Th>Date &amp; time</Th>
-              <Th align="right">Processed</Th>
-              <Th align="right">Added</Th>
-              <Th align="right">Updated</Th>
-              <Th align="right">Unchanged</Th>
-              <Th>Status</Th>
-            </tr>
-          }
-        >
-          {loading ? (
-            <TableState colSpan={6} kind="loading">Loading history…</TableState>
-          ) : error ? (
-            <TableState colSpan={6} kind="error">The import history could not be loaded.</TableState>
-          ) : items.length === 0 ? (
-            <TableState colSpan={6}>No imports yet.</TableState>
-          ) : (
-            items.map((row) => (
-              <tr key={row.id} className="tr-row">
-                <td className="td">{formatDateTime(row.at) || '-'}</td>
-                <td className="td text-right">{n(row.processed)}</td>
-                <td className="td text-right">{n(row.added)}</td>
-                <td className="td text-right">{n(row.updated)}</td>
-                <td className="td text-right">{n(Math.max(0, row.processed - row.added - row.updated))}</td>
-                <td className="td">
-                  {row.failed ? <span className="font-semibold text-red-700">Failed</span> : <span className="font-semibold text-emerald-700">{row.status ? row.status[0] + row.status.slice(1).toLowerCase() : 'Completed'}</span>}
-                </td>
-              </tr>
-            ))
-          )}
-        </Table>
-      </TableShell>
+      <DataTable
+        label="Registry import history"
+        columns={COLUMNS}
+        data={items}
+        keyExtractor={(row) => row.id}
+        loading={loading}
+        loadingMessage="Loading history…"
+        error={error ? 'The import history could not be loaded.' : null}
+        emptyMessage="No imports yet."
+        minWidth="40rem"
+      />
     </section>
   );
 }

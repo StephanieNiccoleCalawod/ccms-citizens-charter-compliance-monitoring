@@ -132,7 +132,7 @@ function SettingsManager({ user }) {
         <StatusBanner variant="error">
           <span className="block font-semibold">{banner.message}</span>
           <span className="mt-1 block">Nothing was saved. Load the latest settings to review what changed.</span>
-          <button type="button" className="btn-secondary mt-3 px-3 py-1.5" onClick={reloadLatest} disabled={loading}>
+          <button type="button" className="btn-secondary btn-sm mt-3" onClick={reloadLatest} disabled={loading}>
             {loading ? 'Loading…' : 'Reload latest settings'}
           </button>
         </StatusBanner>

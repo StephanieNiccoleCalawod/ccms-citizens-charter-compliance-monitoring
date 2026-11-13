@@ -7,15 +7,21 @@ import { OFFICES_API } from '../../lib/api/catalogue.js';
 import { acknowledgeComplaint, getComplaintForStaff, listComplaintsForStaff, resolveComplaint } from '../../lib/api/complaint-handling.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 import { notify } from '../../lib/ui/notify.js';
-import { REPLY_MAX, STATUS_FILTERS, STATUS_LABEL, canHandleComplaints, complaintActions, dueText, failureMessage, replyError, seesContact, statusText } from '../../lib/ui/complaint-handling.js';
+import { REPLY_MAX, STATUS_FILTERS, STATUS_LABEL, canHandleComplaints, complaintActions, dueText, failureMessage, replyError, seesContact } from '../../lib/ui/complaint-handling.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
+import { FieldError, RequiredMark } from '../forms/Field.js';
+import FilterBar from '../forms/FilterBar.js';
+import Button from '../ui/Button.js';
 import DataTable from '../ui/DataTable.js';
+import StatusBadge from '../ui/StatusBadge.js';
 
 // Complaints (CC034 / CC035). Super Admin and Office Head acknowledge and resolve (a written reply is required); the Executive and Office
 // Staff read. A complaint that is past its due date and not resolved is shown in red.
 const PAGE_SIZE = 20;
-const Overdue = ({ show }) => (show ? <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-800" data-testid="complaint-overdue">Overdue</span> : null);
+const NO_FILTERS = { officeId: '', status: '', overdue: false };
+const Overdue = ({ show }) => (show ? <StatusBadge variant="overdue" className="ml-2" data-testid="complaint-overdue">Overdue</StatusBadge> : null);
+const Status = ({ status }) => <StatusBadge variant={status}>{STATUS_LABEL[status] ?? status}</StatusBadge>;
 
 function Detail({ complaint, role, onBack, onChanged }) {
   const [busy, setBusy] = useState('');
@@ -40,20 +46,20 @@ function Detail({ complaint, role, onBack, onChanged }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button type="button" className="btn-secondary" onClick={onBack}>Back to complaints</button>
-        <div className="flex gap-2">
-          {actions.acknowledge ? <button type="button" className="btn-primary" disabled={Boolean(busy)} onClick={acknowledge} data-testid="complaint-acknowledge">{busy === 'ack' ? 'Acknowledging…' : 'Acknowledge'}</button> : null}
-          {actions.resolve ? <button type="button" className="btn-primary" disabled={Boolean(busy)} onClick={() => { setProblem(''); setConfirm(true); }} data-testid="complaint-resolve">Resolve with a reply</button> : null}
+        <Button variant="secondary" onClick={onBack}>Back to complaints</Button>
+        <div className="flex flex-wrap gap-2">
+          {actions.acknowledge ? <Button disabled={Boolean(busy)} loading={busy === 'ack'} loadingLabel="Acknowledging…" onClick={acknowledge} data-testid="complaint-acknowledge">Acknowledge</Button> : null}
+          {actions.resolve ? <Button disabled={Boolean(busy)} onClick={() => { setProblem(''); setConfirm(true); }} data-testid="complaint-resolve">Resolve with a reply</Button> : null}
         </div>
       </div>
       <ErrorBanner message={error} onDismiss={() => setError('')} />
-      <article className={`card space-y-3 p-6 ${complaint.overdue ? 'border-red-400' : ''}`} data-testid="complaint-sheet">
+      <article className={`card space-y-4 p-6 ${complaint.overdue ? 'border-red-400' : ''}`} data-testid="complaint-sheet">
         <header className="border-b border-slate-200 pb-3">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Complaint</p>
-          <h2 className="text-lg font-bold text-maroon-950">{complaint.reference}</h2>
+          <h2 className="title-section">{complaint.reference}</h2>
         </header>
-        <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-          <div><dt className="inline font-semibold">Status: </dt><dd className="inline" data-testid="complaint-status">{STATUS_LABEL[complaint.status] ?? complaint.status}</dd><Overdue show={complaint.overdue} /></div>
+        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          <div className="flex flex-wrap items-center gap-1"><dt className="inline font-semibold">Status: </dt><dd className="inline" data-testid="complaint-status"><Status status={complaint.status} /></dd><Overdue show={complaint.overdue} /></div>
           <div><dt className="inline font-semibold">Category: </dt><dd className="inline">{complaint.category_label}</dd></div>
           <div><dt className="inline font-semibold">Filed: </dt><dd className="inline">{formatDateTime(complaint.created_at)}</dd></div>
           <div><dt className="inline font-semibold">Due: </dt><dd className={`inline ${complaint.overdue ? 'font-bold text-red-800' : ''}`}>{dueText(complaint)}</dd></div>
@@ -72,9 +78,9 @@ function Detail({ complaint, role, onBack, onChanged }) {
       </article>
       <ConfirmDialog open={confirm} title="Resolve this complaint" confirmLabel="Resolve" busy={busy === 'resolve'} busyLabel="Resolving…" onConfirm={resolve} onCancel={() => setConfirm(false)}
         message="Write the reply to the complaint. A resolved complaint cannot be reopened.">
-        <label htmlFor="complaint-reply" className="label mt-3">Reply</label>
-        <textarea id="complaint-reply" className="input" rows={5} maxLength={REPLY_MAX} value={reply} onChange={(e) => setReply(e.target.value)} aria-invalid={Boolean(problem)} aria-describedby={problem ? 'complaint-reply-error' : undefined} />
-        {problem ? <p id="complaint-reply-error" className="mt-1 text-xs text-red-700">{problem}</p> : null}
+        <label htmlFor="complaint-reply" className="label mt-3">Reply<RequiredMark /></label>
+        <textarea id="complaint-reply" className="input" rows={5} maxLength={REPLY_MAX} value={reply} onChange={(e) => setReply(e.target.value)} aria-required="true" aria-invalid={Boolean(problem)} aria-describedby={problem ? 'complaint-reply-error' : undefined} />
+        <FieldError id="complaint-reply-error">{problem}</FieldError>
       </ConfirmDialog>
     </div>
   );
@@ -82,7 +88,7 @@ function Detail({ complaint, role, onBack, onChanged }) {
 
 export default function ComplaintsPage({ user }) {
   const [offices, setOffices] = useState([]);
-  const [filters, setFilters] = useState({ officeId: '', status: '', overdue: false });
+  const [filters, setFilters] = useState(NO_FILTERS);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [list, setList] = useState({ items: [], total: 0, loading: true, error: '' });
@@ -118,28 +124,29 @@ export default function ComplaintsPage({ user }) {
     { key: 'category', header: 'Category', render: (c) => c.category_label },
     { key: 'filed', header: 'Filed', render: (c) => formatDateTime(c.created_at) },
     { key: 'due', header: 'Due', render: (c) => <span className={c.overdue ? 'font-bold text-red-800' : ''}>{dueText(c)}</span> },
-    { key: 'status', header: 'Status', render: (c) => <span>{STATUS_LABEL[c.status] ?? c.status}<Overdue show={c.overdue} /></span> },
-    { key: 'open', header: '', align: 'right', render: (c) => <button type="button" className="btn-link" onClick={() => open(c)} disabled={opening}>Open</button> },
+    { key: 'status', header: 'Status', render: (c) => <span className="inline-flex items-center"><Status status={c.status} /><Overdue show={c.overdue} /></span> },
+    { key: 'open', header: <span className="sr-only">Actions</span>, align: 'right', render: (c) => <button type="button" className="row-action" onClick={() => open(c)} disabled={opening} aria-label={`Open complaint ${c.reference}`}>Open</button> },
   ];
+  const filtered = Boolean(filters.officeId || filters.status || filters.overdue);
 
   return (
     <div className="space-y-4">
       <ErrorBanner message={error} onDismiss={() => setError('')} />
-      <div className="flex flex-wrap items-end gap-3" data-testid="complaint-filters">
+      <FilterBar label="Complaint filters" data-testid="complaint-filters" dirty={filtered} onClear={() => { setFilters(NO_FILTERS); setPage(1); }}>
         {!ownOffice ? (
-          <div><label htmlFor="cf-office" className="label">Office</label>
-            <select id="cf-office" className="input" value={filters.officeId} onChange={setFilter('officeId')}>
+          <div className="w-full sm:w-64"><label htmlFor="cf-office" className="label">Office</label>
+            <select id="cf-office" className="input select-chevron" value={filters.officeId} onChange={setFilter('officeId')}>
               <option value="">All offices</option>
               {offices.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
             </select></div>
         ) : null}
-        <div><label htmlFor="cf-status" className="label">Status</label>
-          <select id="cf-status" className="input" value={filters.status} onChange={setFilter('status')}>
+        <div className="w-full sm:w-48"><label htmlFor="cf-status" className="label">Status</label>
+          <select id="cf-status" className="input select-chevron" value={filters.status} onChange={setFilter('status')}>
             {STATUS_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select></div>
-        <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={filters.overdue} onChange={(e) => { setPage(1); setFilters((f) => ({ ...f, overdue: e.target.checked })); }} /> Overdue only</label>
-      </div>
-      <DataTable columns={columns} data={list.items} keyExtractor={(c) => c.complaint_id} loading={list.loading} error={list.error || null}
+        <label className="flex min-h-[38px] items-center gap-2 text-sm text-slate-700"><input type="checkbox" className="h-4 w-4" checked={filters.overdue} onChange={(e) => { setPage(1); setFilters((f) => ({ ...f, overdue: e.target.checked })); }} /> Overdue only</label>
+      </FilterBar>
+      <DataTable label="Complaints" columns={columns} data={list.items} keyExtractor={(c) => c.complaint_id} loading={list.loading} error={list.error || null}
         rowClassName={(c) => (c.overdue ? 'bg-red-50' : '')} emptyMessage="No complaints." minWidth="52rem"
         pagination={{ page, pageSize, total: list.total, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }} />
       {!canHandleComplaints(user.role) ? <p className="text-xs text-slate-500">You can read complaints here. Super Admin and Office Heads acknowledge and resolve them.</p> : null}

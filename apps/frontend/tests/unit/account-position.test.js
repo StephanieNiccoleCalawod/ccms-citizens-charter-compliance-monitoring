@@ -132,29 +132,29 @@ describe('the accounts table', () => {
   });
 });
 
-describe('the Position filter', () => {
-  const base = { page: 1, pageSize: 100, q: '', role: '', office_id: '', status: 'active', position: '' };
+// The Position filter used to be a second search box. The accounts service already matches `q` against the name, email,
+// employee number AND position in one search (any letter case, any part), so the screen now has only the one Search box.
+describe('the one Search box covers position too', () => {
+  const base = { page: 1, pageSize: 100, q: '', role: '', office_id: '', status: 'active' };
 
-  it('sends position to the service (which matches any case, any part of the title), alongside the other filters', () => {
+  it('accountsParams has no separate position parameter; q alone is sent to the service', () => {
     const query = (over) => accountsParams({ ...base, ...over });
-    assert.equal(query({ position: 'aide' }).get('position'), 'aide');
-    assert.equal(query({ position: 'AIDE' }).get('position'), 'AIDE', 'the same search either way: the service ignores case');
-    assert.equal(query({ position: '  aide ' }).get('position'), 'aide');
-    assert.equal(query({ position: '' }).has('position'), false);
-    assert.equal(query({ position: '   ' }).has('position'), false);
-    const all = query({ position: 'aide', q: 'cruz', role: ROLES.OFFICE_STAFF, office_id: 'o-1', status: 'inactive', page: 3, pageSize: 50 });
-    assert.deepEqual(Object.fromEntries(all), { page: '3', page_size: '50', q: 'cruz', role: ROLES.OFFICE_STAFF, office_id: 'o-1', status: 'inactive', position: 'aide' });
-    assert.equal(`${ACCOUNTS_API}?${query({ position: 'aide' })}`.startsWith('/api/identity/accounts?'), true);
+    assert.equal(query({ q: 'aide' }).get('q'), 'aide');
+    assert.equal(query({ q: 'AIDE' }).get('q'), 'AIDE', 'the same search either way: the service ignores case');
+    assert.equal(query({ q: '  aide ' }).get('q'), 'aide');
+    assert.equal(query({ q: '' }).has('q'), false);
+    assert.equal(query({ q: '   ' }).has('q'), false);
+    assert.doesNotMatch(accountsParams.toString(), /position/, 'accountsParams takes no position argument');
+    const all = query({ q: 'aide', role: ROLES.OFFICE_STAFF, office_id: 'o-1', status: 'inactive', page: 3, pageSize: 50 });
+    assert.deepEqual(Object.fromEntries(all), { page: '3', page_size: '50', q: 'aide', role: ROLES.OFFICE_STAFF, office_id: 'o-1', status: 'inactive' });
+    assert.equal(`${ACCOUNTS_API}?${query({ q: 'aide' })}`.startsWith('/api/identity/accounts?'), true);
   });
 
-  it('has its own box, waits for a pause in typing, restarts at page 1, and is cleared with the other filters', () => {
-    assert.match(accounts, /htmlFor="filter-position">Position</);
-    assert.match(accounts, /setFilter\('position', e\.target\.value\)/);
-    assert.match(accounts, /setAppliedPosition\(filters\.position\);\s*setPage\(1\);/);
-    assert.match(accounts, /position: appliedPosition/);
-    assert.match(accounts, /\}, \[appliedQuery, appliedPosition, role, office_id, status\]\);/);
-    assert.match(accounts, /filters\.position\.trim\(\) \|\|/);
-    assert.match(accounts, /setAppliedPosition\(''\)/);
+  it('the page has one Search box (no separate Position field), waits for a pause in typing, and restarts at page 1', () => {
+    assert.doesNotMatch(accounts, /filter-position|appliedPosition|filters\.position/, 'the Position filter box is gone');
+    assert.match(accounts, /htmlFor="account-search">Search</);
+    assert.match(accounts, /setAppliedQuery\(filters\.q\);\s*setPage\(1\);/);
+    assert.match(accounts, /\}, \[appliedQuery, role, office_id, status\]\);/);
   });
 
   it('does not fetch more than the existing flow: one request per page of the search, with the filter applied by the service', () => {

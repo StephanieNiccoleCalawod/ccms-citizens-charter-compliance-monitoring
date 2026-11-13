@@ -29,7 +29,7 @@ const EMPTY_STANDARD = { duration_days: '0', duration_hours: '0', duration_minut
 const EMPTY_DOC = { document_name: '', is_mandatory: true, notes: '' };
 
 const NOT_SET = 'Not set';
-const DETAIL_CARD = 'rounded-2xl border border-[#EAE3D9] bg-white p-6';
+const DETAIL_CARD = 'card p-6';
 const CARD_TITLE = 'font-sans text-xl font-bold text-maroon-900';
 const HEADER_CHIP = 'rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white';
 const GLANCE_LABEL = 'text-xs font-bold uppercase tracking-wider text-slate-500';
@@ -225,10 +225,10 @@ function ServiceDetail({ user, id }) {
     <div className="space-y-6">
       <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: null }))} />
 
-      <header className="rounded-2xl bg-[#3D0606] px-5 py-4 text-white sm:px-6">
+      <header className="rounded-2xl bg-maroon-950 px-5 py-4 text-white sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1 basis-80">
-            <p className="text-xs font-bold uppercase tracking-wider text-[#E5B53A]">
+            <p className="text-xs font-bold uppercase tracking-wider text-gold-400">
               {service.office_name} &middot; {service.office_code}
             </p>
             <h2 className="mt-1 break-words font-sans text-xl font-bold leading-tight text-white sm:text-2xl">{service.service_name}</h2>
@@ -301,7 +301,7 @@ function ServiceDetail({ user, id }) {
                       {step.substeps.length > 0 ? (
                         <ul className="mt-3 space-y-2">
                           {step.substeps.map((sub) => (
-                            <li key={sub.label} className="rounded-xl bg-[#FAF7F2] px-4 py-3 text-sm text-slate-800">
+                            <li key={sub.label} className="rounded-xl bg-surface-muted px-4 py-3 text-sm text-slate-800">
                               <p>
                                 <span className="font-bold text-maroon-800">{sub.label}</span> {sub.text}
                               </p>
@@ -355,12 +355,12 @@ function ServiceDetail({ user, id }) {
                 {documents.map((d) => {
                   const parts = parseDocumentNotes(d.notes);
                   return (
-                    <li key={d.document_id} className="rounded-xl border border-[#EAE3D9] p-4 sm:p-5">
+                    <li key={d.document_id} className="rounded-xl border border-line p-4 sm:p-5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2">
                           <p className="min-w-0 flex-1 basis-60 font-semibold text-slate-900">{d.document_name}</p>
                           {d.is_mandatory ? (
-                            <span className="badge shrink-0 bg-[#FFF4D9] text-[#9A6A00]">Mandatory</span>
+                            <span className="badge-tag shrink-0">Mandatory</span>
                           ) : (
                             <span className="badge-inactive shrink-0">Optional</span>
                           )}
@@ -460,7 +460,7 @@ function ServiceDetail({ user, id }) {
                 {standards.map((s) => {
                   const inForce = current && s.standard_id === current.standard_id;
                   return (
-                    <li key={s.standard_id} className={`rounded-xl border p-4 ${inForce ? 'border-maroon-100 bg-maroon-50' : 'border-[#EAE3D9] bg-white'}`}>
+                    <li key={s.standard_id} className={`rounded-xl border p-4 ${inForce ? 'border-maroon-100 bg-maroon-50' : 'border-line bg-white'}`}>
                       <div className="flex items-start justify-between gap-2">
                         <p className="flex flex-wrap items-center gap-2">
                           <span className="font-bold text-slate-900">v{s.version_no}</span>

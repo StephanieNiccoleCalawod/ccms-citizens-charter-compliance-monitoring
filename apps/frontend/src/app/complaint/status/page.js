@@ -11,7 +11,7 @@ function Status() {
 
 export default function ComplaintStatusPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-slate-500" aria-busy="true">Loading…</div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-page text-sm text-slate-500" aria-busy="true">Loading…</div>}>
       <Status />
     </Suspense>
   );

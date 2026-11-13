@@ -2,6 +2,7 @@
 
 import { useId, useRef } from 'react';
 import Modal from '../modals/Modal.js';
+import Button from '../ui/Button.js';
 
 /**
  * Asks before an action. Focus starts on Cancel (the safe choice), so Enter never confirms by
@@ -35,12 +36,18 @@ export default function ConfirmDialog({
       widthClass="max-w-md"
       footer={
         <>
-          <button ref={cancelRef} type="button" className="btn-secondary" onClick={onCancel} disabled={busy}>
+          <Button ref={cancelRef} variant="secondary" onClick={onCancel} disabled={busy}>
             Cancel
-          </button>
-          <button type="button" className={confirmClassName ?? (danger ? 'btn-danger' : 'btn-primary')} onClick={onConfirm} disabled={busy} aria-busy={busy || undefined}>
-            {busy ? busyLabel : confirmLabel}
-          </button>
+          </Button>
+          <Button
+            variant={confirmClassName ? null : danger ? 'danger' : 'primary'}
+            className={confirmClassName}
+            onClick={onConfirm}
+            loading={busy}
+            loadingLabel={busyLabel}
+          >
+            {confirmLabel}
+          </Button>
         </>
       }
     >

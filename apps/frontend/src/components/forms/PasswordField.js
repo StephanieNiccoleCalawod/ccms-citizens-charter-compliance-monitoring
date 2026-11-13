@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { RequiredMark } from './Field.js';
-import { PASSWORD_REQUIREMENTS, passwordStatus } from '../../lib/ui/password-guidance.js';
+import { PASSWORD_REQUIREMENTS, passwordStatus, passwordStrengthMeter } from '../../lib/ui/password-guidance.js';
 
 function EyeIcon({ off }) {
   return (
@@ -29,6 +29,7 @@ export default function PasswordField({ id = 'password', label = 'Initial passwo
   const invalid = Boolean(error) || (status.level === 'error' && touched);
   const message = error || (showStatus ? status.message : '');
   const tone = error || status.level === 'error' ? 'text-red-700' : status.level === 'good' ? 'text-green-700' : 'text-amber-800';
+  const meter = passwordStrengthMeter(status.level);
 
   return (
     <div>
@@ -62,6 +63,11 @@ export default function PasswordField({ id = 'password', label = 'Initial passwo
         >
           <EyeIcon off={visible} />
         </button>
+      </div>
+      <div aria-hidden="true" className="mt-2 flex gap-1">
+        {Array.from({ length: 4 }, (_, i) => (
+          <span key={i} className={`h-1 flex-1 rounded-full transition-colors ${i < meter.filled ? meter.tone : 'bg-slate-200'}`} />
+        ))}
       </div>
       <p id={statusId} role={invalid ? 'alert' : 'status'} className={`mt-1 min-h-4 text-xs font-medium ${tone}`}>
         {message}

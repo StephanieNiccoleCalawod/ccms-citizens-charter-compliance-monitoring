@@ -39,6 +39,16 @@ export function groupRows(rows) {
 export const LAST_SIGN_IN_NONE = 'No sign-in recorded yet';
 export const lastSignIn = (iso) => (iso ? formatDateTime(iso) : LAST_SIGN_IN_NONE);
 
+/** Up to two initials from a full name, for the small round avatar (the sidebar's account menu, My account). */
+export function initials(name) {
+  return (name ?? '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+}
+
 /** Change-password form: only what the server would refuse, so the form is never stricter than Identity. Returns { field: message }. */
 export function passwordFormErrors({ current, next, confirm }) {
   const errors = {};

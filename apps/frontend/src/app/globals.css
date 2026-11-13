@@ -24,22 +24,52 @@
   --color-table-hover: rgba(128, 0, 0, 0.04);
   /* Shadows */
   --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.05);
+
+  /* Design system: semantic tokens. Components use these names (bg-surface, text-ink-muted, text-danger...) instead of raw hex. */
+  --color-brand: #800000;
+  --color-accent: #ffdf00;
+  --color-accent-50: #fff8cc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f9fafb;
+  --color-ink: #1f2937;
+  --color-ink-muted: #6b7280;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+
+  /* Radius scale: controls (buttons, inputs, selects) 8px; cards and modals 12px. Used as rounded-control / rounded-card. */
+  --radius-control: 8px;
+  --radius-card: 12px;
+
+  /* The soft-gold "tag" used for a highlighted-but-not-a-status label (an audit action name, a "Mandatory" flag). See badge-tag. */
+  --color-tag-border: #f0ddb0;
+  --color-tag-bg: #fbefcf;
+  --color-tag-text: #5c3b00;
 }
 
-/* inline: the font variable is set by next/font on <html> (see layout.js). */
+/* inline: the font variable is set by next/font on <html> (see layout.js).
+   --font-sans overrides Tailwind's own default sans token: every font-sans utility, and the plain body text Tailwind's
+   base styles put on <html> with no class at all, now actually renders in DM Sans (the Google Font loaded in
+   layout.js) instead of the browser's generic system font, which is what used to happen here: nothing in this file
+   pointed Tailwind's "sans" token at DM Sans, it only had its own unused --font-sidebar name that no class referenced. */
 @theme inline {
   --font-serif: var(--font-dm-serif), Georgia, "Times New Roman", serif;
-  --font-sidebar: var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 @layer base {
   body {
     @apply bg-page text-slate-800 antialiased;
   }
-  h1,
+  /* DM Serif Display is for each page's own <h1> only (see title-page); every other heading uses the body font (see
+     title-section, title-card). */
+  h1 {
+    @apply font-serif text-slate-900;
+  }
   h2,
   h3 {
-    @apply font-serif text-slate-900;
+    @apply text-slate-900;
   }
   input[type="checkbox"],
   input[type="radio"] {
@@ -47,9 +77,27 @@
   }
 }
 
-/* Shared component classes (Tailwind v4 @utility so they can be reused with @apply). */
+/* Shared component classes (Tailwind v4 @utility so they can be reused with @apply).
+   Buttons: one base (btn), one class per variant (btn-primary, btn-secondary, btn-outline, btn-ghost, btn-danger, btn-success / btn-save,
+   btn-link) and one per size (btn-sm, btn-lg, btn-icon; medium is the default). The size classes only set the --btn-* variables, so a
+   size never competes with a variant over the same property. In React, prefer <Button variant size> (components/ui/Button.js). */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-control text-sm font-semibold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  padding: var(--btn-py, 0.5rem) var(--btn-px, 1rem);
+}
+@utility btn-sm {
+  --btn-py: 0.375rem;
+  --btn-px: 0.75rem;
+}
+@utility btn-lg {
+  --btn-py: 0.625rem;
+  --btn-px: 1.25rem;
+}
+/* A square button holding only an icon (it still needs an aria-label). */
+@utility btn-icon {
+  --btn-py: 0;
+  --btn-px: 0;
+  @apply h-10 w-10;
 }
 @utility btn-primary {
   @apply btn bg-pup-maroon text-white hover:bg-pup-maroon-dark focus-visible:ring-maroon-700;
@@ -60,17 +108,34 @@
 @utility btn-secondary {
   @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
 }
+@utility btn-success {
+  @apply btn-save;
+}
+@utility btn-outline {
+  @apply btn border border-pup-maroon bg-transparent text-pup-maroon hover:bg-maroon-50;
+}
+@utility btn-ghost {
+  @apply btn bg-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900;
+}
 @utility btn-danger {
   @apply btn bg-red-700 text-white hover:bg-red-600 focus-visible:ring-red-500;
 }
 @utility btn-link {
   @apply text-sm font-semibold text-pup-maroon hover:underline disabled:opacity-50;
 }
+/* A ghost icon button for toolbars and headers (hamburger, bell, modal close, month arrows): 36px square, the same hover and focus ring.
+   icon-button-outline adds the hairline border. In React use <IconButton> (components/ui/IconButton.js). */
+@utility icon-button {
+  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility icon-button-outline {
+  @apply icon-button border border-line bg-white;
+}
 @utility label {
   @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500;
 }
 @utility input {
-  @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-pup-maroon focus:outline-none focus:ring-1 focus:ring-pup-maroon disabled:bg-slate-100 aria-invalid:border-red-600 aria-invalid:focus:border-red-700 aria-invalid:focus:ring-red-700;
+  @apply block w-full rounded-control border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-pup-maroon focus:outline-none focus:ring-1 focus:ring-pup-maroon disabled:bg-slate-100 aria-invalid:border-red-600 aria-invalid:focus:border-red-700 aria-invalid:focus:ring-red-700;
 }
 @utility card {
   @apply rounded-xl border border-line bg-white shadow-card;
@@ -86,6 +151,10 @@
 }
 @utility badge-role {
   @apply badge bg-maroon-50 text-maroon-800;
+}
+/* A highlighted label that is not a status (an audit log action name, a "Mandatory" document flag): soft gold, bordered. */
+@utility badge-tag {
+  @apply badge border border-tag-border bg-tag-bg text-tag-text;
 }
 /* Tables: one container, one header, one row. Use <TableShell> and <Table> (components/ui/TableShell.js). */
 @utility table-shell {
@@ -122,15 +191,16 @@
   @apply inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-pup-maroon px-2 text-xs font-semibold text-white;
 }
 
-/* Heading scale: page title, section title inside a page, card title. Serif is for headings only. */
+/* Heading scale: page title, section title inside a page, card title. Serif (DM Serif Display) is for the page's own
+   title only (title-page); a section heading or a card title is DM Sans, same as the rest of the page. */
 @utility title-page {
   @apply font-serif text-3xl text-slate-900;
 }
 @utility title-section {
-  @apply font-serif text-xl text-slate-900;
+  @apply font-sans text-xl font-bold text-slate-900;
 }
 @utility title-card {
-  @apply font-serif text-lg text-slate-900;
+  @apply font-sans text-lg font-bold text-slate-900;
 }
 
 /* Text-style action inside a table row or list: at least 24px tall so it is easy to hit. */
@@ -151,7 +221,7 @@
 
 /* Form feedback: a field with aria-invalid gets the red border (see input above); a read-only value looks like text, not an input. */
 @utility input-readonly {
-  @apply block w-full rounded-md border border-dashed border-slate-300 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700;
+  @apply block w-full rounded-control border border-dashed border-slate-300 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700;
 }
 
 /* A <select> drawn like .input, with its arrow placed inside the field (the browser's own arrow hugs the edge and differs between systems). */

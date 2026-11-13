@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import StatusBanner from '../feedback/StatusBanner.js';
+import FilterBar from '../forms/FilterBar.js';
+import Button from '../ui/Button.js';
+import Card from '../ui/Card.js';
+import EmptyState from '../ui/EmptyState.js';
+import LoadingState from '../ui/LoadingState.js';
+import StatCard from '../ui/StatCard.js';
+import StatusBadge from '../ui/StatusBadge.js';
 import { notify } from '../../lib/ui/notify.js';
 import { listPublicOffices } from '../../lib/api/complaints.js';
 import { callNextTicket, getQueueBoard, issueStaffTicket, skipQueueTicket } from '../../lib/api/queue.js';
@@ -86,77 +93,80 @@ export default function QueuePanel({ user }) {
   return (
     <div className="space-y-4">
       {isSuperAdmin ? (
-        <div className="card max-w-md p-4">
-          <label className="label" htmlFor="queue-office">Office</label>
-          <select id="queue-office" className="input" value={officeId} onChange={(e) => setOfficeId(e.target.value)}>
-            <option value="">Choose an office</option>
-            {offices.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
-          </select>
-        </div>
+        <FilterBar label="Queue office">
+          <div className="w-full sm:w-72">
+            <label className="label" htmlFor="queue-office">Office</label>
+            <select id="queue-office" className="input select-chevron" value={officeId} onChange={(e) => setOfficeId(e.target.value)}>
+              <option value="">Choose an office</option>
+              {offices.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
+            </select>
+          </div>
+        </FilterBar>
       ) : null}
-      {!officeId ? <p className="text-sm text-slate-600">Choose an office to see its queue.</p> : null}
+      {!officeId ? <EmptyState role="status">Choose an office to see its queue.</EmptyState> : null}
       {current && board.message ? <StatusBanner variant="error" message={board.message} /> : null}
-      {officeId && !current ? <p className="text-sm text-slate-500">Loading the queue…</p> : null}
+      {officeId && !current ? <LoadingState>Loading the queue…</LoadingState> : null}
       {data ? (
         <>
-          <section className="card p-5" aria-labelledby="queue-actions">
-            <h2 id="queue-actions" className="mb-3 text-lg">Today, {formatDate(data.queue_date) || '-'}</h2>
-            <p className="text-sm text-slate-700" data-testid="queue-counts">
-              Waiting: <strong>{data.counts.waiting}</strong> ({data.counts.waiting_priority} priority) · Called: <strong>{data.counts.called}</strong> · Served: <strong>{data.counts.served}</strong>
-            </p>
-            <div className="mt-4 flex flex-wrap items-end gap-3">
-              <button type="button" className="btn-primary" onClick={callNext} disabled={busy !== null} aria-busy={busy === 'call' || undefined}>
-                {busy === 'call' ? 'Calling…' : 'Call next'}
-              </button>
-              <div>
+          <section aria-label="Queue summary" className="grid gap-4 sm:grid-cols-3" data-testid="queue-counts">
+            <StatCard label="Waiting" value={data.counts.waiting} note={`${data.counts.waiting_priority} priority`} />
+            <StatCard label="Called" value={data.counts.called} />
+            <StatCard label="Served" value={data.counts.served} />
+          </section>
+
+          <Card title={`Today, ${formatDate(data.queue_date) || '-'}`} description="Call the next ticket, or issue one for a walk-in.">
+            <div className="flex flex-wrap items-end gap-3">
+              <Button onClick={callNext} disabled={busy !== null} loading={busy === 'call'} loadingLabel="Calling…">Call next</Button>
+              <div className="w-full sm:w-auto">
                 <label className="label" htmlFor="queue-priority">Issue a ticket</label>
                 <div className="flex gap-2">
-                  <select id="queue-priority" className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
+                  <select id="queue-priority" className="input select-chevron" value={priority} onChange={(e) => setPriority(e.target.value)}>
                     {PRIORITY_OPTIONS.map((o) => <option key={o.value || 'none'} value={o.value}>{o.value ? o.label : 'Regular line'}</option>)}
                   </select>
-                  <button type="button" className="btn-secondary" onClick={issue} disabled={busy !== null}>{busy === 'issue' ? 'Issuing…' : 'Issue'}</button>
+                  <Button variant="secondary" onClick={issue} disabled={busy !== null} loading={busy === 'issue'} loadingLabel="Issuing…">Issue</Button>
                 </div>
               </div>
             </div>
             {data.queue_empty || emptyNote ? <p className="mt-3 text-sm text-slate-600" data-testid="queue-empty" aria-live="polite">No one is waiting in the queue.</p> : null}
-          </section>
+          </Card>
 
-          <section className="card p-5" aria-labelledby="queue-called">
-            <h2 id="queue-called" className="mb-3 text-lg">Called</h2>
-            {data.called.length === 0 ? <p className="text-sm text-slate-600">No ticket is being called.</p> : (
-              <ul className="space-y-3">
+          <Card title="Called">
+            {data.called.length === 0 ? <EmptyState>No ticket is being called.</EmptyState> : (
+              <ul className="divide-y divide-line">
                 {data.called.map((t) => {
                   const countdown = skipCountdown(t, serverNow);
                   return (
-                    <li key={t.ticket_id} className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 last:border-b-0" data-testid="called-ticket">
+                    <li key={t.ticket_id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0" data-testid="called-ticket">
                       <div>
-                        <p className="font-mono text-2xl font-semibold text-slate-900">{t.ticket_no}</p>
-                        <p className="text-xs text-slate-600">{laneLabel(t.lane)} · called {formatDateTime(t.called_at) || '-'}{t.skip_count ? ` · skipped ${t.skip_count} time${t.skip_count === 1 ? '' : 's'}` : ''}</p>
+                        <p className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-2xl font-semibold text-slate-900">{t.ticket_no}</span>
+                          <StatusBadge variant={t.lane === 'PRIORITY' ? 'priority' : 'regular'}>{laneLabel(t.lane)}</StatusBadge>
+                        </p>
+                        <p className="text-xs text-slate-600">Called {formatDateTime(t.called_at) || '-'}{t.skip_count ? ` · skipped ${t.skip_count} time${t.skip_count === 1 ? '' : 's'}` : ''}</p>
                         <p className="text-xs text-slate-600" aria-live="polite">{countdown?.text}</p>
                       </div>
-                      <button type="button" className="btn-secondary" onClick={() => skip(t)} disabled={busy !== null || !countdown?.ready}>
-                        {busy === t.ticket_id ? 'Skipping…' : 'Skip (no-show)'}
-                      </button>
+                      <Button variant="secondary" onClick={() => skip(t)} disabled={busy !== null || !countdown?.ready} loading={busy === t.ticket_id} loadingLabel="Skipping…">
+                        Skip (no-show)
+                      </Button>
                     </li>
                   );
                 })}
               </ul>
             )}
-          </section>
+          </Card>
 
-          <section className="card p-5" aria-labelledby="queue-waiting">
-            <h2 id="queue-waiting" className="mb-3 text-lg">Waiting, in call order</h2>
-            {data.waiting.length === 0 ? <p className="text-sm text-slate-600">No one is waiting.</p> : (
+          <Card title="Waiting, in call order">
+            {data.waiting.length === 0 ? <EmptyState>No one is waiting.</EmptyState> : (
               <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {data.waiting.map((t, i) => (
-                  <li key={t.ticket_id} className="flex items-center justify-between rounded border border-slate-200 px-3 py-2 text-sm">
+                  <li key={t.ticket_id} className="flex items-center justify-between gap-2 rounded-control border border-line bg-white px-3 py-2 text-sm">
                     <span><span className="mr-2 text-slate-500">{i + 1}.</span><span className="font-mono font-semibold">{t.ticket_no}</span></span>
-                    <span className={t.lane === 'PRIORITY' ? 'text-xs font-semibold text-amber-800' : 'text-xs text-slate-500'}>{laneLabel(t.lane)}</span>
+                    <StatusBadge variant={t.lane === 'PRIORITY' ? 'priority' : 'regular'}>{laneLabel(t.lane)}</StatusBadge>
                   </li>
                 ))}
               </ol>
             )}
-          </section>
+          </Card>
         </>
       ) : null}
     </div>

@@ -53,12 +53,12 @@ export default function Heatmap({ periods, rows, caption }) {
                     <div
                       tabIndex={0}
                       aria-label={label}
-                      className="rounded-md px-1 py-2 text-xs font-bold outline-none focus-visible:ring-2 focus-visible:ring-[#800000]"
+                      className="rounded-md px-1 py-2 text-xs font-bold outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon"
                       style={band ? { background: band.bg, color: band.fg } : { background: NO_DATA_FILL, color: '#52514e' }}
                     >
                       {value === null ? '-' : `${value}%`}
                     </div>
-                    <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#EAE3D9] bg-white px-3 py-1.5 text-xs text-slate-900 shadow-md group-focus-within:block group-hover:block">
+                    <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-line bg-white px-3 py-1.5 text-xs text-slate-900 shadow-md group-focus-within:block group-hover:block">
                       {label}
                     </span>
                   </td>

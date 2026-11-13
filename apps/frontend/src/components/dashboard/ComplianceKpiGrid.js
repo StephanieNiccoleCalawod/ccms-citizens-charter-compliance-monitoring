@@ -1,3 +1,6 @@
+import EmptyState from '../ui/EmptyState.js';
+import StatCard from '../ui/StatCard.js';
+
 const n = (value) => (value === null || value === undefined ? '-' : Number(value).toLocaleString('en-PH'));
 
 /** The change since the previous period, with an arrow and words (never colour alone). */
@@ -19,11 +22,9 @@ export function Delta({ change, suffix = '' }) {
 function Kpi({ k }) {
   const change = k.value !== null && k.previous !== null ? Math.round((k.value - k.previous) * 10) / 10 : null;
   return (
-    <div className="card flex flex-col justify-between gap-1 p-4">
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{k.label}</p>
-      <p className="text-2xl font-bold leading-tight text-maroon-950">{n(k.value)}{k.value !== null ? k.unit : ''}</p>
+    <StatCard label={k.label} value={`${n(k.value)}${k.value !== null ? k.unit : ''}`} className="justify-between">
       <Delta change={change} suffix={k.unit === '%' ? ' points' : ''} />
-    </div>
+    </StatCard>
   );
 }
 
@@ -31,9 +32,7 @@ function Kpi({ k }) {
 export default function ComplianceKpiGrid({ kpis }) {
   if (kpis.length === 0) {
     return (
-      <div className="card p-4" data-testid="pulse-kpis-empty">
-        <p className="text-sm text-slate-600">No indicators yet.</p>
-      </div>
+      <EmptyState data-testid="pulse-kpis-empty">No indicators yet.</EmptyState>
     );
   }
   return (

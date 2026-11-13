@@ -26,7 +26,7 @@ function RiskTooltip({ active, payload }) {
   const item = payload?.[0]?.payload;
   if (!active || !item) return null;
   return (
-    <div className="rounded-lg border border-[#EAE3D9] bg-white px-3 py-2 text-sm shadow-md">
+    <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm shadow-md">
       <p className="font-bold text-slate-900">{item.count.toLocaleString('en-PH')} <span className="text-xs font-normal text-slate-500">{item.label} risk</span></p>
       {item.description ? <p className="mt-1 max-w-[16rem] text-xs text-slate-600">{item.description}</p> : null}
     </div>

@@ -30,6 +30,26 @@ export function Th({ align = 'left', className = '', children, ...props }) {
   );
 }
 
+/** A row's own heading cell in the body (a grid like the Insights heatmap): a real row header, styled as a strong body cell. */
+export function RowHeader({ className = '', children, ...props }) {
+  return (
+    <th scope="row" className={`td whitespace-nowrap text-left font-semibold text-slate-900 ${className}`.trim()} {...props}>
+      {children}
+    </th>
+  );
+}
+
+/** A full-width section heading row inside the body (grouping the rows below it, e.g. the Roles and permissions matrix). */
+export function GroupRow({ colSpan, children, className = '' }) {
+  return (
+    <tr className="bg-slate-50">
+      <th scope="colgroup" colSpan={colSpan} className={`td text-left text-xs font-bold uppercase tracking-wide text-slate-500 ${className}`.trim()}>
+        {children}
+      </th>
+    </tr>
+  );
+}
+
 /** The scrolling table: shared burgundy header (head is a <tr>), white body with hairline separators. Wide tables scroll inside the shell. */
 export function Table({ head, children, busy = false, minWidth, label, className = '' }) {
   return (
