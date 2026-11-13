@@ -62,7 +62,8 @@ after(async () => {
   await ovs?.drop();
 });
 beforeEach(async () => {
-  for (const table of ['analytics_outbox', 'audit_outbox', 'transaction_emails', 'transactions', 'tracking_sequences', 'queue_tickets', 'queue_sequences']) await ops.dataSource.query(`DELETE FROM ${table}`);
+  // Children of transactions first (transaction_emails, CC045 transaction_receipts, CC057 service_ratings all have a foreign key to it).
+  for (const table of ['analytics_outbox', 'audit_outbox', 'transaction_emails', 'transaction_receipts', 'service_ratings', 'transactions', 'tracking_sequences', 'queue_tickets', 'queue_sequences']) await ops.dataSource.query(`DELETE FROM ${table}`);
   await ops.dataSource.query('UPDATE transaction_settings SET hold_enabled = true');
   await ovs.dataSource.query('DELETE FROM analytics_transactions');
   await ovs.dataSource.query('DELETE FROM analytics_backfill_state');

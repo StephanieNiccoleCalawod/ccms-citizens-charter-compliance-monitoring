@@ -158,7 +158,8 @@ describe('the detail page after CC027', () => {
   const detail = strip((read('src/app/transactions/[id]/page.js') + read('src/components/transactions/TransactionDetail.js')));
   it('drops the transaction when the service refuses or no longer finds it, and never keeps another transaction\'s data', () => {
     assert.ok(/result\.kind === 'auth' \|\| result\.kind === 'forbidden' \|\| result\.kind === 'notfound'\) setTx\(null\)/.test(detail));
-    assert.ok(/<TransactionDetail key=\{id\}/.test(detail), 'keyed by the address so state cannot carry over');
+    // 01b2a29 keys the detail by role and address: a change of either never shows the previous transaction's data.
+    assert.ok(/<TransactionDetail key=\{`\$\{user\.role\}:\$\{id\}`\}/.test(detail), 'keyed by role and address so state cannot carry over');
   });
   it('links back to the list, with the filters and page it was opened from', () => {
     assert.ok(/href=\{backHref\}/.test(detail));
