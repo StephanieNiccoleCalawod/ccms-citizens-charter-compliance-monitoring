@@ -98,6 +98,14 @@ function cli(service, url, args, extraEnv = {}) {
   return { code: result.status, out: `${result.stdout}${result.stderr}` };
 }
 
+function revertAfterIdentityCc046(url) {
+  for (const migration of ['Cc056PermissionSwitches1794650000000']) {
+    const reverted = cli('identity', url, ['revert']);
+    assert.equal(reverted.code, 0, reverted.out);
+    assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);
+  }
+}
+
 function syncDb(service, url, extraEnv = {}) {
   const env = { ...process.env, DATABASE_URL: url, DATABASE_ADMIN_URL: '', DB_TARGET: '', ...extraEnv };
   const result = spawnSync(process.execPath, ['scripts/sync-db.js'], { cwd: appDir(service), env, encoding: 'utf8' });
@@ -357,6 +365,7 @@ describe('Sprint 5 numbered migrations', () => {
     const db = await emptyDatabase('identity_ac2');
     assert.equal(cli('identity', db.url, ['run']).code, 0);
     assert.deepEqual(await columns(db.url, 'accounts', ['position']), ['position']);
+    revertAfterIdentityCc046(db.url);
     assert.match(cli('identity', db.url, ['revert']).out, /Reverted: Cc046TrimmedPosition1794300400000/);
     const revert = cli('identity', db.url, ['revert']);
     assert.equal(revert.code, 0, revert.out);
@@ -396,6 +405,7 @@ describe('Sprint 5 numbered migrations', () => {
       q.query(`INSERT INTO accounts (account_id, employee_no, full_name, email, password_hash, role_key, position)
                VALUES ('00000000-0000-4000-8000-000000000005', 'E-2', 'Sample Admin', 'admin2@example.test', 'x', 'super_admin', 'Registrar')`),
     );
+    revertAfterIdentityCc046(db.url);
     assert.match(cli('identity', db.url, ['revert']).out, /Reverted: Cc046TrimmedPosition1794300400000/);
     const refused = cli('identity', db.url, ['revert']);
     assert.equal(refused.code, 1, refused.out);
@@ -437,6 +447,7 @@ describe('Sprint 5 numbered migrations', () => {
       assert.equal(run.code, 0, run.out);
       assert.match(run.out, /Applied: Cc/);
       // Verify the legacy-to-TT2 upgrade at that migration boundary.
+      if (service === 'identity') revertAfterIdentityCc046(db.url);
       if (service === 'operations') {
         for (const migration of ['Cc045TransactionReceipts1794900200000', 'Cc040QueueTicketLink1794900100000', 'Cc039QueueTickets1794900000000', 'Cc052LateRisk1794531600000', 'Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000', 'Cc043Registry1794441600000']) {
           assert.ok(cli(service, db.url, ['revert']).out.includes(`Reverted: ${migration}`));
