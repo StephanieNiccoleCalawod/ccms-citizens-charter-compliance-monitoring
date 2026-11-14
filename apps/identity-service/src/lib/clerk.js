@@ -7,7 +7,7 @@ import { Errors } from 'ccms-shared';
 //
 // Verification is networkless with the instance's JWKS Public Key (PEM) and needs no Clerk Secret Key (Shared Clerk Access
 // Playbook D1; Clerk docs: verifyToken "Networkless if the jwtKey is provided"). Several PEMs may be configured during a
-// key rotation window. Checks (CCMS-CLERK-INTEGRATION-ANALYSIS.md section 16.4):
+// key rotation window. Checks (docs/clerk-integration-analysis.md section 16.4):
 //   alg RS256 only | signature | iss = CLERK_ISSUER exactly | exp, nbf with 5 s tolerance | azp present and allowlisted
 //   sub is a Clerk user ID | sid present | v = 2 when present | sts not "pending" | no act (impersonation) unless allowed
 // Session tokens carry no aud claim, so none is required. The email claim is returned as a hint only; it never grants access.
