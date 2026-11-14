@@ -10,6 +10,7 @@ export default function RatingsSection({ officeId, from, to }) {
   const [state, setState] = useState({ loading: true, data: null, failed: false });
   useEffect(() => {
     let live = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- show "loading" while the ratings for the new office or period are read
     setState({ loading: true, data: null, failed: false });
     getRatingSummary({ officeId, from, to }).then((data) => live && setState({ loading: false, data, failed: false })).catch(() => live && setState({ loading: false, data: null, failed: true }));
     return () => { live = false; };

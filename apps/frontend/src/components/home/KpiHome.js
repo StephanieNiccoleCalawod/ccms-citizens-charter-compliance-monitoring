@@ -21,6 +21,7 @@ export default function KpiHome({ user }) {
 
   useEffect(() => {
     let active = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- show "loading" while the KPIs for the new period are read
     setState((s) => ({ ...s, status: 'loading', error: '' }));
     const common = { period, officeId: executive ? undefined : user.officeId };
     Promise.all([getKpis({ ...common, groupBy: groupByFor(user.role) }), getKpis({ ...common, groupBy: 'total' })])
@@ -36,6 +37,7 @@ export default function KpiHome({ user }) {
     } else if (user.role === ROLES.OFFICE_HEAD) {
       getAccountNames().then((map) => active && setNames(map)).catch(() => {});
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Office Staff see only their own row: their name needs no request
       setNames(new Map([[user.id, user.fullName]]));
     }
     return () => { active = false; };

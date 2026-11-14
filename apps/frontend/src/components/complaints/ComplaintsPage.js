@@ -108,6 +108,7 @@ export default function ComplaintsPage({ user }) {
       .then((data) => { if (ticket === reload.current) setList({ items: data.items ?? [], total: data.total ?? 0, loading: false, error: '' }); })
       .catch((failure) => { if (ticket === reload.current) setList({ items: [], total: 0, loading: false, error: failureMessage(failure) }); });
   }, [filters, page, pageSize]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- read the list again when the filters or page change (load also serves "Back")
   useEffect(() => { load(); }, [load]);
 
   async function open(target) {

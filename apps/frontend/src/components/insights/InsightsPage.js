@@ -59,6 +59,7 @@ export default function InsightsPage({ user }) {
     setLoading(true); setError('');
     try { setData(await getInsightsOverview({ period, officeId })); } catch (failure) { setError(failure?.message || 'Insights could not be loaded.'); } finally { setLoading(false); }
   }, [period, officeId]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- read the overview again when the period or office changes
   useEffect(() => { load(); }, [load]);
 
   const modelOffice = officeId || data?.scope?.office_id || '';
@@ -69,6 +70,7 @@ export default function InsightsPage({ user }) {
     setRisk(r.status === 'fulfilled' ? { state: 'ok', value: r.value } : { state: 'error' });
     setForecast(f.status === 'fulfilled' ? { state: 'ok', value: f.value } : { state: 'error' });
   }, [modelOffice]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- read the late-risk and forecast models again when the office changes (also after Retrain)
   useEffect(() => { loadModels(); }, [loadModels]);
 
   async function openCell(c) {

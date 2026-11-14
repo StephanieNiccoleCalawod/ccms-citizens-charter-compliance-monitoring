@@ -1,7 +1,6 @@
 // Sprint 6 CC032 / CC033: file a complaint without an account and check its status, on a real database as the runtime role.
 // Core (office check) and the mailer are stand-ins.
 import { strict as assert } from 'node:assert';
-import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { createDataSource, createRateLimiter, setDataSource } from 'ccms-shared';
@@ -9,7 +8,7 @@ import { createMemoryStore } from 'ccms-shared';
 import { POST as fileRoute } from '../src/app/api/complaints/route.js';
 import { GET as statusRoute } from '../src/app/api/complaints/status/route.js';
 import { entities } from '../src/lib/entities/index.js';
-import { CATEGORY_VALUES, complaintStatus, fileComplaint, isReference, limitRequest, makeReference, officeIsActive, setLimiters, validateComplaint } from '../src/modules/complaints/complaints.js';
+import { CATEGORY_VALUES, fileComplaint, isReference, limitRequest, makeReference, officeIsActive, setLimiters, validateComplaint } from '../src/modules/complaints/complaints.js';
 import { OFFICE_A, call, req, roleUrl, setupTestEnv } from './helpers.js';
 
 const good = (over = {}) => ({ office_id: OFFICE_A, category: 'DELAYED_SERVICE', description: 'Waited three weeks for a certificate.', ...over });
