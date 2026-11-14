@@ -984,6 +984,8 @@ Results: Identity **151/151** (118 existing + 33 new); lint and `check:time` cle
 | `b6395a9` | Fix the endless reload on `/login/clerk`: catch-all route `/login/clerk/[[...rest]]` with Clerk's path routing; a pending Clerk session no longer counts as signed out; dual-mode Sign out also ends the Clerk session |
 | `a1d4a26` | UI redesign (separate work, same branch). For Clerk it moved the Super Admin screen into the **Accounts page, "Clerk Sign-in Access" tab** (`/settings/clerk-access` now redirects to `/accounts?tab=clerk`) and uses client-side navigation after sign-in. **See 19.6 item 1** |
 | `a9d6468` | Fix tests left stale by upstream Sprint 7 changes (19.5) |
+| `c49902b` | This document in `docs/`, and `scripts/clerk-config-check.mjs` |
+| *"Clerk access: restore approval in one unified table"* | Fixes 19.6 item 1. Accounts > Clerk Sign-in Access becomes **one table** for pending and approved people: Search, a Status filter (All / Pending / Approved) and one Refresh. Pending rows keep the full approval step: choose the CCMS account (the exact-email match first, as a hint), then Approve or Dismiss. Approved rows have Remove (never your own). A regression test fails if the screen ever stops calling the approval APIs |
 
 Verified on `a9d6468` (local, Windows, PostgreSQL 16 for tests):
 
@@ -1062,10 +1064,11 @@ These came from upstream changes; the application code was right and the tests w
 3. `apps/frontend/tests/unit/transaction-list.test.js` (1): `01b2a29` deliberately keys the detail page by role and address; the check still expected `key={id}`.
 
 ### 19.6 Open items before pushing
-1. **Approval screen missing after the redesign (blocking).**
-   - `a1d4a26` replaced the Super Admin screen with the Accounts page's "Clerk Sign-in Access" tab (`components/account/ClerkAccessPanel.js`).
-   - That tab only lists approved people and removes them. Its comment says binding "is done elsewhere", but **no screen calls** `listClerkAccessRequests`, `linkAccountToClerk` or `dismissClerkAccessRequest` any more.
-   - As it stands, a new person can sign in with Clerk but **no Super Admin can approve them** in the UI. The Identity APIs still work.
-   - Fix: add the "Waiting for approval" list with the account choice, Approve and Dismiss back into that tab, using the redesign's components.
+1. ~~Approval screen missing after the redesign.~~ **Fixed** (see 19.1, "Clerk access: restore approval in one unified table").
+   - The cause: `a1d4a26` moved the Super Admin screen into the Accounts page's "Clerk Sign-in Access" tab, but kept only the approved list.
+   - The fix was verified in the browser on 2026-11-14:
+     - Remove an approved person: they are back to "No access yet".
+     - Refresh: they show as Pending, with their account pre-selected.
+     - Approve, then "Check again": they are signed in.
 2. Accounts form password (19.3).
 3. Decode one real token (19.2).

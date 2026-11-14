@@ -1,9 +1,19 @@
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { registerClerk } from '../../src/lib/auth/clerk-bridge.js';
 import { authProvider, clerkEnabled, signInPath } from '../../src/lib/auth/provider.js';
 import { clerkAccessNav } from '../../src/lib/auth/permissions.js';
-import { accessPendingCopy, accountLabel, bindableAccounts, clerkSessionState, pendingTaskLabel } from '../../src/lib/ui/clerk-access.js';
+import {
+  accessPendingCopy,
+  accountLabel,
+  bindableAccounts,
+  clerkAccessEmptyMessage,
+  clerkAccessRows,
+  clerkSessionState,
+  filterClerkAccessRows,
+  pendingTaskLabel,
+} from '../../src/lib/ui/clerk-access.js';
 
 // Clerk sign-in (Landas 1) in the browser session client, with a fake window, sessionStorage, fetch and Clerk instance.
 const claims = { sub: 'acc-1', employee_no: 'E-1', full_name: 'Test User', role: 'office_head', office_id: 'off-1' };
@@ -201,6 +211,57 @@ describe('session client in dual mode', () => {
     assert.equal(await session.refreshSession(true), null);
     assert.equal(calls.length, 1);
     assert.equal(session.sessionRejection(), 'ACCOUNT_INACTIVE');
+  });
+});
+
+describe('Clerk access screen (Accounts > Clerk Sign-in Access)', () => {
+  const panel = readFileSync(new URL('../../src/components/account/ClerkAccessPanel.js', import.meta.url), 'utf8');
+
+  it('keeps the whole approval flow: list who is waiting, approve a chosen account, dismiss, remove', () => {
+    // A redesign once dropped the "Waiting for approval" part, which left new people stuck on "No access yet" for good.
+    for (const call of ['listClerkAccessRequests()', 'linkAccountToClerk(', 'dismissClerkAccessRequest(', 'listClerkLinks()', 'unlinkAccountFromClerk(']) {
+      assert.ok(panel.includes(call), `ClerkAccessPanel must call ${call}`);
+    }
+    assert.ok(panel.includes('bindableAccounts('), 'the account choice offers only active, unlinked accounts');
+  });
+
+  it('shows pending and approved records in one table, pending first, each record once', () => {
+    const requests = [
+      { clerk_user_id: 'user_b', email: 'b@example.test', last_seen_at: '2026-11-14T03:00:00Z', suggested_account: null },
+      { clerk_user_id: 'user_b', email: 'b@example.test', last_seen_at: '2026-11-14T03:00:00Z', suggested_account: null },
+      { clerk_user_id: 'user_c', email: null, last_seen_at: '2026-11-14T02:00:00Z', suggested_account: null },
+    ];
+    const links = [{ account_id: 'acc-1', linked_at: '2026-11-14T01:00:00Z' }, { account_id: 'acc-gone', linked_at: '2026-11-13T01:00:00Z' }];
+    const accounts = new Map([['acc-1', { account_id: 'acc-1', full_name: 'Paula Santos', employee_no: '012805', email: 'paula@example.test' }]]);
+    const rows = clerkAccessRows(requests, links, accounts);
+    assert.deepEqual(rows.map((r) => [r.key, r.status]), [
+      ['pending:user_b', 'pending'],
+      ['pending:user_c', 'pending'],
+      ['approved:acc-1', 'approved'],
+      ['approved:acc-gone', 'approved'],
+    ]);
+    assert.deepEqual([rows[0].primary, rows[0].secondary, rows[0].dateLabel], ['b@example.test', 'user_b', 'Last sign-in']);
+    assert.equal(rows[1].primary, 'No email shared');
+    assert.deepEqual([rows[2].primary, rows[2].secondary, rows[2].dateLabel], ['Paula Santos', '012805', 'Approved']);
+    assert.equal(rows[3].primary, 'Inactive account');
+
+    assert.deepEqual(filterClerkAccessRows(rows, { status: 'pending' }).map((r) => r.key), ['pending:user_b', 'pending:user_c']);
+    assert.deepEqual(filterClerkAccessRows(rows, { status: 'approved' }).map((r) => r.key), ['approved:acc-1', 'approved:acc-gone']);
+    assert.deepEqual(filterClerkAccessRows(rows, { q: '  PAULA ' }).map((r) => r.key), ['approved:acc-1']);
+    assert.deepEqual(filterClerkAccessRows(rows, { q: '012805', status: 'pending' }), []);
+    assert.deepEqual(filterClerkAccessRows(rows, { q: 'user_c' }).map((r) => r.key), ['pending:user_c']);
+  });
+
+  it('says why the table is empty for each filter', () => {
+    assert.equal(clerkAccessEmptyMessage({}), 'No Clerk accounts found.');
+    assert.equal(clerkAccessEmptyMessage({ status: 'pending' }), 'No users waiting for approval.');
+    assert.equal(clerkAccessEmptyMessage({ status: 'approved' }), 'No approved Clerk accounts yet.');
+    assert.equal(clerkAccessEmptyMessage({ q: 'x', status: 'pending' }), 'No Clerk accounts match your search.');
+  });
+
+  it('never lets a Super Admin remove their own Clerk sign-in', () => {
+    assert.ok(/const own = link\.account_id === me\?\.id;/.test(panel));
+    assert.ok(/disabled=\{busy !== null \|\| own\}/.test(panel));
   });
 });
 
