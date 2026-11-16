@@ -62,6 +62,12 @@ The mock service accepts FMS calendar pushes at `/fms/calendar` and SCMS/SMS pus
 
 An authenticated `GET /control` exposes safe attempt/acceptance counters and the QA target ID. An authenticated `POST /control` accepts `system: "FMS" | "SCMS"` and `status: 200 | 401 | 429 | 503` for a later integration exercise. The control Bearer token is the generated `QA_MOCK_CONTROL_TOKEN`. Simulated 401 responses are counted and let a later TT6 check distinguish one request from automatic retries. None was sent during implementation. State is in memory and resets when the mock process restarts.
 
+The mock also answers `GET /api/v1/terms` (the SCMS/SMS term list Core reads when `SMS_TERMS_ENABLED=true`) with one term, `2026-1S` (AY 2026-2027 1st Semester, 2026-08-17 to 2026-12-22), using the SMS receiver token. The generated settings leave `SMS_TERMS_ENABLED` off, because SMS then owns the terms and Core refuses its own term edits; run `qa:init` with `QA_SMS_TERMS_ENABLED=true` in the environment to test the term rows (M3-12, M3-13, M10-29, M10-31 to 33).
+
+Generated QA settings that the mock rows depend on: `SMS_URL` is the mock's push route (`<mock origin>/scms/calendar`, used as given because it has a path); `FMS_TERM_ID` is `sms:qa:term:2026-1S`, so FMS messages are queued for dates inside that term (the window defaults to the same dates unless `CAL_WINDOW_FROM` / `CAL_WINDOW_TO` are set); `RECEIPT_STORAGE` is `memory` for a local QA set (receipts are lost on restart; memory is refused on a hosted project, which sets its own provider). `EMAIL_FROM` keeps a display name (`CCCMS QA <no-reply@ccms-qa.test>`) on purpose: the mailers send only the bare address in `MAIL FROM`, so this is also a check of that rule.
+
+**Editing the generated env files on Windows.** Do not use PowerShell 5's `Set-Content` or `Out-File` on `.qa\env\*.env`: they write a byte-order mark at the start of the file and the stack then refuses to start. Edit with a plain-text editor set to "UTF-8" (not "UTF-8 with BOM"), or write with `[System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding $false))`.
+
 Mail goes to the dedicated capture SMTP server, with `.test` fixture addresses and no real provider credentials. Keep the capture server configured without outbound relaying.
 
 ## Separate hosted QA setup

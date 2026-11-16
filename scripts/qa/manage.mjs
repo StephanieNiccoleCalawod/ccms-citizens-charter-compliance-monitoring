@@ -61,8 +61,16 @@ async function initialize() {
       LOGS_SERVICE_URL: `${config.services['oversight-service']}/api`, LOGS_URL: config.services['oversight-service'],
       OPERATIONS_SERVICE_URL: `${config.services['operations-service']}/api`, OPERATIONS_URL: config.services['operations-service'],
       FMS_URL: `${config.mocks.origin}/fms/calendar`, FMS_CALENDAR_TOKEN: fmsToken,
-      AUDIT_URL: `${config.mocks.origin}/scms/calendar`, SMS_URL: `${config.mocks.origin}/scms`,
-      SMS_SERVICE_TOKEN: smsToken, SMS_CALENDAR_TOKEN: smsToken, SMS_SYNC_ENABLED: 'true', SMS_SEND_ALL_MESSAGES: 'true', SMS_TERMS_ENABLED: 'false',
+      // SMS_URL has a path, so Core uses it as given: it must be the mock's push route (a bare /scms answered 404, QA DEF set-up #1).
+      AUDIT_URL: `${config.mocks.origin}/scms/calendar`, SMS_URL: `${config.mocks.origin}/scms/calendar`,
+      SMS_SERVICE_TOKEN: smsToken, SMS_CALENDAR_TOKEN: smsToken, SMS_SYNC_ENABLED: 'true', SMS_SEND_ALL_MESSAGES: 'true',
+      // The mock answers GET /api/v1/terms with one term (2026-1S). Reading terms from SMS makes Core refuse its own term edits, so it
+      // stays off unless the operator asks for it: QA_SMS_TERMS_ENABLED=true when running qa:init.
+      SMS_TERMS_ENABLED: process.env.QA_SMS_TERMS_ENABLED === 'true' ? 'true' : 'false',
+      // FMS messages are queued only when Core knows its FMS term; the window defaults to the same term's dates (2026-08-17 to 2026-12-22).
+      FMS_TERM_ID: 'sms:qa:term:2026-1S',
+      // Local QA keeps receipts in memory (lost on restart). A hosted QA project sets its own provider; memory is refused there.
+      RECEIPT_STORAGE: config.kind === 'hosted' ? '' : 'memory',
       HOLIDAY_AUTO_IMPORT: 'false', NEXT_PUBLIC_REGISTRY_DEMO: 'false', NEXT_PUBLIC_ANALYTICS_USE_MOCK_DATA: 'false',
       SMTP_HOST: config.mail.smtpHost, SMTP_PORT: config.mail.smtpPort, SMTP_SECURE: 'false', SMTP_USER: '', SMTP_PASS: '',
       EMAIL_FROM: 'CCCMS QA <no-reply@ccms-qa.test>', EMAIL_API_URL: '', EMAIL_API_KEY: '',

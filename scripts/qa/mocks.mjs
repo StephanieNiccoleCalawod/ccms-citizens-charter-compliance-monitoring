@@ -46,6 +46,12 @@ try {
         systems[body.system].status = body.status;
         return reply(res, 200, { system: body.system, status: body.status });
       }
+      if (req.method === 'GET' && path === '/api/v1/terms') {
+        // SMS term list for Core's term reader (SMS_TERMS_ENABLED=true): one term, in the shape the SCMS code returns.
+        if (!authorized(req.headers.authorization, env.SMS_SERVICE_TOKEN) || systems.SCMS.status === 401) return reply(res, 401, { reason: 'QA_KEY_REJECTED' });
+        if (systems.SCMS.status !== 200) return reply(res, systems.SCMS.status, { reason: 'QA_CONFIGURED_FAILURE' });
+        return reply(res, 200, { statusCode: 200, count: 1, data: [{ term_code: '2026-1S', academic_year: '2026-2027', semester_number: 1, semester_label: '1st Semester', display_label: 'AY 2026-2027 1st Semester', start_date: '2026-08-17', end_date: '2026-12-22', status: 'ACTIVE' }] });
+      }
       const system = path === '/fms/calendar' ? 'FMS' : path.startsWith('/scms/') ? 'SCMS' : null;
       if (!system) return reply(res, 404, { error: 'NOT_FOUND' });
       if (req.method !== 'POST') return reply(res, 405, { error: 'METHOD_NOT_ALLOWED' });
