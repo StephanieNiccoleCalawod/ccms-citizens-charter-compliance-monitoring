@@ -33,7 +33,8 @@ export async function updateCatalogueSettings(dataSource, actor, body, { ipAddre
     }
     const next = { ...before, ...body };
     if (before.applies_to_enabled && next.applies_to_enabled === false) {
-      const incompatible = await manager.query("SELECT 1 FROM calendar_exceptions WHERE applies_to <> 'BOTH' OR class_mode <> 'SUSPENDED' LIMIT 1");
+      // Removed entries are kept (soft delete) but no longer count; only live entries can block turning the setting off (DEF-20).
+      const incompatible = await manager.query("SELECT 1 FROM calendar_exceptions WHERE removed_at IS NULL AND (applies_to <> 'BOTH' OR class_mode <> 'SUSPENDED') LIMIT 1");
       if (incompatible.length) return { error: Errors.conflict('Existing class/work-specific entries must be reviewed before disabling this setting', 'CALENDAR_SETTING_IN_USE') };
     }
     await manager.query('UPDATE catalogue_settings SET institution_code = $1, applies_to_enabled = $2 WHERE id = 1', [next.institution_code, next.applies_to_enabled]);

@@ -75,6 +75,20 @@ describe('TT7 class/work calendar contract', () => {
     await migrateSprint4Core(env.ds); await migrateSprint4Core(env.ds);
     assert.deepEqual(await env.ds.query('SELECT * FROM calendar_exceptions ORDER BY exception_id'), rows);
   });
+  it('lets "applies to" be turned off once every class/work-specific entry is removed (DEF-20)', async () => {
+    await env.ds.query('UPDATE calendar_exceptions SET removed_at = now() WHERE removed_at IS NULL');
+    const saved = await call(POST, 'POST', '/exceptions', entry({ exception_date: '2026-11-18', applies_to: 'WORK' }));
+    assert.equal(saved.status, 201);
+    const id = saved.body.exception.exception_id;
+    // A live entry still blocks it.
+    await assert.rejects(updateCatalogueSettings(env.ds, actor, { applies_to_enabled: false }), (e) => e.code === 'CALENDAR_SETTING_IN_USE');
+    assert.equal((await call(DELETE, 'DELETE', `/exceptions/${id}`, undefined, tokens.superAdmin, ctx(id))).status, 204);
+    // The removed row is kept, but it no longer counts.
+    const [kept] = await env.ds.query('SELECT removed_at FROM calendar_exceptions WHERE exception_id = $1', [id]);
+    assert.ok(kept.removed_at);
+    assert.equal((await updateCatalogueSettings(env.ds, actor, { applies_to_enabled: false })).applies_to_enabled, false);
+    await updateCatalogueSettings(env.ds, actor, { applies_to_enabled: true });
+  });
 });
 
 describe('TT7 office-clock effects including ONLINE classes', () => {
