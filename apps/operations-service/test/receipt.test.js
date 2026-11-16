@@ -233,6 +233,25 @@ describe('the mailer', () => {
     await assert.rejects(createMailer({ host: '127.0.0.1', port: 1, from: 'a@b.cd', timeoutMs: 500 }).send({ to: 'x@y.zz', subject: 's', text: 't' }));
   });
 
+  it('DEF-14: a sender with a display name keeps the name in the header and sends only the bare address in MAIL FROM', async () => {
+    const smtp = await smtpServer();
+    try {
+      const mailer = createMailer({ host: '127.0.0.1', port: smtp.port, user: 'user', pass: 'pw', from: 'CCCMS QA <no-reply@ccms-qa.test>', requireTls: false });
+      await mailer.send({ to: 'Citizen QA <citizen.qa@ccms-qa.test>', subject: 'x', text: 'y' });
+      assert.equal(smtp.log[2], 'MAIL FROM:<no-reply@ccms-qa.test>');
+      assert.equal(smtp.log[3], 'RCPT TO:<citizen.qa@ccms-qa.test>');
+      assert.match(smtp.log[5], /^DATA:From: CCCMS QA <no-reply@ccms-qa\.test>\r\nTo: Citizen QA <citizen\.qa@ccms-qa\.test>\r\n/);
+    } finally { await smtp.close(); }
+  });
+
+  it('DEF-14: a quoted or non-ASCII display name is safe, and a bare address is unchanged', () => {
+    const base = { to: 'x@y.zz', subject: 's', text: 't', date: new Date('2026-11-10T00:00:00Z'), messageId: '<id@ccms>' };
+    assert.match(buildMessage({ ...base, from: '"CCMS, QA" <a@b.cd>' }), /^From: "CCMS, QA" <a@b\.cd>\r\n/);
+    assert.match(buildMessage({ ...base, from: 'Ñandú <a@b.cd>' }), /^From: =\?UTF-8\?B\?/);
+    assert.match(buildMessage({ ...base, from: '<a@b.cd>' }), /^From: a@b\.cd\r\n/);
+    assert.match(buildMessage({ ...base, from: 'a@b.cd' }), /^From: a@b\.cd\r\n/);
+  });
+
   it('builds a message with dot-stuffing, CRLF and an encoded non-ASCII subject; reads the environment settings', () => {
     const text = buildMessage({ from: 'a@b.cd', to: 'x@y.zz', subject: 'Résumé', text: '.hi', date: new Date('2026-11-10T00:00:00Z'), messageId: '<id@ccms>' });
     assert.match(text, /^From: a@b\.cd\r\nTo: x@y\.zz\r\nSubject: =\?UTF-8\?B\?/);

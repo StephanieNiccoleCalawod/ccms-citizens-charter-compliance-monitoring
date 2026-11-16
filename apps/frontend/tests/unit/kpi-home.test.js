@@ -1,3 +1,4 @@
+import { ROLES } from 'ccms-shared/roles';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
@@ -28,6 +29,11 @@ describe('CC036 / CC037 KPI home rules', () => {
     assert.equal(t.cancelled.value, 1);
     assert.equal(t.on_time_rate.value, '75%');
   });
+  it('DEF-16: tiles read the figures under "totals" of the whole answer', () => {
+    const t = Object.fromEntries(tilesFor({ period: 'monthly', group_by: 'total', totals: bucket({ received: 19 }), groups: [] }).map((x) => [x.key, x]));
+    assert.equal(t.received.value, 19);
+    assert.equal(t.on_time.value, 6);
+  });
   it('tiles of nothing are zeros, not NaN', () => {
     assert.equal(tilesFor(null).find((x) => x.key === 'received').value, 0);
   });
@@ -41,9 +47,10 @@ describe('CC036 / CC037 KPI home rules', () => {
     assert.deepEqual(rows.map((r) => r.id), ['z', 'x', 'y']);
   });
   it('the Executive asks per office and never per staff', () => {
-    assert.equal(groupByFor('EXECUTIVE'), 'office');
-    assert.equal(groupByFor('OFFICE_HEAD'), 'staff');
-    assert.equal(groupByFor('OFFICE_STAFF'), 'staff');
+    assert.equal(groupByFor(ROLES.EXECUTIVE), 'office'); // DEF-17: the role value is lower case
+    assert.equal(groupByFor('executive'), 'office');
+    assert.equal(groupByFor('office_head'), 'staff');
+    assert.equal(groupByFor('office_staff'), 'staff');
   });
   it('durations and failures read in words', () => {
     assert.equal(minutesText(150), '2 h 30 min');

@@ -37,13 +37,29 @@ export function mailerConfig(env = process.env) {
 const CRLF = '\r\n';
 const encodeHeader = (text) => (/^[\x20-\x7e]*$/.test(text) ? text : `=?UTF-8?B?${Buffer.from(text, 'utf8').toString('base64')}?=`);
 const base64Lines = (text) => Buffer.from(text, 'utf8').toString('base64').replace(/(.{76})/g, `$1${CRLF}`);
-const addressOf = (value) => String(value).replace(/[<>\r\n]/g, '').trim();
+// DEF-14: EMAIL_FROM may be "Name <address>". The SMTP envelope (MAIL FROM / RCPT TO) takes the bare address only; the message
+// header keeps the display name (encoded when it is not plain ASCII).
+const bareOf = (value) => {
+  const text = String(value).replace(/[\r\n]+/g, ' ');
+  const angle = /<([^<>]*)>\s*$/.exec(text);
+  return (angle ? angle[1] : text).replace(/[<>\s]/g, '');
+};
+const addressOf = bareOf;
+const headerAddress = (value) => {
+  const text = String(value).replace(/[\r\n]+/g, ' ').trim();
+  const angle = /^(.*?)\s*<([^<>]*)>\s*$/.exec(text);
+  const name = angle ? angle[1].trim().replace(/^"(.*)"$/, '$1') : '';
+  const bare = bareOf(text);
+  if (!name) return bare;
+  const shown = !/^[\x20-\x7e]*$/.test(name) ? encodeHeader(name) : /[",<>@()[\]:;\\]/.test(name) ? `"${name.replace(/(["\\])/g, '\\$1')}"` : name;
+  return `${shown} <${bare}>`;
+};
 
 /** The whole message (headers + body) as sent after DATA, with the dot-stuffing rule applied. */
 export function buildMessage({ from, to, subject, text, date = new Date(), messageId = `<${randomUUID()}@ccms>` }) {
   const lines = [
-    `From: ${addressOf(from)}`,
-    `To: ${addressOf(to)}`,
+    `From: ${headerAddress(from)}`,
+    `To: ${headerAddress(to)}`,
     `Subject: ${encodeHeader(String(subject).replace(/[\r\n]+/g, ' '))}`,
     `Date: ${date.toUTCString()}`,
     `Message-ID: ${messageId}`,

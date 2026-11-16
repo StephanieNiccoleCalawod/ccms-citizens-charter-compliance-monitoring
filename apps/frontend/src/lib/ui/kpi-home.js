@@ -1,6 +1,8 @@
 // Rules for the Office Home (CC036) and Campus Home (CC037) tiles, as pure functions (no React, no network, no clock).
 // Every figure comes straight from the KPI module's answer, so a tile always equals the report figure for the same period.
 
+import { ROLES } from 'ccms-shared/roles';
+
 /** The Charter target for on-time service, in percent (spec: 100%). */
 export const ON_TIME_TARGET = 100;
 
@@ -43,7 +45,8 @@ export function minutesText(minutes) {
 
 /** The tiles of one bucket (the totals of the answer, or one group). */
 export function tilesFor(bucket) {
-  const b = bucket ?? {};
+  // DEF-16: the KPI answer is { ..., totals, groups }; the figures are under `totals`. A bare bucket (one group) is read as it is.
+  const b = bucket?.totals ?? bucket ?? {};
   const r = b.results ?? {};
   return [
     { key: 'received', label: 'Received', value: count(b.received) },
@@ -89,7 +92,7 @@ export function officeRows(groups, names = new Map()) {
 }
 
 /** What each role asks for: Executive per office (never per staff), Office Head per staff, Office Staff per staff (own row). */
-export const groupByFor = (role) => (role === 'EXECUTIVE' ? 'office' : 'staff');
+export const groupByFor = (role) => (role === ROLES.EXECUTIVE ? 'office' : 'staff');
 
 export const periodLabel = (answer) => (answer?.from && answer?.to ? `${answer.from} to ${answer.to}` : '');
 
