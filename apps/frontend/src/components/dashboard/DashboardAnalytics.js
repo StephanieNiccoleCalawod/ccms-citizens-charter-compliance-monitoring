@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import StatusBanner from '../feedback/StatusBanner.js';
 import { insightsScope, updatedLabel } from '../../lib/ui/analytics.js';
+import { isMockAnalytics } from '../../lib/api/analytics.js';
 import { useAnalytics } from '../../lib/ui/useAnalytics.js';
 import AboutAnalyticsPanel from './AboutAnalyticsPanel.js';
 import ComplianceForecastChart from './ComplianceForecastChart.js';
@@ -35,6 +36,12 @@ function Loading() {
 
 /** Which offices a role may see is decided by insightsScope (and enforced by the services); the data source is the one flag in lib/api/analytics.js. */
 export default function DashboardAnalytics({ user }) {
+  // DEF-18: the five routes behind these panels were never built and answer 404 against the real services. The real figures are in the Insights section below. The panels stay only for sample-data mode.
+  if (!isMockAnalytics()) return null;
+  return <SampleAnalytics user={user} />;
+}
+
+function SampleAnalytics({ user }) {
   const role = user.role;
   const officeId = user.officeId;
   const scope = useMemo(() => insightsScope({ role, officeId }), [role, officeId]);
