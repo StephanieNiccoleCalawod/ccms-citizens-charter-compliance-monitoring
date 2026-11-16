@@ -103,6 +103,20 @@ describe('CC001 create account', () => {
     }
   });
 
+  it('DEF-19 / F6: the employee number is optional, several accounts may have none, and a given one stays unique', async () => {
+    const first = await create(valid({ employee_no: '' }));
+    assert.equal(first.response.status, 201, JSON.stringify(first.body));
+    assert.equal(first.body.account.employee_no, null);
+    const second = await create(valid({ employee_no: undefined }));
+    assert.equal(second.response.status, 201, JSON.stringify(second.body));
+    assert.equal(second.body.account.employee_no, null);
+    const tooLong = await create(valid({ employee_no: 'X'.repeat(51) }));
+    assert.equal(tooLong.response.status, 400);
+    const given = await create(valid({ employee_no: 'OPT-1' }));
+    assert.equal(given.response.status, 201);
+    assert.equal((await create(valid({ employee_no: 'OPT-1' }))).response.status, 409);
+  });
+
   it('rejects a duplicate employee number with 409', async () => {
     await create(valid({ employee_no: 'SAME-1' }));
     const { response, body } = await create(valid({ employee_no: 'SAME-1' }));
@@ -192,7 +206,8 @@ describe('CC001 create account', () => {
     const { response, body } = await create({ role: ROLES.EXECUTIVE, email: 'nope', password: 'short' });
     assert.equal(response.status, 400);
     const fields = Object.keys(body.error.details);
-    for (const f of ['employee_no', 'full_name', 'email', 'password']) assert.ok(fields.includes(f), `${f} should be reported`);
+    for (const f of ['full_name', 'email', 'password']) assert.ok(fields.includes(f), `${f} should be reported`);
+    assert.ok(!fields.includes('employee_no'), 'DEF-19 / F6: the employee number is optional');
   });
 
   it('records ACCOUNT_CREATED with the after-value and never the password hash', async () => {

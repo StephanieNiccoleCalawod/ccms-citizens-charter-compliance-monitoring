@@ -4,7 +4,7 @@ import { initials, lastSignIn } from '../../lib/ui/account.js';
 /** My account: the person's own details, read-only. `officeName` is looked up by the page (the account only holds the office id). */
 export default function AccountDetails({ account, officeName }) {
   const rows = [
-    ['Employee number', account.employee_no],
+    ['Employee number', account.employee_no || '—'],
     ['Office', account.office_id ? officeName || 'Loading…' : 'All offices'],
     ['Position', account.position || '—'],
     ['Last sign-in', lastSignIn(account.last_login_at)],

@@ -115,6 +115,9 @@ describe('Add Account and Edit Account', () => {
 });
 
 describe('the accounts table', () => {
+  it('DEF-19 / F6: an account with no employee number gives an empty field, never the word "null"', () => {
+    assert.equal(accountToForm({ ...ACCOUNT, employee_no: null }).employee_no, '');
+  });
   it('has a Position column between the name (with its employee number) and the rest, and a dash for none', () => {
     const head = accounts.slice(accounts.indexOf('<Th>Name</Th>'), accounts.indexOf('<Th align="right">Actions</Th>'));
     assert.deepEqual([...head.matchAll(/<Th>([^<]+)<\/Th>/g)].map((m) => m[1]), ['Name', 'Position', 'Email', 'Role', 'Office', 'Status']);

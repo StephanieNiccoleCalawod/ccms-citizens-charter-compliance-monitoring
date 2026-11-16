@@ -51,7 +51,8 @@ const text = (value) => (typeof value === 'string' ? value.trim() : '');
  */
 export function parseAccountInput(body, { withPassword, passwordOptional = false }) {
   const details = {};
-  const employeeNo = text(body.employee_no);
+  // DEF-19 / F6: optional. Empty text = none (cleared); left out of the body = unchanged on edit (none on create).
+  const employeeNo = body.employee_no === undefined ? undefined : text(body.employee_no) || null;
   const fullName = text(body.full_name);
   const email = text(body.email).toLowerCase();
   const role = body.role;
@@ -64,8 +65,7 @@ export function parseAccountInput(body, { withPassword, passwordOptional = false
     else position = text(body.position) || null;
   }
 
-  if (!employeeNo) details.employee_no = 'Employee number is required';
-  else if (employeeNo.length > 50) details.employee_no = 'Employee number must be 50 characters or fewer';
+  if (employeeNo && employeeNo.length > 50) details.employee_no = 'Employee number must be 50 characters or fewer';
   if (!fullName) details.full_name = 'Full name is required';
   else if (fullName.length > 200) details.full_name = 'Full name must be 200 characters or fewer';
   if (!email) details.email = 'Email is required';
@@ -103,8 +103,8 @@ function conflictFor(err) {
 async function assertUnique(manager, { email, employeeNo }, exceptId = null) {
   const rows = await manager.query(
     `SELECT email, employee_no FROM accounts
-      WHERE (lower(email) = $1 OR employee_no = $2) AND ($3::uuid IS NULL OR account_id <> $3::uuid)`,
-    [email, employeeNo, exceptId],
+      WHERE (lower(email) = $1 OR ($2::text IS NOT NULL AND employee_no = $2::text)) AND ($3::uuid IS NULL OR account_id <> $3::uuid)`,
+    [email, employeeNo ?? null, exceptId],
   );
   if (rows.some((r) => r.email.toLowerCase() === email)) {
     throw Errors.conflict(MESSAGES.emailTaken, 'EMAIL_TAKEN', { email: MESSAGES.emailTaken });
@@ -171,7 +171,7 @@ export async function createAccount(dataSource, actor, body, { ipAddress, correl
       await assertUnique(manager, input);
       const saved = await manager.getRepository(Account).save({
         accountId: randomUUID(),
-        employeeNo: input.employeeNo,
+        employeeNo: input.employeeNo ?? null,
         fullName: input.fullName,
         email: input.email,
         passwordHash,
@@ -210,7 +210,7 @@ export async function updateAccount(dataSource, actor, id, body, { ipAddress, co
       const before = toAccountDto(existing);
       await manager.getRepository(Account).update(
         { accountId: id },
-        { employeeNo: input.employeeNo, fullName: input.fullName, email: input.email, roleKey: input.roleKey, officeId: input.officeId, ...(input.position !== undefined ? { position: input.position } : {}) },
+        { ...(input.employeeNo !== undefined ? { employeeNo: input.employeeNo } : {}), fullName: input.fullName, email: input.email, roleKey: input.roleKey, officeId: input.officeId, ...(input.position !== undefined ? { position: input.position } : {}) },
       );
       const after = toAccountDto(await loadAccount(manager, id));
       await audit(manager, actor, 'ACCOUNT_UPDATED', before, after, ipAddress);

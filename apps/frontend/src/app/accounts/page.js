@@ -351,8 +351,8 @@ function AccountsManager() {
           <form id="account-form" onSubmit={save} className="space-y-4" noValidate>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="label" htmlFor="employee_no">Employee no.<RequiredMark /></label>
-                <input id="employee_no" className="input" value={form.employee_no} onChange={(e) => setForm({ ...form, employee_no: e.target.value })} required autoFocus />
+                <label className="label" htmlFor="employee_no">Employee no. <span className="text-xs font-normal text-slate-500">(optional)</span></label>
+                <input id="employee_no" className="input" value={form.employee_no} onChange={(e) => setForm({ ...form, employee_no: e.target.value })} autoFocus />
                 {fieldErrors.employee_no ? <p className="mt-1 text-xs text-red-700">{fieldErrors.employee_no}</p> : null}
               </div>
               <div>

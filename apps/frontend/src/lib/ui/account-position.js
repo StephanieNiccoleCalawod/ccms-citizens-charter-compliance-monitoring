@@ -26,7 +26,7 @@ export function positionLabel(value) {
 export function accountToForm(account) {
   return {
     id: account.account_id,
-    employee_no: account.employee_no,
+    employee_no: account.employee_no ?? '', // optional (F6): none is an empty field, never the word "null"
     full_name: account.full_name,
     email: account.email,
     role: account.role,

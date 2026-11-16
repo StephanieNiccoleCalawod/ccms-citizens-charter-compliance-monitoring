@@ -9,7 +9,8 @@ export const Account = new EntitySchema({
   tableName: 'accounts',
   columns: {
     accountId: { name: 'account_id', type: 'uuid', primary: true },
-    employeeNo: { name: 'employee_no', type: 'text' },
+    // DEF-19 / F6: optional; unique when given.
+    employeeNo: { name: 'employee_no', type: 'text', nullable: true },
     fullName: { name: 'full_name', type: 'text' },
     email: { type: 'text' },
     passwordHash: { name: 'password_hash', type: 'text' },
