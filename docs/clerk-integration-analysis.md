@@ -1054,6 +1054,12 @@ The backend already accepts a missing password only while Clerk is on (`c235674`
 | 8 | Staff sign in with their PUP account; Super Admins approve them. People without a PUP account are invited by the owner | CCMS + owner |
 | 9 | Later, with its own approval: `NEXT_PUBLIC_AUTH_PROVIDER=clerk` | CCMS |
 
+#### Production switch-on (2026-11-17)
+- **Identity:** `CLERK_ISSUER=https://clerk.pupqc.tech`, `CLERK_AUTHORIZED_PARTIES=https://cccms.pupqc.tech`, and `CLERK_JWT_KEY` (production PEM; checker 12/12 PASS) were set. `CLERK_AUTH_ENABLED=true` followed after one verification: a forged token is answered 401, not 503.
+- **Frontend:** `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_…` and `NEXT_PUBLIC_CLERK_KEYLESS_DISABLED=true` were set, then `NEXT_PUBLIC_AUTH_PROVIDER=dual`.
+- **Redeploy:** must be done **without the build cache**. One redeploy still served `String("legacy")` in the client bundle until the variable was saved correctly and the frontend was rebuilt.
+- **First production sign-in:** an invited person reached "No access yet" and appeared as Pending in Accounts → Clerk Sign-in Access.
+
 #### Step 4 execution record (runbook `docs/database-migrations.md` section 3, step 7)
 | Item | Value |
 |---|---|
@@ -1089,3 +1095,26 @@ These came from upstream changes; the application code was right and the tests w
      - Approve, then "Check again": they are signed in.
 2. Accounts form password (19.3).
 3. Decode one real token (19.2).
+
+---
+
+## 20. Clerk access improvements and Flow B (2026-11-18)
+
+*Responds to the PM's "Clerk Access Flow Review" (11/17/2026). The developer response with the full table is kept next to that review: `CCCMS_CLERK_ACCESS_FLOW_REVIEW_11182026_DEV_RESPONSE.md`.*
+
+**Branch** `feat/cccms-clerk-access-improvements`: `d4b0334` (Identity) and `2b250f4` (frontend).
+
+| Change | Notes |
+|---|---|
+| The Clerk Sign-in Access tab reloads each time it is shown | Fixes: a newly created account did not appear until Refresh |
+| Four worked-out states: Pending, Active, Deactivated, Not linked | No migration. `GET /clerk-access/links` now returns name, employee number and `is_active` for each binding, plus `directory` (whether Flow B is on) |
+| Self-protection | `CANNOT_CHANGE_OWN_ROLE` and `CANNOT_DEACTIVATE_SELF` (409). Checked after the last-Super-Admin rule, so AC5 keeps its message |
+| Optional initial password while Clerk is on | The form sends `password: ""` (payload unchanged); Identity stores the `clerk$` marker |
+| **Flow B** (off by default) | `GET /accounts/{id}/clerk-match` looks up the account's own email in Clerk: one exact address, verified emails only (R6). `PUT /accounts/{id}/clerk-link` with `via: "directory"` re-checks the user in Clerk (exists, not banned or locked, verified email equals the account email), then binds by issuer + user ID (R3) and audits `via: "directory"`. Read only in Clerk (R4). Needs `CLERK_DIRECTORY_ENABLED=true` and `CLERK_SECRET_KEY`, on **Identity only** (R8), and **only after the playbook D1 agreement** |
+| Not changed | Email in the account-record audit: an acceptance test of the original specification requires it, so it is a PM decision. Flow A waits on D1 and on reading the invitation reference at first sign-in |
+
+**Verified:**
+- Identity 163/163, frontend 1095/1095.
+- 0 lint errors in all workspaces; Identity and frontend build.
+- A mutation of Flow B's verified-email check is caught by its test.
+- **TO VERIFY with a real key:** the Clerk Backend API user-search response fields.
