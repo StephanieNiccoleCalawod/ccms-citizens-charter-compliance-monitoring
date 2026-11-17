@@ -117,4 +117,25 @@ export const ClerkAccessRequest = new EntitySchema({
   },
 });
 
-export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit, PermissionSwitch, AccountLastLogin, ClerkAccountLink, ClerkAccessRequest];
+// Flow A: invitations CCCMS sent through the Clerk Backend API. Only the SHA-256 of the opaque reference (the value put in
+// the invitation's public_metadata.cccms) is kept. Keep identical to migrations/sql/1795300000000-ClerkInvitations.up.sql.
+export const ClerkInvitation = new EntitySchema({
+  name: 'ClerkInvitation',
+  tableName: 'clerk_invitations',
+  columns: {
+    clerkInvitationId: { name: 'clerk_invitation_id', type: 'text', primary: true, primaryKeyConstraintName: 'clerk_invitations_pkey' },
+    accountId: { name: 'account_id', type: 'uuid' },
+    clerkIssuer: { name: 'clerk_issuer', type: 'text' },
+    refHash: { name: 'ref_hash', type: 'text' },
+    email: { type: 'text' },
+    invitedBy: { name: 'invited_by', type: 'uuid' },
+    invitedAt: { name: 'invited_at', type: 'timestamptz', default: () => 'now()' },
+    usedAt: { name: 'used_at', type: 'timestamptz', nullable: true },
+    usedByClerkUserId: { name: 'used_by_clerk_user_id', type: 'text', nullable: true },
+    revokedAt: { name: 'revoked_at', type: 'timestamptz', nullable: true },
+  },
+  uniques: [{ name: 'clerk_invitations_ref_uq', columns: ['refHash'] }],
+  indices: [{ name: 'clerk_invitations_open_uq', columns: ['accountId'], unique: true, where: '"used_at" IS NULL AND "revoked_at" IS NULL' }],
+});
+
+export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit, PermissionSwitch, AccountLastLogin, ClerkAccountLink, ClerkAccessRequest, ClerkInvitation];

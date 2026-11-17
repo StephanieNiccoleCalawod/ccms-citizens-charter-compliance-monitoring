@@ -1,6 +1,7 @@
 import { bearerToken, createDbStore, createRateLimiter, json, route } from 'ccms-shared';
 import { exchangeClerkSession } from '../../../../../lib/clerk-access.js';
 import { clerkSettings, requireClerkEnabled, verifyClerkToken } from '../../../../../lib/clerk.js';
+import * as directoryLookup from '../../../../../lib/clerk-directory.js';
 import { getDb } from '../../../../../lib/data-source.js';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +34,8 @@ export const POST = route(async (request, { correlationId }) => {
     );
   }
 
-  const session = await exchangeClerkSession(await getDb(), identity);
+  const invitations = directoryLookup.invitationsAvailable() ? { settings: directoryLookup.invitationSettings(), api: directoryLookup } : null;
+  const session = await exchangeClerkSession(await getDb(), identity, { invitations });
   return json({ access_token: session.accessToken, token_type: 'Bearer', expires_in: session.expiresIn, user: session.user }, 200, {
     'cache-control': 'no-store',
   });

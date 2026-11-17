@@ -1,0 +1,18 @@
+{
+  "column:clerk_invitations.account_id": "uuid NOT NULL",
+  "column:clerk_invitations.clerk_invitation_id": "text NOT NULL",
+  "column:clerk_invitations.clerk_issuer": "text NOT NULL",
+  "column:clerk_invitations.email": "text NOT NULL",
+  "column:clerk_invitations.invited_at": "timestamp with time zone NOT NULL DEFAULT now()",
+  "column:clerk_invitations.invited_by": "uuid NOT NULL",
+  "column:clerk_invitations.ref_hash": "text NOT NULL",
+  "column:clerk_invitations.revoked_at": "timestamp with time zone",
+  "column:clerk_invitations.used_at": "timestamp with time zone",
+  "column:clerk_invitations.used_by_clerk_user_id": "text",
+  "constraint:clerk_invitations.clerk_invitations_pkey": "PRIMARY KEY (clerk_invitation_id)",
+  "constraint:clerk_invitations.clerk_invitations_ref_uq": "UNIQUE (ref_hash)",
+  "index:clerk_invitations.clerk_invitations_open_uq": "CREATE UNIQUE INDEX clerk_invitations_open_uq ON public.clerk_invitations USING btree (account_id) WHERE ((used_at IS NULL) AND (revoked_at IS NULL))",
+  "index:clerk_invitations.clerk_invitations_pkey": "CREATE UNIQUE INDEX clerk_invitations_pkey ON public.clerk_invitations USING btree (clerk_invitation_id)",
+  "index:clerk_invitations.clerk_invitations_ref_uq": "CREATE UNIQUE INDEX clerk_invitations_ref_uq ON public.clerk_invitations USING btree (ref_hash)",
+  "table:clerk_invitations": ""
+}
