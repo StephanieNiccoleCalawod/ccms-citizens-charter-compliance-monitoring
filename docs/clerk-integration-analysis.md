@@ -1047,12 +1047,29 @@ The backend already accepts a missing password only while Clerk is on (`c235674`
 | 1 | Merge `feat/cccms-clerk-landas1` into `codebase-for-deployment` after review, with CI green. **Pushing or merging to `codebase-for-deployment` deploys to production on Vercel**, so merge only with the switches off | CCMS |
 | 2 | Receive the production instance's public values (Frontend API URL, PEM, `pk_live_` publishable key); run the checker in 15.2.3 | Owner → CCMS |
 | 3 | **Done 2026-11-14:** `cccms.pupqc.tech` is on the frontend Vercel project (CNAME plus `_vercel` TXT ownership verification at Name.com) and serves CCMS over HTTPS. Still needed from the owner: `cccms` in Allowed subdomains and the redirect `https://cccms.pupqc.tech/login/clerk` on the production instance (playbook D2) | CCMS + owner |
-| 4 | Rehearse the Identity migration `ClerkAccountLinks1795100000000` on a Neon branch (`migrate:show`, `migrate:run`, revert), then run it on production with `DB_TARGET=hosted --confirm=<db>` and the direct admin URL | CCMS |
+| 4 | **Done 2026-11-17** (record below): Identity migrations rehearsed on a Neon backup branch, then run on production | CCMS (BE Dev 1) |
 | 5 | Identity production env: `CLERK_ISSUER`, `CLERK_JWT_KEY`, `CLERK_AUTHORIZED_PARTIES=https://cccms.pupqc.tech`; keep `CLERK_AUTH_ENABLED=false` for now. **No Clerk secret key anywhere** | CCMS |
 | 6 | Frontend production env: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_…`, `NEXT_PUBLIC_CLERK_KEYLESS_DISABLED=true`; keep `NEXT_PUBLIC_AUTH_PROVIDER=legacy`. Deploy. Nothing changes for users | CCMS |
 | 7 | Turn on: Identity `CLERK_AUTH_ENABLED=true`, frontend `NEXT_PUBLIC_AUTH_PROVIDER=dual`, redeploy. Two Super Admins sign in with Clerk and get approved first (lockout protection) | CCMS |
 | 8 | Staff sign in with their PUP account; Super Admins approve them. People without a PUP account are invited by the owner | CCMS + owner |
 | 9 | Later, with its own approval: `NEXT_PUBLIC_AUTH_PROVIDER=clerk` | CCMS |
+
+#### Step 4 execution record (runbook `docs/database-migrations.md` section 3, step 7)
+| Item | Value |
+|---|---|
+| Date | 2026-11-17 (Asia/Manila) |
+| Executor | BE Dev 1 |
+| Repository commit | `08aa866` (`codebase-for-deployment`) |
+| Neon project / database | `ccms-identity` / `ccms_identity`. The project's other database, `neondb`, is empty and is **not** the Identity database |
+| Backup | Neon branch `pre-clerk-identity-20261117` from `production`, data and schema, auto-delete off. Row counts compared with production by BE Dev 1 |
+| Starting state | Tracking already set up: `IdentityBaseline`, `Cc046AccountPosition`, `Cc046TrimmedPosition` and `Cc056PermissionSwitches` applied; 2 pending. Baseline adoption not needed (`check-baseline` differences are the already-applied Cc056 objects, expected after adoption) |
+| Rehearsal (backup branch) | `Applied: ClerkAccountLinks1795100000000, Def19OptionalEmployeeNo1795200000000`, then "Up to date." |
+| Production | `Applied: ClerkAccountLinks1795100000000, Def19OptionalEmployeeNo1795200000000`, then "Up to date." |
+| After | `cccms.pupqc.tech`: `/login` 200; Identity, Catalogue, Logs and Operations health 200; password sign-in answers `INVALID_CREDENTIALS` to a wrong password; Clerk exchange 404 (still off) |
+
+Follow-ups:
+1. **Reset the `neondb_owner` password.** It was exposed in a screenshot during this work and owns `ccms_identity`. Update any Vercel variable that uses it, then redeploy.
+2. Keep the backup branch until Clerk has run stably in production, then delete it.
 
 **Rollback:** set `NEXT_PUBLIC_AUTH_PROVIDER=legacy` and `CLERK_AUTH_ENABLED=false`, then redeploy. Password sign-in works throughout (hashes untouched). The two new tables can stay; they are inert when Clerk is off.
 
