@@ -72,12 +72,118 @@ export async function listAccessRequests(db, settings) {
   };
 }
 
-/** Super Admin: which accounts are bound to Clerk (no Clerk IDs or emails; enough for the Accounts screen). */
-export async function listLinks(db, settings) {
+/**
+ * Super Admin: which accounts are bound to Clerk, with the account's name, employee number and whether it is still active
+ * (a deactivated account keeps its binding but cannot sign in: the screen shows it as Deactivated). No Clerk IDs or emails.
+ * `directory` says whether Flow B (find a person in Clerk by the account's email) is switched on.
+ */
+export async function listLinks(db, settings, { directory = false } = {}) {
   const rows = rowsOf(
-    await db.query('SELECT account_id, linked_at, linked_by FROM account_clerk_links WHERE clerk_issuer = $1 ORDER BY linked_at DESC', [settings.issuer]),
+    await db.query(
+      `SELECT l.account_id, l.linked_at, l.linked_by, a.full_name, a.employee_no, a.is_active
+         FROM account_clerk_links l LEFT JOIN accounts a ON a.account_id = l.account_id
+        WHERE l.clerk_issuer = $1 ORDER BY l.linked_at DESC`,
+      [settings.issuer],
+    ),
   );
-  return { items: rows.map((r) => ({ account_id: r.account_id, linked_at: r.linked_at, linked_by: r.linked_by })) };
+  return {
+    directory,
+    items: rows.map((r) => ({
+      account_id: r.account_id,
+      linked_at: r.linked_at,
+      linked_by: r.linked_by,
+      full_name: r.full_name ?? null,
+      employee_no: r.employee_no ?? null,
+      is_active: r.is_active === true,
+    })),
+  };
+}
+
+/**
+ * Flow B, step 1 (Super Admin): does the person behind this CCMS account already have a Clerk login? Looks up the
+ * account's own email in Clerk (one exact address, R6) and returns the people whose VERIFIED email matches. Nothing is
+ * bound yet: the Super Admin confirms one in step 2.
+ */
+export async function findClerkUserForAccount(db, accountId, settings, directory, lookup) {
+  if (!isUuid(accountId)) throw Errors.notFound('Account not found', 'ACCOUNT_NOT_FOUND');
+  const account = await db.getRepository(Account).findOneBy({ accountId });
+  if (!account) throw Errors.notFound('Account not found', 'ACCOUNT_NOT_FOUND');
+  if (!account.isActive) throw Errors.conflict('Reactivate the account before linking it', 'ACCOUNT_INACTIVE');
+  const [taken] = rowsOf(await db.query('SELECT 1 FROM account_clerk_links WHERE account_id = $1', [accountId]));
+  if (taken) throw Errors.conflict('This account is already linked. Remove the current link first.', 'ACCOUNT_ALREADY_LINKED');
+  const people = await lookup.findUsersByEmail(directory, account.email);
+  // Mark people who are already bound to another CCCMS account, so the screen does not offer them.
+  const ids = people.map((p) => p.clerk_user_id);
+  const linked = ids.length
+    ? new Set(rowsOf(await db.query('SELECT clerk_user_id FROM account_clerk_links WHERE clerk_issuer = $1 AND clerk_user_id = ANY($2)', [settings.issuer, ids])).map((r) => r.clerk_user_id))
+    : new Set();
+  return {
+    account_id: accountId,
+    email: String(account.email).toLowerCase(),
+    matches: people.map((p) => ({ ...p, already_linked: linked.has(p.clerk_user_id) })),
+  };
+}
+
+/**
+ * Flow B, step 2 (Super Admin): bind the account to a Clerk user found in step 1. Clerk is asked again for that user: it
+ * must exist, not be banned or locked, and have a VERIFIED email equal to the account's email. The binding is still by
+ * issuer + Clerk user ID (R3); the email check only proves it is the same person the Super Admin looked up.
+ */
+export async function linkAccountFromDirectory(db, actor, accountId, body, settings, directory, lookup, { ipAddress } = {}) {
+  const clerkUserId = typeof body?.clerk_user_id === 'string' ? body.clerk_user_id.trim() : '';
+  if (!SUBJECT_RE.test(clerkUserId)) {
+    throw Errors.validation('Choose the person found in Clerk', { clerk_user_id: 'Must be a Clerk user ID (user_...)' });
+  }
+  if (!isUuid(accountId)) throw Errors.notFound('Account not found', 'ACCOUNT_NOT_FOUND');
+  const preview = await db.getRepository(Account).findOneBy({ accountId });
+  if (!preview) throw Errors.notFound('Account not found', 'ACCOUNT_NOT_FOUND');
+
+  const user = await lookup.getUser(directory, clerkUserId);
+  if (!user) throw Errors.conflict('This person was not found in Clerk.', 'CLERK_USER_NOT_FOUND');
+  if (user.banned === true || user.locked === true) throw Errors.conflict('This Clerk login is banned or locked.', 'CLERK_USER_BLOCKED');
+  if (!lookup.verifiedMatch(user, preview.email)) {
+    throw Errors.conflict("This Clerk login does not have the account's email as a verified address.", 'CLERK_EMAIL_MISMATCH');
+  }
+
+  let result;
+  try {
+    result = await db.transaction(async (manager) => {
+      const account = await loadActiveAccount(manager, accountId);
+      const [taken] = rowsOf(await manager.query('SELECT 1 FROM account_clerk_links WHERE account_id = $1', [accountId]));
+      if (taken) throw Errors.conflict('This account is already linked. Remove the current link first.', 'ACCOUNT_ALREADY_LINKED');
+      const [saved] = rowsOf(
+        await manager.query(
+          `INSERT INTO account_clerk_links (account_id, clerk_issuer, clerk_user_id, linked_by) VALUES ($1, $2, $3, $4)
+           RETURNING account_id, linked_at, linked_by`,
+          [accountId, settings.issuer, clerkUserId, actor.id],
+        ),
+      );
+      // A pending sign-in by the same person is now answered.
+      await manager.query('DELETE FROM clerk_access_requests WHERE clerk_issuer = $1 AND clerk_user_id = $2', [settings.issuer, clerkUserId]);
+      await recordAudit(manager, {
+        actor,
+        action: 'ACCOUNT_CLERK_LINKED',
+        entityType: 'account',
+        entityId: accountId,
+        entityName: account.fullName,
+        officeId: account.officeId,
+        before: null,
+        after: { account_id: accountId, clerk_user_id: clerkUserId, via: 'directory' },
+        ipAddress,
+      });
+      return { account_id: saved.account_id, linked_at: saved.linked_at, linked_by: saved.linked_by };
+    });
+  } catch (err) {
+    if (isUniqueViolation(err, 'account_clerk_links_subject_uq')) {
+      throw Errors.conflict('This person is already linked to another CCMS account.', 'CLERK_USER_ALREADY_LINKED');
+    }
+    if (isUniqueViolation(err, 'account_clerk_links_pkey')) {
+      throw Errors.conflict('This account is already linked. Remove the current link first.', 'ACCOUNT_ALREADY_LINKED');
+    }
+    throw err;
+  }
+  kickOutbox();
+  return result;
 }
 
 async function loadActiveAccount(manager, accountId) {

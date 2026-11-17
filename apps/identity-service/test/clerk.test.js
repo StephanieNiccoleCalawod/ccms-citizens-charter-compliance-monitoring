@@ -3,6 +3,7 @@ import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { SignJWT, exportSPKI, generateKeyPair } from 'jose';
 import { ROLES } from 'ccms-shared';
 import { PATCH as deactivateRoute } from '../src/app/api/accounts/[id]/deactivate/route.js';
+import { PUT as updateRoute } from '../src/app/api/accounts/[id]/route.js';
 import { POST as createRoute } from '../src/app/api/accounts/route.js';
 import { POST as loginRoute, setLoginLimiter } from '../src/app/api/auth/login/route.js';
 import { NO_PASSWORD_MARKER } from '../src/lib/accounts.js';
@@ -13,6 +14,8 @@ import { DELETE as dismissRoute } from '../src/app/api/clerk-access/requests/[id
 import { GET as requestsRoute } from '../src/app/api/clerk-access/requests/route.js';
 import { GET as meRoute } from '../src/app/api/me/route.js';
 import { clerkSettings } from '../src/lib/clerk.js';
+import { setDirectoryFetch } from '../src/lib/clerk-directory.js';
+import { GET as matchRoute } from '../src/app/api/accounts/[id]/clerk-match/route.js';
 import { ctx, outboxEvents, req, seedAccount, setupTestEnv, tokenFor } from './helpers.js';
 
 // Clerk sign-in (Landas 1). Tokens are minted here with a throwaway RSA key that stands in for the Clerk instance key.
@@ -75,6 +78,151 @@ async function signInAndLink(account, adminToken, claims = {}) {
   assert.equal(res.status, 200, JSON.stringify(await res.clone().json()));
   return sub;
 }
+
+describe('Clerk sign-in: Flow B (find an existing Clerk login by the account email)', () => {
+  // A stand-in for the Clerk Backend API: no network, no real key.
+  let clerkUsers;
+  let calls;
+  const fakeUser = (id, email, { verified = true, first = 'Ana', last = 'Cruz', banned = false } = {}) => ({
+    id,
+    first_name: first,
+    last_name: last,
+    banned,
+    locked: false,
+    email_addresses: [{ email_address: email, verification: { status: verified ? 'verified' : 'unverified' } }],
+  });
+  beforeEach(() => {
+    process.env.CLERK_DIRECTORY_ENABLED = 'true';
+    process.env.CLERK_SECRET_KEY = 'sk_test_fake_for_tests_only';
+    clerkUsers = [];
+    calls = [];
+    setDirectoryFetch(async (url, init) => {
+      calls.push({ url: String(url), auth: init?.headers?.authorization });
+      const u = new URL(url);
+      if (u.pathname === '/v1/users') {
+        const wanted = (u.searchParams.get('email_address') ?? '').toLowerCase();
+        const found = clerkUsers.filter((x) => x.email_addresses.some((a) => a.email_address.toLowerCase() === wanted));
+        return new Response(JSON.stringify(found), { status: 200 });
+      }
+      const id = decodeURIComponent(u.pathname.split('/').pop());
+      const user = clerkUsers.find((x) => x.id === id);
+      return user ? new Response(JSON.stringify(user), { status: 200 }) : new Response('{}', { status: 404 });
+    });
+  });
+  afterEach(() => {
+    delete process.env.CLERK_DIRECTORY_ENABLED;
+    delete process.env.CLERK_SECRET_KEY;
+    setDirectoryFetch(null);
+  });
+
+  const match = (token, account) => matchRoute(req('GET', `/accounts/${account.accountId}/clerk-match`, { token }), ctx(account.accountId));
+  const linkVia = (token, account, clerkUserId) =>
+    linkRoute(req('PUT', `/accounts/${account.accountId}/clerk-link`, { token, body: { clerk_user_id: clerkUserId, via: 'directory' } }), ctx(account.accountId));
+
+  it('finds the person by the account email only (one exact address, sent with the key on the server)', async () => {
+    const { token } = await admin();
+    const staff = await seedAccount(ds, { email: 'Ana.Cruz@example.test' });
+    clerkUsers.push(fakeUser('user_ana1', 'ana.cruz@example.test'), fakeUser('user_other1', 'someone@example.test'));
+    const res = await match(token, staff);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.deepEqual(body.matches.map((m) => [m.clerk_user_id, m.email, m.name, m.already_linked]), [['user_ana1', 'ana.cruz@example.test', 'Ana Cruz', false]]);
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].url, /\/v1\/users\?email_address=ana\.cruz%40example\.test&limit=10$/);
+    assert.equal(calls[0].auth, 'Bearer sk_test_fake_for_tests_only');
+    assert.ok(!JSON.stringify(body).includes('sk_test'), 'the key never leaves the server');
+  });
+
+  it('ignores Clerk logins whose matching email is not verified', async () => {
+    const { token } = await admin();
+    const staff = await seedAccount(ds, { email: 'unverified@example.test' });
+    clerkUsers.push(fakeUser('user_unv1', 'unverified@example.test', { verified: false }));
+    assert.deepEqual((await (await match(token, staff)).json()).matches, []);
+  });
+
+  it('binds the account to the confirmed person without a first sign-in, by Clerk user ID, and audits it as directory', async () => {
+    const { token } = await admin();
+    const staff = await seedAccount(ds, { role: ROLES.OFFICE_HEAD, email: 'head.b@example.test' });
+    clerkUsers.push(fakeUser('user_headb1', 'head.b@example.test'));
+    const res = await linkVia(token, staff, 'user_headb1');
+    assert.equal(res.status, 200, JSON.stringify(await res.clone().json()));
+    const [row] = await ds.query('SELECT clerk_issuer, clerk_user_id FROM account_clerk_links WHERE account_id = $1', [staff.accountId]);
+    assert.deepEqual(row, { clerk_issuer: ISSUER, clerk_user_id: 'user_headb1' });
+    const event = (await outboxEvents(ds, 'ACCOUNT_CLERK_LINKED')).find((e) => e.entity_id === staff.accountId);
+    assert.deepEqual(event.after_value, { account_id: staff.accountId, clerk_user_id: 'user_headb1', via: 'directory' });
+    // The person then signs in normally and gets in.
+    const signedIn = await exchange(await clerkToken({ sub: 'user_headb1' }));
+    assert.equal(signedIn.status, 200);
+    assert.equal((await signedIn.json()).user.role, ROLES.OFFICE_HEAD);
+  });
+
+  it('refuses a Clerk login whose verified email is not the account email (a mistyped or tampered ID)', async () => {
+    const { token } = await admin();
+    const staff = await seedAccount(ds, { email: 'right@example.test' });
+    clerkUsers.push(fakeUser('user_wrong1', 'wrong@example.test'));
+    assert.equal(await codeOf(await linkVia(token, staff, 'user_wrong1')), 'CLERK_EMAIL_MISMATCH');
+    assert.equal(await codeOf(await linkVia(token, staff, 'user_missing1')), 'CLERK_USER_NOT_FOUND');
+    clerkUsers.push(fakeUser('user_banned1', 'right@example.test', { banned: true }));
+    assert.equal(await codeOf(await linkVia(token, staff, 'user_banned1')), 'CLERK_USER_BLOCKED');
+  });
+
+  it('keeps one-to-one: a person already bound elsewhere is flagged and cannot be bound twice', async () => {
+    const { token } = await admin();
+    const first = await seedAccount(ds, { email: 'twice@example.test' });
+    clerkUsers.push(fakeUser('user_twice1', 'twice@example.test'));
+    assert.equal((await linkVia(token, first, 'user_twice1')).status, 200);
+    assert.equal(await codeOf(await match(token, first)), 'ACCOUNT_ALREADY_LINKED');
+    // Another account that (wrongly) shares the address in Clerk's eyes is refused at the database.
+    await ds.query('UPDATE accounts SET email = $2 WHERE account_id = $1', [first.accountId, 'twice.old@example.test']);
+    const second = await seedAccount(ds, { email: 'twice@example.test' });
+    const found = await (await match(token, second)).json();
+    assert.equal(found.matches[0].already_linked, true);
+    assert.equal(await codeOf(await linkVia(token, second, 'user_twice1')), 'CLERK_USER_ALREADY_LINKED');
+  });
+
+  it('is off without the switch or the key (404 / 503), and Super Admin only', async () => {
+    const { token } = await admin();
+    const staff = await seedAccount(ds);
+    const officeHead = await tokenFor(await seedAccount(ds, { role: ROLES.OFFICE_HEAD }));
+    assert.equal((await match(officeHead, staff)).status, 403);
+    delete process.env.CLERK_SECRET_KEY;
+    assert.equal(await codeOf(await match(token, staff)), 'CLERK_DIRECTORY_NOT_CONFIGURED');
+    process.env.CLERK_DIRECTORY_ENABLED = 'false';
+    assert.equal((await match(token, staff)).status, 404);
+    assert.equal((await linkVia(token, staff, 'user_x1')).status, 404);
+    assert.equal(calls.length, 0, 'Clerk is never called while Flow B is off');
+  });
+
+  it('turns Clerk being down or a rejected key into 503, never into a wrong answer', async () => {
+    const { token } = await admin();
+    const staff = await seedAccount(ds, { email: 'down@example.test' });
+    setDirectoryFetch(async () => new Response('{}', { status: 500 }));
+    assert.equal(await codeOf(await match(token, staff)), 'CLERK_DIRECTORY_UNAVAILABLE');
+    setDirectoryFetch(async () => new Response('{}', { status: 401 }));
+    assert.equal(await codeOf(await match(token, staff)), 'CLERK_DIRECTORY_NOT_CONFIGURED');
+    setDirectoryFetch(async () => { throw new TypeError('network'); });
+    assert.equal(await codeOf(await match(token, staff)), 'CLERK_DIRECTORY_UNAVAILABLE');
+  });
+});
+
+describe('Accounts: nobody changes their own role or deactivates themselves (playbook safety rule)', () => {
+  it('refuses a Super Admin changing their own role or deactivating themselves, while another Super Admin can', async () => {
+    const { account: me, token } = await admin();
+    const { account: other, token: otherToken } = await admin();
+    const body = { employee_no: me.employeeNo, full_name: me.fullName, email: me.email, role: ROLES.EXECUTIVE };
+    const own = await updateRoute(req('PUT', `/accounts/${me.accountId}`, { token, body }), ctx(me.accountId));
+    assert.equal(own.status, 409);
+    assert.equal(await codeOf(own), 'CANNOT_CHANGE_OWN_ROLE');
+    const ownOff = await deactivateRoute(req('PATCH', `/accounts/${me.accountId}/deactivate`, { token }), ctx(me.accountId));
+    assert.equal(await codeOf(ownOff), 'CANNOT_DEACTIVATE_SELF');
+    // Editing your own name keeps working.
+    const rename = await updateRoute(req('PUT', `/accounts/${me.accountId}`, { token, body: { ...body, role: ROLES.SUPER_ADMIN, full_name: 'New Name' } }), ctx(me.accountId));
+    assert.equal(rename.status, 200);
+    // Another Super Admin may change or deactivate this account.
+    assert.equal((await deactivateRoute(req('PATCH', `/accounts/${me.accountId}/deactivate`, { token: otherToken }), ctx(me.accountId))).status, 200);
+    assert.ok(other);
+  });
+});
 
 describe('Clerk sign-in: switched off', () => {
   it('every Clerk route answers 404 while CLERK_AUTH_ENABLED is not "true"', async () => {
@@ -327,6 +475,11 @@ describe('Clerk sign-in: binding by issuer + user ID (playbook R3)', () => {
       const staff = { accountId: account.account_id };
       const sub = await signInAndLink(staff, token);
       assert.equal((await exchange(await clerkToken({ sub }))).status, 200);
+      // The Accounts form sends an empty password (the payload shape is unchanged): treated exactly like a missing one.
+      const empty = await createRoute(req('POST', '/accounts', { token, body: { ...body, employee_no: 'CLK-004', email: 'empty.pw@example.test', password: '' } }));
+      assert.equal(empty.status, 201);
+      const [emptyRow] = await ds.query('SELECT password_hash FROM accounts WHERE lower(email) = $1', ['empty.pw@example.test']);
+      assert.equal(emptyRow.password_hash, NO_PASSWORD_MARKER);
       // A password that is given is still checked and stored as before.
       const weak = await createRoute(req('POST', '/accounts', { token, body: { ...body, employee_no: 'CLK-002', email: 'weak@example.test', password: 'short' } }));
       assert.equal(weak.status, 400);
@@ -341,6 +494,17 @@ describe('Clerk sign-in: binding by issuer + user ID (playbook R3)', () => {
     const res = await createRoute(req('POST', '/accounts', { token, body: { employee_no: 'CLK-003', full_name: 'No Clerk', email: 'no.clerk@example.test', role: ROLES.EXECUTIVE } }));
     assert.equal(res.status, 400);
     assert.ok((await res.json()).error.details.password);
+  });
+
+  it('lists bound accounts with their name and active state, so a deactivated one can be shown as such', async () => {
+    const { token } = await admin();
+    const staff = await seedAccount(ds, { fullName: 'Rosa Reyes', employeeNo: 'EMP-7001' });
+    await signInAndLink(staff, token);
+    await ds.query('UPDATE accounts SET is_active = false WHERE account_id = $1', [staff.accountId]);
+    const body = await (await linksRoute(req('GET', '/clerk-access/links', { token }))).json();
+    const item = body.items.find((l) => l.account_id === staff.accountId);
+    assert.deepEqual([item.full_name, item.employee_no, item.is_active], ['Rosa Reyes', 'EMP-7001', false]);
+    assert.equal(body.directory, false, 'Flow B is off unless CLERK_DIRECTORY_ENABLED and CLERK_SECRET_KEY are set');
   });
 
   it('a Clerk token is never accepted where a CCMS token is required', async () => {

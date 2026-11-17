@@ -15,6 +15,8 @@ export const MESSAGES = {
   officeRequired: 'Office is required for Office Head and Office Staff',
   officeForbidden: 'Executive and Super Admin accounts cannot have an office',
   lastSuperAdmin: 'At least one active Super Admin is required',
+  ownRole: 'You cannot change your own role. Ask another Super Admin.',
+  ownDeactivate: 'You cannot deactivate your own account. Ask another Super Admin.',
   notFound: 'Account not found',
   positionText: 'Position must be text',
   positionLong: 'Position must be 100 characters or fewer',
@@ -206,6 +208,11 @@ export async function updateAccount(dataSource, actor, id, body, { ipAddress, co
       if (existing.roleKey === ROLES.SUPER_ADMIN && input.roleKey !== ROLES.SUPER_ADMIN) {
         await assertNotLastSuperAdmin(manager, existing);
       }
+      // Shared Clerk Access Playbook safety rule: nobody changes their own role (another Super Admin must do it).
+      // Checked after the last-Super-Admin rule, so that rule keeps its own message.
+      if (String(actor?.id) === String(id) && input.roleKey !== existing.roleKey) {
+        throw Errors.conflict(MESSAGES.ownRole, 'CANNOT_CHANGE_OWN_ROLE');
+      }
       await assertUnique(manager, input, id);
       const before = toAccountDto(existing);
       await manager.getRepository(Account).update(
@@ -231,6 +238,8 @@ export async function setAccountActive(dataSource, actor, id, isActive, { ipAddr
     const before = toAccountDto(existing);
     if (existing.isActive === isActive) return before;
     if (!isActive) await assertNotLastSuperAdmin(manager, existing);
+    // Playbook safety rule: nobody deactivates their own account (another Super Admin must do it).
+    if (!isActive && String(actor?.id) === String(id)) throw Errors.conflict(MESSAGES.ownDeactivate, 'CANNOT_DEACTIVATE_SELF');
     await manager.getRepository(Account).update({ accountId: id }, { isActive });
     if (!isActive) {
       await manager.query('UPDATE refresh_tokens SET revoked_at = now() WHERE account_id = $1 AND revoked_at IS NULL', [id]);
