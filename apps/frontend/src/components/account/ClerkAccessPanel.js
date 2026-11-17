@@ -16,6 +16,8 @@ import {
   listActiveAccounts,
   listClerkAccessRequests,
   listClerkLinks,
+  revokeClerkInvitationForAccount,
+  sendClerkInvitationForAccount,
   unlinkAccountFromClerk,
 } from '../../lib/api/clerk-access.js';
 import { currentUser } from '../../lib/auth/session.js';
@@ -47,6 +49,8 @@ export default function ClerkAccessPanel({ active = true }) {
   const [links, setLinks] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [directory, setDirectory] = useState(false);
+  const [invitations, setInvitations] = useState(false);
+  const [invited, setInvited] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ q: '', status: '' });
   const [choice, setChoice] = useState({});
@@ -54,7 +58,7 @@ export default function ClerkAccessPanel({ active = true }) {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(null); // the record being saved, 'confirm' while a dialog action runs, or null
-  const [confirm, setConfirm] = useState(null); // { type: 'dismiss', request } | { type: 'unlink', link } | { type: 'directory', accountId, match }
+  const [confirm, setConfirm] = useState(null); // { type: 'dismiss', request } | { type: 'unlink', link } | { type: 'directory', accountId, match } | { type: 'invite', accountId, email } | { type: 'revoke-invitation', accountId }
   const me = currentUser();
 
   // One load reads every group together. State is only set in the callbacks.
@@ -65,6 +69,8 @@ export default function ClerkAccessPanel({ active = true }) {
           setRequests(pending.items ?? []);
           setLinks(linked.items ?? []);
           setDirectory(linked.directory === true);
+          setInvitations(linked.invitations === true);
+          setInvited(linked.invited ?? []);
           setAccounts(activeAccounts);
           setLoading(false);
         },
@@ -91,7 +97,7 @@ export default function ClerkAccessPanel({ active = true }) {
 
   const byId = useMemo(() => new Map(accounts.map((a) => [a.account_id, a])), [accounts]);
   const linkedIds = useMemo(() => links.map((l) => l.account_id), [links]);
-  const rows = useMemo(() => clerkAccessRows(requests, links, accounts), [requests, links, accounts]);
+  const rows = useMemo(() => clerkAccessRows(requests, links, accounts, invited), [requests, links, accounts, invited]);
   const visible = useMemo(() => filterClerkAccessRows(rows, filters), [rows, filters]);
   const selectedFor = (request) => choice[request.clerk_user_id] ?? request.suggested_account?.account_id ?? '';
   const setFilter = (name, value) => setFilters((current) => ({ ...current, [name]: value }));
@@ -141,6 +147,13 @@ export default function ClerkAccessPanel({ active = true }) {
         await linkAccountFromDirectory(action.accountId, action.match.clerk_user_id);
         setNotice(`${nameOf(action.accountId)} can now sign in with Clerk.`);
         setLookups((l) => ({ ...l, [action.accountId]: undefined }));
+      } else if (action.type === 'invite') {
+        await sendClerkInvitationForAccount(action.accountId);
+        setNotice(`An invitation was sent to ${action.email} for ${nameOf(action.accountId)}.`);
+        setLookups((l) => ({ ...l, [action.accountId]: undefined }));
+      } else if (action.type === 'revoke-invitation') {
+        await revokeClerkInvitationForAccount(action.accountId);
+        setNotice(`The invitation for ${nameOf(action.accountId)} was revoked.`);
       } else {
         await unlinkAccountFromClerk(action.link.account_id);
         setNotice(`${nameOf(action.link.account_id)} can no longer sign in with Clerk.`);
@@ -213,18 +226,38 @@ export default function ClerkAccessPanel({ active = true }) {
   }
 
   function notLinkedActions(row) {
-    if (!directory) return <p className="text-right text-xs text-slate-500">Links after their first sign-in</p>;
+    if (row.invited) {
+      return (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <span className="text-xs text-slate-600">Invitation sent</span>
+          {invitations ? (
+            <Button variant="secondary" size="sm" disabled={busy !== null} onClick={() => setConfirm({ type: 'revoke-invitation', accountId: row.accountId })}>
+              Revoke invitation
+            </Button>
+          ) : null}
+        </div>
+      );
+    }
+    if (!directory && !invitations) return <p className="text-right text-xs text-slate-500">Links after their first sign-in</p>;
     const lookup = lookups[row.accountId];
     const open = (lookup?.result?.matches ?? []).filter((m) => !m.already_linked);
+    const canInvite = invitations && (!directory || !lookup?.result || (lookup.result.matches ?? []).length === 0);
     return (
       <div className="flex flex-col items-end gap-2">
-        {!lookup?.result ? (
-          <Button variant="secondary" size="sm" disabled={busy !== null} loading={lookup?.loading} loadingLabel="Finding…" onClick={() => findInClerk(row.accountId)}>
-            Find in Clerk
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {directory && !lookup?.result ? (
+            <Button variant="secondary" size="sm" disabled={busy !== null} loading={lookup?.loading} loadingLabel="Finding…" onClick={() => findInClerk(row.accountId)}>
+              Find in Clerk
+            </Button>
+          ) : null}
+          {canInvite ? (
+            <Button size="sm" disabled={busy !== null || !row.account?.email} onClick={() => setConfirm({ type: 'invite', accountId: row.accountId, email: row.account?.email })}>
+              Send invitation
+            </Button>
+          ) : null}
+        </div>
         {lookup?.error ? <p className="text-right text-xs text-red-700">{lookup.error}</p> : null}
-        {lookup?.result ? <p className="max-w-xs text-right text-xs text-slate-600">{directoryResultText(lookup.result)}</p> : null}
+        {lookup?.result ? <p className="max-w-xs text-right text-xs text-slate-600">{directoryResultText(lookup.result, { invitations })}</p> : null}
         {open.map((match) => (
           <div key={match.clerk_user_id} className="flex flex-wrap items-center justify-end gap-2">
             <span className="text-xs text-slate-700">
@@ -292,7 +325,21 @@ export default function ClerkAccessPanel({ active = true }) {
             label: 'Link',
             danger: false,
           }
-        : {
+        : confirm?.type === 'invite'
+          ? {
+              title: 'Send Clerk invitation?',
+              message: `Clerk will email an invitation to ${confirm.email} for ${nameOf(confirm.accountId)}. Check the email address carefully before sending. When they accept and sign in, this account will be linked automatically.`,
+              label: 'Send invitation',
+              danger: false,
+            }
+          : confirm?.type === 'revoke-invitation'
+            ? {
+                title: 'Revoke this invitation?',
+                message: `The pending Clerk invitation for ${nameOf(confirm.accountId)} will be cancelled. You can send a new one afterwards.`,
+                label: 'Revoke invitation',
+                danger: true,
+              }
+            : {
             title: 'Dismiss this sign-in?',
             message: 'The person gets no access. If they sign in again, they will appear here again.',
             label: 'Dismiss',

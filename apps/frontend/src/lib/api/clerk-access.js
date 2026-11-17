@@ -23,6 +23,14 @@ export const findClerkLoginForAccount = (accountId) => apiFetch(`${ACCOUNTS_API}
 export const linkAccountFromDirectory = (accountId, clerkUserId) =>
   apiFetch(`${ACCOUNTS_API}/${encodeURIComponent(accountId)}/clerk-link`, { method: 'PUT', body: { clerk_user_id: clerkUserId, via: 'directory' } });
 
+// Flow A (only while Identity has CLERK_INVITATIONS_ENABLED and a Clerk Secret Key; GET /links says so in `invitations`):
+//   POST   /api/identity/accounts/{id}/clerk-invitation -> 201 { account_id, invited_at }
+//   DELETE /api/identity/accounts/{id}/clerk-invitation -> 200 { account_id, revoked_in_clerk }
+export const sendClerkInvitationForAccount = (accountId) =>
+  apiFetch(`${ACCOUNTS_API}/${encodeURIComponent(accountId)}/clerk-invitation`, { method: 'POST' });
+export const revokeClerkInvitationForAccount = (accountId) =>
+  apiFetch(`${ACCOUNTS_API}/${encodeURIComponent(accountId)}/clerk-invitation`, { method: 'DELETE' });
+
 /** Active accounts for the "bind to" choice (the Accounts API pages at most 100 per request). */
 export async function listActiveAccounts() {
   const items = [];

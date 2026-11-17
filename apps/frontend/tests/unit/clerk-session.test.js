@@ -293,9 +293,20 @@ describe('Clerk access screen (Accounts > Clerk Sign-in Access)', () => {
 
   it('explains what Flow B found, and never offers a login already linked elsewhere', () => {
     assert.equal(directoryResultText({ matches: [] }), 'No Clerk login uses this email yet. Ask the instance owner to invite this person.');
+    assert.equal(directoryResultText({ matches: [] }, { invitations: true }), 'No Clerk login uses this email yet. Send an invitation to create one.');
     assert.match(directoryResultText({ matches: [{ clerk_user_id: 'user_1', already_linked: false }] }), /^One Clerk login/);
     assert.match(directoryResultText({ matches: [{ clerk_user_id: 'user_1', already_linked: true }] }), /already linked/);
     assert.match(directoryResultText({ matches: [{ already_linked: false }, { already_linked: false }] }), /^More than one/);
+  });
+
+  it('tracks Flow A invitations on not-linked rows and wires send and revoke with confirmation', () => {
+    const accounts = [{ account_id: 'acc-inv', full_name: 'Maria Clara', employee_no: 'E-5', email: 'maria@example.test', is_active: true }];
+    const [row] = clerkAccessRows([], [], accounts, [{ account_id: 'acc-inv', invited_at: '2026-11-18T00:00:00Z' }]);
+    assert.equal(row.status, 'not_linked');
+    assert.equal(row.date, '2026-11-18T00:00:00Z');
+    assert.equal(row.dateLabel, 'Invited');
+    assert.ok(panel.includes('sendClerkInvitationForAccount('));
+    assert.ok(panel.includes('revokeClerkInvitationForAccount('));
   });
 
   it('never lets a Super Admin remove their own Clerk sign-in', () => {

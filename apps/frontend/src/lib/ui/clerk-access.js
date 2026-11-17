@@ -75,8 +75,9 @@ export const clerkAccessStatus = (value) => STATUS_BY_VALUE[value] ?? { value, l
  * (which includes deactivated accounts) and fall back to the active-accounts list. Keys are prefixed by kind and repeated
  * keys are dropped, so a record is never listed twice; a linked account is never also listed as not linked.
  */
-export function clerkAccessRows(requests = [], links = [], accounts = []) {
+export function clerkAccessRows(requests = [], links = [], accounts = [], invited = []) {
   const byId = new Map((accounts ?? []).map((a) => [a.account_id, a]));
+  const invitedByAccount = new Map((invited ?? []).map((i) => [i.account_id, i]));
   const rows = new Map();
   for (const request of requests ?? []) {
     const key = `pending:${request.clerk_user_id}`;
@@ -121,15 +122,17 @@ export function clerkAccessRows(requests = [], links = [], accounts = []) {
   for (const account of notLinked) {
     const key = `not_linked:${account.account_id}`;
     if (rows.has(key)) continue;
+    const openInvitation = invitedByAccount.get(account.account_id) ?? null;
     rows.set(key, {
       key,
       status: 'not_linked',
       account,
       accountId: account.account_id,
+      invited: openInvitation,
       primary: account.full_name,
       secondary: [account.employee_no, account.email].filter(Boolean).join(' · ') || null,
-      date: null,
-      dateLabel: 'Not signed in with Clerk yet',
+      date: openInvitation?.invited_at ?? null,
+      dateLabel: openInvitation ? 'Invited' : 'Not signed in with Clerk yet',
       search: [account.full_name, account.employee_no, account.email].filter(Boolean).join(' ').toLowerCase(),
     });
   }
@@ -153,11 +156,15 @@ export function clerkAccessEmptyMessage({ q = '', status = '' } = {}) {
 }
 
 /** What Flow B found for an account, as one sentence for the screen. */
-export function directoryResultText(result) {
+export function directoryResultText(result, { invitations = false } = {}) {
   if (!result) return '';
   const open = (result.matches ?? []).filter((m) => !m.already_linked);
   if (open.length === 0 && (result.matches ?? []).length > 0) return 'This Clerk login is already linked to another CCMS account.';
-  if (open.length === 0) return 'No Clerk login uses this email yet. Ask the instance owner to invite this person.';
+  if (open.length === 0) {
+    return invitations
+      ? 'No Clerk login uses this email yet. Send an invitation to create one.'
+      : 'No Clerk login uses this email yet. Ask the instance owner to invite this person.';
+  }
   return open.length === 1 ? 'One Clerk login uses this email. Check it is the right person, then link it.' : 'More than one Clerk login uses this email. Link only the right person.';
 }
 
