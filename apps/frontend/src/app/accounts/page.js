@@ -29,7 +29,8 @@ import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
 import { ACCOUNTS_API } from '../../lib/api/identity.js';
 import { OFFICES_API } from '../../lib/api/catalogue.js';
 import { apiFetch } from '../../lib/auth/session.js';
-import { clerkEnabled } from '../../lib/auth/provider.js';
+import { authProvider, clerkEnabled } from '../../lib/auth/provider.js';
+import { accountPasswordMode } from '../../lib/ui/clerk-access.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
 import { POSITION_MAX, accountBody, accountToForm, accountsParams, positionCounter, positionError, positionLabel } from '../../lib/ui/account-position.js';
 import { FieldError } from '../../components/forms/Field.js';
@@ -41,6 +42,9 @@ const EMPTY_FORM = { employee_no: '', full_name: '', email: '', role: ROLES.OFFI
 const NO_FILTERS = { q: '', role: '', office_id: '', status: 'active' };
 
 function AccountsManager() {
+  // Clerk sign-in: while it is on, the initial password is optional (empty = the person signs in with their PUP account and
+  // Identity stores no password). Legacy: required, as before. The create payload itself is unchanged.
+  const clerkMode = accountPasswordMode({ provider: authProvider(), clerkOn: clerkEnabled() });
   const [filters, setFilters] = useState({ ...NO_FILTERS });
   const [appliedQuery, setAppliedQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -152,8 +156,9 @@ function AccountsManager() {
   async function save(event) {
     event.preventDefault();
     if (busy) return; // one request at a time
-    if (!form.id) {
+    if (!form.id && !(clerkMode.passwordOptional && !form.password)) {
       // Only what Identity itself would refuse stops the request here (see lib/ui/password-guidance.js).
+      // While Clerk sign-in is on, an empty password is allowed: the person signs in with their PUP account (Identity agrees).
       const password = passwordStatus(form.password);
       if (password.blocking) {
         setFieldErrors({ password: password.message });
@@ -412,7 +417,13 @@ function AccountsManager() {
                 value={form.password}
                 onChange={(password) => setForm({ ...form, password })}
                 error={fieldErrors.password ?? null}
-                helper="The person can change it through a reset link."
+                required={!clerkMode.passwordOptional}
+                label={clerkMode.passwordOptional ? 'Initial password (optional)' : 'Initial password'}
+                helper={
+                  clerkMode.passwordOptional
+                    ? 'Leave it empty if the person will sign in with their PUP account. Fill it in only for someone who will use the email and password sign-in.'
+                    : 'The person can change it through a reset link.'
+                }
               />
             ) : null}
           </form>
@@ -474,7 +485,7 @@ function AccountsTabs() {
         <AccountsManager />
       </div>
       <div {...tabPanelProps('accounts', 'clerk')} hidden={tab !== 'clerk'}>
-        {clerkVisited ? <ClerkAccessPanel /> : null}
+        {clerkVisited ? <ClerkAccessPanel active={tab === 'clerk'} /> : null}
       </div>
     </div>
   );

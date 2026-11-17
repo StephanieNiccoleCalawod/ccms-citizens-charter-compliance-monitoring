@@ -16,6 +16,13 @@ export const linkAccountToClerk = (accountId, clerkUserId) =>
   apiFetch(`${ACCOUNTS_API}/${encodeURIComponent(accountId)}/clerk-link`, { method: 'PUT', body: { clerk_user_id: clerkUserId } });
 export const unlinkAccountFromClerk = (accountId) => apiFetch(`${ACCOUNTS_API}/${encodeURIComponent(accountId)}/clerk-link`, { method: 'DELETE' });
 
+// Flow B (only while Identity has CLERK_DIRECTORY_ENABLED and a Clerk Secret Key; GET /links says so in `directory`):
+//   GET /api/identity/accounts/{id}/clerk-match            -> { account_id, email, matches: [{ clerk_user_id, email, name, banned, locked, already_linked }] }
+//   PUT /api/identity/accounts/{id}/clerk-link  { clerk_user_id, via: 'directory' }
+export const findClerkLoginForAccount = (accountId) => apiFetch(`${ACCOUNTS_API}/${encodeURIComponent(accountId)}/clerk-match`);
+export const linkAccountFromDirectory = (accountId, clerkUserId) =>
+  apiFetch(`${ACCOUNTS_API}/${encodeURIComponent(accountId)}/clerk-link`, { method: 'PUT', body: { clerk_user_id: clerkUserId, via: 'directory' } });
+
 /** Active accounts for the "bind to" choice (the Accounts API pages at most 100 per request). */
 export async function listActiveAccounts() {
   const items = [];

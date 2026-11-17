@@ -54,11 +54,29 @@ export function bindableAccounts(accounts, linkedIds, suggestedId = null) {
 }
 
 /**
- * One list for the Clerk Sign-in Access table: people waiting for approval (newest sign-in first), then approved accounts
- * (newest approval first), each keeping the order the API gave. Each row says which kind it is, so the table shows the right
- * status and actions. Keys are prefixed by kind and repeated keys are dropped, so a record is never listed twice.
+ * The access states the Clerk Sign-in Access table shows. None is stored: each is worked out from data that already exists.
+ *   pending      signed in with Clerk, not bound to a CCMS account yet (the Super Admin approves or dismisses)
+ *   active       bound, and the CCMS account is active: can sign in
+ *   deactivated  bound, but the CCMS account is deactivated: cannot sign in (CCMS-only revocation, playbook R4)
+ *   not_linked   an active CCMS account with no Clerk login bound yet (the "Invited" of the access review)
  */
-export function clerkAccessRows(requests = [], links = [], accountsById = new Map()) {
+export const CLERK_ACCESS_STATUSES = Object.freeze([
+  { value: 'pending', label: 'Pending', tone: 'warning' },
+  { value: 'active', label: 'Active', tone: 'success' },
+  { value: 'deactivated', label: 'Deactivated', tone: 'neutral' },
+  { value: 'not_linked', label: 'Not linked', tone: 'info' },
+]);
+const STATUS_BY_VALUE = Object.fromEntries(CLERK_ACCESS_STATUSES.map((s) => [s.value, s]));
+export const clerkAccessStatus = (value) => STATUS_BY_VALUE[value] ?? { value, label: value, tone: 'neutral' };
+
+/**
+ * One list for the Clerk Sign-in Access table, in this order: pending (newest sign-in first), active and deactivated
+ * (newest approval first), then active CCMS accounts that are not linked yet (by name). Names come from the links answer
+ * (which includes deactivated accounts) and fall back to the active-accounts list. Keys are prefixed by kind and repeated
+ * keys are dropped, so a record is never listed twice; a linked account is never also listed as not linked.
+ */
+export function clerkAccessRows(requests = [], links = [], accounts = []) {
+  const byId = new Map((accounts ?? []).map((a) => [a.account_id, a]));
   const rows = new Map();
   for (const request of requests ?? []) {
     const key = `pending:${request.clerk_user_id}`;
@@ -74,25 +92,51 @@ export function clerkAccessRows(requests = [], links = [], accountsById = new Ma
       search: [request.email, request.clerk_user_id].filter(Boolean).join(' ').toLowerCase(),
     });
   }
+  const linkedIds = new Set();
+  const linkRows = [];
   for (const link of links ?? []) {
-    const key = `approved:${link.account_id}`;
-    if (rows.has(key)) continue;
-    const account = accountsById.get(link.account_id);
-    rows.set(key, {
+    const key = `linked:${link.account_id}`;
+    if (linkedIds.has(link.account_id)) continue;
+    linkedIds.add(link.account_id);
+    const account = byId.get(link.account_id);
+    const name = link.full_name ?? account?.full_name ?? null;
+    const employeeNo = link.employee_no ?? account?.employee_no ?? null;
+    const isActive = link.is_active ?? (account ? account.is_active !== false : false);
+    linkRows.push({
       key,
-      status: 'approved',
+      status: isActive ? 'active' : 'deactivated',
       link,
-      primary: account?.full_name ?? 'Inactive account',
-      secondary: account?.employee_no ?? null,
+      accountId: link.account_id,
+      primary: name ?? 'Unknown account',
+      secondary: employeeNo,
       date: link.linked_at,
       dateLabel: 'Approved',
-      search: [account?.full_name, account?.employee_no, account?.email].filter(Boolean).join(' ').toLowerCase(),
+      search: [name, employeeNo, account?.email].filter(Boolean).join(' ').toLowerCase(),
+    });
+  }
+  for (const row of linkRows) rows.set(row.key, row);
+  const notLinked = (accounts ?? [])
+    .filter((a) => a.is_active !== false && !linkedIds.has(a.account_id))
+    .sort((a, b) => String(a.full_name).localeCompare(String(b.full_name)));
+  for (const account of notLinked) {
+    const key = `not_linked:${account.account_id}`;
+    if (rows.has(key)) continue;
+    rows.set(key, {
+      key,
+      status: 'not_linked',
+      account,
+      accountId: account.account_id,
+      primary: account.full_name,
+      secondary: [account.employee_no, account.email].filter(Boolean).join(' · ') || null,
+      date: null,
+      dateLabel: 'Not signed in with Clerk yet',
+      search: [account.full_name, account.employee_no, account.email].filter(Boolean).join(' ').toLowerCase(),
     });
   }
   return [...rows.values()];
 }
 
-/** The table's search and status filter. status: '' (all) | 'pending' | 'approved'. Search ignores case and outer spaces. */
+/** The table's search and status filter. status: '' (all) or one of CLERK_ACCESS_STATUSES. Search ignores case and outer spaces. */
 export function filterClerkAccessRows(rows, { q = '', status = '' } = {}) {
   const needle = String(q ?? '').trim().toLowerCase();
   return (rows ?? []).filter((row) => (!status || row.status === status) && (!needle || row.search.includes(needle)));
@@ -102,8 +146,29 @@ export function filterClerkAccessRows(rows, { q = '', status = '' } = {}) {
 export function clerkAccessEmptyMessage({ q = '', status = '' } = {}) {
   if (String(q ?? '').trim()) return 'No Clerk accounts match your search.';
   if (status === 'pending') return 'No users waiting for approval.';
-  if (status === 'approved') return 'No approved Clerk accounts yet.';
+  if (status === 'active') return 'No account can sign in with Clerk yet.';
+  if (status === 'deactivated') return 'No deactivated account is linked to Clerk.';
+  if (status === 'not_linked') return 'Every active account is linked to Clerk.';
   return 'No Clerk accounts found.';
+}
+
+/** What Flow B found for an account, as one sentence for the screen. */
+export function directoryResultText(result) {
+  if (!result) return '';
+  const open = (result.matches ?? []).filter((m) => !m.already_linked);
+  if (open.length === 0 && (result.matches ?? []).length > 0) return 'This Clerk login is already linked to another CCMS account.';
+  if (open.length === 0) return 'No Clerk login uses this email yet. Ask the instance owner to invite this person.';
+  return open.length === 1 ? 'One Clerk login uses this email. Check it is the right person, then link it.' : 'More than one Clerk login uses this email. Link only the right person.';
+}
+
+/**
+ * The initial password on Add Account, by sign-in mode (Identity accepts an empty password only while Clerk is on):
+ *   legacy          required (as before)
+ *   dual or clerk   optional: empty means the person signs in with their PUP account and sets their own password in Clerk.
+ *                   The field stays visible (labelled optional) for someone who will still use the email and password sign-in.
+ */
+export function accountPasswordMode({ provider = 'legacy', clerkOn = false } = {}) {
+  return { passwordOptional: clerkOn && provider !== 'legacy' };
 }
 
 /** "Juan Dela Cruz (EMP-1001)" for the account choice; never the email, which is shown separately as the hint. */
