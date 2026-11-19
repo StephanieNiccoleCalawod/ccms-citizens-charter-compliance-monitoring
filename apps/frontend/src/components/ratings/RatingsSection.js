@@ -26,9 +26,9 @@ export default function RatingsSection({ officeId, from, to }) {
         <TableShell>
           <Table label="Service ratings" minWidth="28rem" head={<tr><Th>Service</Th><Th align="right">Ratings</Th><Th align="right">Average</Th></tr>}>
             {state.data.items.map((i) => (
-              <tr key={i.service_id} className="tr-row"><td className="td">{i.service_name}</td><td className="td text-right">{i.count}</td><td className="td text-right">{averageText(i.average)}</td></tr>
+              <tr key={i.service_id} className="tr-row"><td className="td">{i.service_name}</td><td className="td text-right tabular-nums">{i.count}</td><td className="td text-right tabular-nums">{averageText(i.average)}</td></tr>
             ))}
-            <tr className="tr-row font-bold"><td className="td">All services</td><td className="td text-right">{state.data.total_count}</td><td className="td text-right">{averageText(state.data.average)}</td></tr>
+            <tr className="tr-summary font-bold"><td className="td">All services</td><td className="td text-right tabular-nums">{state.data.total_count}</td><td className="td text-right tabular-nums">{averageText(state.data.average)}</td></tr>
           </Table>
         </TableShell>
       ) : null}

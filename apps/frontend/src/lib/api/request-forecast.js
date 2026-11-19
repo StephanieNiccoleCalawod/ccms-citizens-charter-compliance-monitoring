@@ -23,7 +23,7 @@ export function getRequestForecast({ officeId, serviceId = null }, fetcher = api
 export function retrainRequestForecast({ officeId, serviceId = null }, fetcher = apiFetch) {
   return fetcher(`${FORECAST_BASE}/retrain`, {
     method: 'POST',
-    body: JSON.stringify({ officeId, serviceId: serviceId || null }),
+    body: { officeId, serviceId: serviceId || null },
   });
 }
 

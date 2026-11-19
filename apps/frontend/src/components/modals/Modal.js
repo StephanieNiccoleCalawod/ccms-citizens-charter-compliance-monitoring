@@ -164,8 +164,8 @@ export default function Modal({
         className={`relative flex w-full ${widthClass} card flex-col overflow-hidden focus:outline-none ${fullScreenOnMobile ? 'h-full max-h-full rounded-none sm:h-auto sm:max-h-[90vh] sm:rounded-xl' : 'max-h-[90vh]'}`}
       >
         {hideHeader ? <h2 id={titleId} className="sr-only">{title}</h2> : (
-        <div className={'flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-6'}>
-          <h2 id={titleId} className="title-section">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
+          <h2 id={titleId} className="title-modal">
             {title}
           </h2>
           {showClose && onClose ? (
@@ -178,7 +178,7 @@ export default function Modal({
         </div>
         )}
         <div className={flushBody ? 'flex min-h-0 flex-1 flex-col' : 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 sm:px-6'}>{children}</div>
-        {footer ? <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-200 px-4 py-4 sm:px-6">{footer}</div> : null}
+        {footer ? <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-line px-4 py-4 sm:px-6">{footer}</div> : null}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import ErrorBanner from '../feedback/ErrorBanner.js';
+import SearchInput from '../forms/SearchInput.js';
 import Modal from '../modals/Modal.js';
 import Pager from '../navigation/Pager.js';
 import PublicServiceView from '../service/PublicServiceView.js';
@@ -124,18 +125,12 @@ export default function PublicDirectory({ catalogue }) {
           <div className="flex flex-wrap items-end gap-3">
             <div className="w-full min-w-0 sm:w-80">
               <label className="label" htmlFor="public-search">Search</label>
-              <div className="relative">
-                <svg aria-hidden="true" viewBox="0 0 24 24" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-3.5-3.5" />
-                </svg>
-                <input id="public-search" type="search" className="input pl-9" placeholder="Search by service or office name" value={input} onChange={(e) => setInput(e.target.value)} />
-              </div>
+              <SearchInput id="public-search" customPlaceholder="Search by service or office name" value={input} onChange={(e) => setInput(e.target.value)} />
             </div>
             <button type="submit" className="btn-secondary w-full sm:w-auto">Search</button>
             <div className="w-full min-w-0 sm:ml-auto sm:w-72">
               <label className="label" htmlFor="public-office">Office</label>
-              <select id="public-office" className="input" value={office} onChange={(e) => { chooseOffice(e.target.value); setPage(1); }}>
+              <select id="public-office" className="input select-chevron" value={office} onChange={(e) => { chooseOffice(e.target.value); setPage(1); }}>
                 <option value="">All offices ({counts.total})</option>
                 {counts.offices.map((o) => (
                   <option key={o.name} value={o.name}>{o.name} ({o.count})</option>

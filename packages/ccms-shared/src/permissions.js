@@ -42,7 +42,10 @@ export function requirePermission(roles, officeScope = 'campus', { verifier, sel
  * a resource whose office you did not know before the role check.
  */
 export function assertOfficeAccess(user, officeId) {
-  if (isOfficeBound(user.role) && (!officeId || String(officeId) !== String(user.officeId))) {
+  if (
+    isOfficeBound(user.role) &&
+    (!officeId || !user.officeId || String(officeId).toLowerCase() !== String(user.officeId).toLowerCase())
+  ) {
     throw Errors.forbidden();
   }
 }

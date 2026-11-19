@@ -516,7 +516,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
           <div className="max-w-md">
             <label className="label" htmlFor="start-queue-ticket">Ticket of the client being served</label>
             <div className="flex gap-2">
-              <select id="start-queue-ticket" className="input" value={form.queue_ticket_id} onChange={(e) => { setForm((f) => ({ ...f, queue_ticket_id: e.target.value })); setFieldErrors((errors) => ({ ...errors, queue_ticket: undefined })); }} disabled={tickets.state === 'loading' && tickets.options.length === 0}
+              <select id="start-queue-ticket" className="input select-chevron" value={form.queue_ticket_id} onChange={(e) => { setForm((f) => ({ ...f, queue_ticket_id: e.target.value })); setFieldErrors((errors) => ({ ...errors, queue_ticket: undefined })); }} disabled={tickets.state === 'loading' && tickets.options.length === 0}
                 aria-invalid={fieldErrors.queue_ticket ? true : undefined} aria-describedby={fieldErrors.queue_ticket ? 'start-queue-ticket-error' : 'start-queue-ticket-hint'}>
                 <option value="">{tickets.state === 'loading' && tickets.options.length === 0 ? 'Loading tickets…' : 'No ticket'}</option>
                 {tickets.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -742,7 +742,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
             <label className="label" htmlFor="start-counter">Your counter<RequiredMark /></label>
             <select
               id="start-counter"
-              className="input"
+              className="input select-chevron"
               value={form.counter_id}
               onChange={set('counter_id')}
               disabled={counters.state !== 'ready' || !counters.items.some(isSelectable)}

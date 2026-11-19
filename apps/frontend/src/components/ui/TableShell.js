@@ -33,7 +33,7 @@ export function Th({ align = 'left', className = '', children, ...props }) {
 /** A row's own heading cell in the body (a grid like the Insights heatmap): a real row header, styled as a strong body cell. */
 export function RowHeader({ className = '', children, ...props }) {
   return (
-    <th scope="row" className={`td whitespace-nowrap text-left font-semibold text-slate-900 ${className}`.trim()} {...props}>
+    <th scope="row" className={`td whitespace-nowrap text-left font-semibold text-ink ${className}`.trim()} {...props}>
       {children}
     </th>
   );
@@ -42,8 +42,8 @@ export function RowHeader({ className = '', children, ...props }) {
 /** A full-width section heading row inside the body (grouping the rows below it, e.g. the Roles and permissions matrix). */
 export function GroupRow({ colSpan, children, className = '' }) {
   return (
-    <tr className="bg-slate-50">
-      <th scope="colgroup" colSpan={colSpan} className={`td text-left text-xs font-bold uppercase tracking-wide text-slate-500 ${className}`.trim()}>
+    <tr className="bg-surface-muted">
+      <th scope="colgroup" colSpan={colSpan} className={`td text-left text-xs font-bold uppercase tracking-wide text-ink-muted ${className}`.trim()}>
         {children}
       </th>
     </tr>

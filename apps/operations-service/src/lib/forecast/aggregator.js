@@ -58,8 +58,8 @@ async function queryDailyCounts(dataSource, { officeId, serviceId, fromDate, toD
  * @param {{ officeId: string, serviceId?: string|null, maxWorkingDays?: number }} opts
  * @returns {Promise<{ dates: string[], counts: number[], totalTransactions: number }>}
  */
-export async function buildHistorySeries(dataSource, calendarClient, { officeId, serviceId = null, maxWorkingDays = 30 }) {
-  const today = manilaDate();
+export async function buildHistorySeries(dataSource, calendarClient, { officeId, serviceId = null, maxWorkingDays = 30, now = new Date() }) {
+  const today = manilaDate(now);
   const fromDate = addCalendarDays(today, -HISTORY_SCAN_DAYS);
 
   // Query raw daily counts for the whole window

@@ -6,9 +6,9 @@
  */
 export default function EmptyState({ icon, title, children, action, className = '', ...props }) {
   return (
-    <div className={`rounded-card border border-dashed border-line bg-surface-muted px-4 py-10 text-center text-sm text-slate-600 ${className}`.trim()} {...props}>
+    <div className={`rounded-card border border-dashed border-line bg-surface-muted px-4 py-10 text-center text-sm text-ink-muted ${className}`.trim()} {...props}>
       {icon ? <div className="mb-3 flex justify-center text-slate-400">{icon}</div> : null}
-      {title ? <p className="font-semibold text-slate-900">{title}</p> : null}
+      {title ? <p className="font-semibold text-ink">{title}</p> : null}
       {children ? <div className={title ? 'mt-1' : undefined}>{children}</div> : null}
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
     </div>

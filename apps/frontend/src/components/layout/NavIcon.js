@@ -83,6 +83,7 @@ const SHAPES = {
     </>
   ),
   sliders: <path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 4v6M7 14v6" />,
+  pulse: <path d="M3 12h4l3-7 4 14 3-7h4" />,
   dot: <circle cx="12" cy="12" r="3" />,
 };
 

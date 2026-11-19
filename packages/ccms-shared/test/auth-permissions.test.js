@@ -94,7 +94,7 @@ describe('standard error format (TT4 AC2, AC4)', () => {
 
   it('hides internals of unexpected errors', async () => {
     const original = console.error;
-    console.error = () => {};
+    console.error = () => { };
     try {
       const handler = route(async () => {
         throw new Error('database password is hunter2');
@@ -126,11 +126,13 @@ describe('requirePermission (CC004)', () => {
       verifier: keys.verifier,
     })(request, target);
 
-  it('limits Office Head and Office Staff to their own office', async () => {
+  it('limits Office Head and Office Staff to their own office (case-insensitive UUID)', async () => {
     for (const role of [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]) {
       const token = await keys.signToken({ role, office_id: OFFICE_A });
       assert.ok((await call(office, { token, target: { officeId: OFFICE_A } })).user);
+      assert.ok((await call(office, { token, target: { officeId: OFFICE_A.toUpperCase() } })).user);
       assert.equal((await call(office, { token, target: { officeId: OFFICE_B } })).error.status, 403);
+      assert.equal((await call(office, { token, target: { officeId: OFFICE_B.toUpperCase() } })).error.status, 403);
       assert.equal((await call(office, { token, target: { officeId: null } })).error.status, 403);
     }
   });

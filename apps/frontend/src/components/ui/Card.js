@@ -23,7 +23,7 @@ export default function Card({ title, description, actions, footer, padding = 'm
                 {title}
               </Heading>
             ) : null}
-            {description ? <p className="mt-1 text-sm text-slate-600">{description}</p> : null}
+            {description ? <p className="mt-1 text-sm text-ink-muted">{description}</p> : null}
           </div>
           {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
         </div>

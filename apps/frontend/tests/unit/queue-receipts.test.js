@@ -3,7 +3,19 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { PUBLIC_TICKET_API, takeTicket } from '../../src/lib/api/queue.js';
-import { PRIORITY_OPTIONS, describeTakeFailure, queueNav, queueWaitFigure, queueWaitText, skipCountdown, ticketPickerOptions } from '../../src/lib/ui/queue.js';
+import {
+  PRIORITY_OPTIONS,
+  buildSampleQueueBoard,
+  deriveOfficeCounterMeta,
+  describeTakeFailure,
+  queueNav,
+  queueWaitFigure,
+  queueWaitText,
+  shortOfficeCode,
+  shortOfficeName,
+  skipCountdown,
+  ticketPickerOptions,
+} from '../../src/lib/ui/queue.js';
 import { buildStartBody, EMPTY_START_FORM, startErrorResult } from '../../src/lib/ui/start-transaction.js';
 import { figureRows } from '../../src/lib/ui/reports.js';
 import { tilesFor } from '../../src/lib/ui/kpi-home.js';
@@ -58,6 +70,57 @@ describe('CC039 staff panel', () => {
     assert.equal(queueNav('executive'), null);
     assert.ok(appNavForRole('office_staff').some((i) => i.href === '/queue'));
     assert.ok(!appNavForRole('executive').some((i) => i.href === '/queue'));
+  });
+
+  it('derives office short codes, quick jump names, counter windows, and isolated sample queue boards per office', () => {
+    assert.equal(shortOfficeCode('PUP-ACAD', 'Campus Academic Office'), 'ACAD');
+    assert.equal(shortOfficeCode('PUP-ADMREG', 'Campus Admission and Registration Section'), 'ADM');
+    assert.equal(shortOfficeName('Campus Academic Office', 'PUP-ACAD'), 'Academic Office');
+    assert.equal(shortOfficeName('Campus Student Affairs and Services Office', 'PUP-OSAS'), 'Student Affairs (OSAS)');
+
+    const meta = deriveOfficeCounterMeta(
+      { office_id: 'o-acad', office_code: 'PUP-ACAD', office_name: 'Campus Academic Office', is_active: true },
+      0,
+      [],
+    );
+    assert.equal(meta.shortCode, 'ACAD');
+    assert.equal(meta.ticketPrefix, 'ACAD-000');
+    assert.equal(meta.counterWindow, 'Window 1 · Academic');
+    assert.equal(meta.routingPolicy, 'Priority First');
+    assert.equal(meta.ready, true);
+
+    const customMeta = deriveOfficeCounterMeta(
+      { office_id: 'o-reg', office_code: 'PUP-REG', office_name: "Campus Registrar's Office", is_active: true },
+      1,
+      [{ counter_id: 'c1', office_id: 'o-reg', label: 'Window A · Credentials', is_active: true }],
+    );
+    assert.equal(customMeta.counterWindow, 'Window A · Credentials');
+
+    const sample = buildSampleQueueBoard({ office_id: 'o-acad', office_code: 'PUP-ACAD', office_name: 'Campus Academic Office' });
+    assert.equal(sample.board.office_id, 'o-acad');
+    assert.equal(sample.board.called[0].ticket_no, 'ACAD-002');
+    assert.equal(sample.board.waiting[0].lane, 'PRIORITY', 'priority ticket routes to the top of waiting queue');
+    assert.equal(sample.board.counts.waiting, 3);
+    assert.equal(sample.board.counts.waiting_priority, 1);
+    assert.equal(sample.history.length, 2);
+  });
+
+  it('renders State A (Landing Page office selector, quick jump, and 4-column counter grid) and State B (Active Queue Console)', () => {
+    const page = read('app/queue/page.js');
+    assert.match(page, /title="Queue Management"/);
+    const panel = read('components/queue/QueuePanel.js');
+    assert.doesNotMatch(panel, /RA 11032 &amp; Priority Lane Enabled/);
+    assert.match(panel, /Active Service Counter Office/);
+    assert.match(panel, /Counter Console Ready/);
+    assert.match(panel, /Choose an office to open its live counter queue/);
+    assert.match(panel, /Open counter console/);
+    assert.match(panel, /Call Next Ticket/);
+    assert.match(panel, /Regular Line/);
+    assert.match(panel, /Priority \(SC\/PWD\)/);
+    assert.match(panel, /Service \/ Visitor Note \(Optional\)/);
+    assert.match(panel, /Called \/ Now Serving/);
+    assert.match(panel, /Waiting, in call order/);
+    assert.match(panel, /Recently Served &amp; Skipped No-Show Log/);
   });
 });
 

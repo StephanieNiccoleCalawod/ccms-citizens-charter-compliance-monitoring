@@ -149,7 +149,7 @@ export default function Counters({ user, canWrite }) {
             <label className="label" htmlFor="counter-office">
               Office
             </label>
-            <select id="counter-office" className="input" value={officeId} onChange={(e) => setOfficeId(e.target.value)} disabled={offices.loading || offices.items.length === 0}>
+            <select id="counter-office" className="input select-chevron" value={officeId} onChange={(e) => setOfficeId(e.target.value)} disabled={offices.loading || offices.items.length === 0}>
               {offices.loading ? <option value="">Loading offices…</option> : null}
               {!offices.loading && offices.items.length === 0 ? <option value="">No offices yet</option> : null}
               {offices.items.map((o) => (

@@ -71,7 +71,7 @@ export default function TakeTicketForm() {
             {offices.failed ? <ErrorBanner message="The list of offices could not be loaded. Please reload the page." /> : null}
             <div>
               <label htmlFor="q-office" className="label">Office *</label>
-              <select id="q-office" className="input" value={form.office_id} onChange={(e) => setForm((f) => ({ ...f, office_id: e.target.value }))} disabled={offices.loading}
+              <select id="q-office" className="input select-chevron" value={form.office_id} onChange={(e) => setForm((f) => ({ ...f, office_id: e.target.value }))} disabled={offices.loading}
                 aria-invalid={Boolean(errors.office_id)} aria-describedby={errors.office_id ? 'q-office-error' : undefined}>
                 <option value="">{offices.loading ? 'Loading offices…' : 'Choose an office'}</option>
                 {offices.items.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}

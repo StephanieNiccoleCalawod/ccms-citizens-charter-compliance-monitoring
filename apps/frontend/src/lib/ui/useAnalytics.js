@@ -1,35 +1,59 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { loadAnalytics } from '../api/analytics.js';
+import { useEffect, useRef, useState } from 'react';
 import { INITIAL_ANALYTICS_STATE, POLL_INTERVAL_MS, createPoller, failed, loaded, refreshStarted } from './analytics.js';
 
 /**
- * The Insights data: loaded once, then refreshed every 60 seconds. A refresh never clears what is already shown; if it fails the
- * last good data stays and `refreshError` says so. Nothing runs while the page is hidden, and a hidden page catches up when it
- * comes back. `scope` and `load` must be stable (memoized) so a re-render does not restart the timer.
+ * Polls an analytics loader once immediately, then every 60 seconds while the tab is visible.
+ * Preserves the last good data on background refresh failures and catches up when returning to a stale tab.
  */
-export function useAnalytics(scope, { load = loadAnalytics, intervalMs = POLL_INTERVAL_MS } = {}) {
+export function useAnalytics({ enabled = true, load, deps = [], intervalMs = POLL_INTERVAL_MS } = {}) {
   const [state, setState] = useState(INITIAL_ANALYTICS_STATE);
+  const loadRef = useRef(load);
 
   useEffect(() => {
-    if (!scope?.ok) return undefined;
+    loadRef.current = load;
+  });
+
+  useEffect(() => {
+    if (!enabled || typeof loadRef.current !== 'function') return undefined;
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) {
+        setState((s) => ({
+          ...s,
+          status: s.data ? 'ready' : 'loading',
+          refreshing: Boolean(s.data),
+          error: null,
+        }));
+      }
+    });
     const poller = createPoller({
-      load: () => load(scope),
+      load: () => loadRef.current(),
       intervalMs,
       isVisible: () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
-      onStart: (initial) => !initial && setState((s) => refreshStarted(s, initial)),
-      onSuccess: (data) => setState((s) => loaded(s, data, new Date().toISOString())),
-      onError: (error, initial) => setState((s) => failed(s, error, initial)),
+      onStart: (initial) => {
+        if (active && !initial) setState((s) => refreshStarted(s, initial));
+      },
+      onSuccess: (data) => {
+        if (active) setState((s) => loaded(s, data, new Date().toISOString()));
+      },
+      onError: (error, initial) => {
+        if (active) setState((s) => failed(s, error, initial));
+      },
     });
-    const onVisible = () => document.visibilityState === 'visible' && poller.resumeIfStale();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') poller.resumeIfStale();
+    };
     document.addEventListener('visibilitychange', onVisible);
     poller.start();
     return () => {
+      active = false;
       document.removeEventListener('visibilitychange', onVisible);
       poller.stop();
     };
-  }, [scope, load, intervalMs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, intervalMs, ...deps]);
 
-  return state;
+  return [state, setState];
 }

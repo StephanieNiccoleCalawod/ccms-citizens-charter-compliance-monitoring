@@ -20,10 +20,20 @@ export function Delta({ change, suffix = '' }) {
 }
 
 function Kpi({ k }) {
-  const change = k.value !== null && k.previous !== null ? Math.round((k.value - k.previous) * 10) / 10 : null;
+  const change = k.value !== null && k.value !== undefined && k.previous !== null && k.previous !== undefined
+    ? Math.round((k.value - k.previous) * 10) / 10
+    : null;
   return (
-    <StatCard label={k.label} value={`${n(k.value)}${k.value !== null ? k.unit : ''}`} className="justify-between">
-      <Delta change={change} suffix={k.unit === '%' ? ' points' : ''} />
+    <StatCard
+      label={k.label}
+      value={`${n(k.value)}${k.value !== null && k.value !== undefined ? k.unit : ''}`}
+      tone={k.tone ?? 'default'}
+      testId={k.testId}
+      className="justify-between"
+    >
+      {change !== null || k.note === undefined
+        ? <Delta change={change} suffix={k.unit === '%' ? ' points' : ''} />
+        : <span className="text-xs text-slate-500">{k.note}</span>}
     </StatCard>
   );
 }

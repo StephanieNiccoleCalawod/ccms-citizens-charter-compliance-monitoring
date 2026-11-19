@@ -1,14 +1,20 @@
-// Sprint 5 Analytics, now part of the Dashboard. Data paths, scope, polling and state are tested on the pure code; the screens are checked
-// from source (there is no browser here). The Sprint 6 APIs do not exist, so the "API provider" is tested against a fake fetcher.
+// Main Dashboard analytics: data adapters, scope, polling, chart primitives, and removal of all mock fallbacks.
 import { strict as assert } from 'node:assert';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import { ROLES, ROLE_LIST } from 'ccms-shared/roles';
 import { appNavForRole } from '../../src/lib/auth/permissions.js';
 import { isRoleAllowed } from '../../src/lib/auth/guards.js';
-import { ANALYTICS_PATHS, getAnalyticsOverview, isMockAnalytics, loadAnalytics } from '../../src/lib/api/analytics.js';
-import { getMockAnalytics } from '../../src/lib/api/analytics-mock.js';
+import {
+  dashboardComplianceHeatmap,
+  dashboardKeyInsights,
+  dashboardKpis,
+  dashboardLateRisk,
+  dashboardTrendPulse,
+  fetchOfficeModels,
+  getDashboardAnalytics,
+} from '../../src/lib/api/analytics.js';
 import {
   HEAT_BANDS,
   INITIAL_ANALYTICS_STATE,
@@ -36,7 +42,6 @@ const read = (path) => readFileSync(root(path), 'utf8');
 const dashboardFiles = () => readdirSync(root('src/components/dashboard')).map((f) => `src/components/dashboard/${f}`);
 // Everything the Dashboard's analytics are written in, as one text (for source checks).
 const dashboardSource = () => dashboardFiles().map(read).join('\n');
-const NOW = '2026-11-10T06:05:00Z'; // 2:05 PM in Asia/Manila
 const CAMPUS = { ok: true, kind: 'campus', officeId: null };
 const OFFICE = { ok: true, kind: 'office', officeId: 'office-1' };
 
@@ -47,9 +52,9 @@ describe('who may open Insights (AC1)', () => {
     for (const role of ['admin', 'SUPER_ADMIN', '', null, undefined, 'citizen']) assert.equal(canViewInsights(role), false, String(role));
   });
 
-  it('the page is limited by the app shell, which renders the page only for an allowed role (no data is requested otherwise)', () => {
+  it('restricts Dashboard analytics to INSIGHTS_ROLES via canViewInsights and removes /insights page', () => {
     assert.match(read('src/lib/ui/analytics.js'), /export const canViewInsights/);
-    assert.match(read('src/app/page.js'), /<DashboardAnalytics user=\{user\} \/>/);
+    assert.equal(existsSync(root('src/app/insights/page.js')), false);
     assert.match(read('src/components/layout/AppShell.js'), /\{allowed \? \(/);
     for (const role of ['admin', 'citizen', undefined]) assert.equal(isRoleAllowed({ role }, INSIGHTS_ROLES), false);
     for (const role of INSIGHTS_ROLES) assert.equal(isRoleAllowed({ role }, INSIGHTS_ROLES), true);
@@ -62,21 +67,22 @@ describe('who may open Insights (AC1)', () => {
 });
 
 describe('sidebar', () => {
-  it('has no separate Insights item for any role: analytics live in the Dashboard', () => {
+  it('excludes /insights and keeps Dashboard (/), /late-risk, and role menus intact without duplicates', () => {
     for (const role of ROLE_LIST) {
       const nav = appNavForRole(role);
-      assert.ok(!nav.some((item) => /insights/i.test(item.label) || item.href === '/insights'), role);
+      assert.equal(nav.some((item) => item.href === '/insights'), false, role);
+      assert.equal(nav.some((item) => item.href === '/late-risk'), true, role);
       assert.equal(nav.filter((item) => item.href === '/').length, 1, `${role}: exactly one Dashboard entry`);
       assert.equal(new Set(nav.map((item) => item.href)).size, nav.length, `${role}: no duplicated entries`);
     }
     assert.deepEqual(appNavForRole('admin'), []);
   });
 
-  it('the Insights page, its icon and its menu helper are gone, and an old /insights link goes to the Dashboard', () => {
-    assert.ok(!readdirSync(root('src/app')).includes('insights'));
-    assert.doesNotMatch(read('src/lib/auth/permissions.js'), /insightsNav/);
-    assert.doesNotMatch(read('src/components/layout/NavIcon.js'), /insights/);
-    assert.match(read('next.config.js'), /source: '\/insights', destination: '\/'/);
+  it('removes /insights route directory, NavIcon mapping, insightsNav helper, and adds no stray redirect', () => {
+    assert.equal(readdirSync(root('src/app')).includes('insights'), false);
+    assert.doesNotMatch(read('src/lib/auth/permissions.js'), /insightsNav|\/insights/);
+    assert.doesNotMatch(read('src/components/layout/NavIcon.js'), /'\/insights'/);
+    assert.doesNotMatch(read('next.config.js'), /\/insights/);
   });
 });
 
@@ -91,12 +97,30 @@ describe('office scope', () => {
     assert.equal(insightsScope({ role: ROLES.OFFICE_HEAD }).ok, false);
   });
 
-  it('the mock gives an office-bound person only their office, and the campus several', () => {
-    const own = getMockAnalytics(OFFICE, { now: NOW });
-    assert.deepEqual(own.heatmap.rows.map((r) => r.officeId), ['office-1']);
-    assert.equal(own.scope.kind, 'office');
-    assert.ok(getMockAnalytics(CAMPUS, { now: NOW }).heatmap.rows.length > 1);
-    assert.ok(!own.insights.some((i) => /Sample Office/.test(i.text)), 'no other office is named in an office-scoped sentence');
+  it('drops foreign offices for office-bound users and retains active offices for campus users in the compliance heatmap', () => {
+    const overview = {
+      scope: { kind: 'campus', office_id: null },
+      compliance_heatmap: {
+        periods: ['2026-10'],
+        rows: [
+          { office_id: 'office-1', cells: [{ period: '2026-10', value: 92 }] },
+          { office_id: 'office-2', cells: [{ period: '2026-10', value: 78 }] },
+        ],
+      },
+    };
+    const offices = [
+      { office_id: 'office-1', office_name: 'Registrar', is_active: true },
+      { office_id: 'office-2', office_name: 'Cashier', is_active: true },
+      { office_id: 'office-3', office_name: 'Admissions', is_active: true },
+      { office_id: 'office-4', office_name: 'Archived', is_active: false },
+    ];
+    const own = dashboardComplianceHeatmap({ overview, scope: OFFICE, offices });
+    assert.deepEqual(own.rows.map((r) => [r.officeId, r.officeName]), [['office-1', 'Registrar']]);
+    const campus = dashboardComplianceHeatmap({ overview, scope: CAMPUS, offices });
+    assert.deepEqual(
+      campus.rows.map((r) => [r.officeId, r.officeName]),
+      [['office-3', 'Admissions'], ['office-2', 'Cashier'], ['office-1', 'Registrar']],
+    );
   });
 
   it('whatever a source returns, other offices are dropped for an office-bound person', () => {
@@ -114,130 +138,137 @@ describe('office scope', () => {
   });
 });
 
-describe('mock data provider', () => {
-  const mock = getMockAnalytics(CAMPUS, { now: NOW });
-
-  it('has the normalized shape with 12 months of history and 3 projected months', () => {
-    assert.equal(mock.source, 'mock');
-    assert.equal(mock.pulse.trend.length, 12);
-    assert.equal(mock.forecast.points.length, 15);
-    assert.equal(mock.forecast.points.filter((p) => p.actual === null && p.forecast !== null).length, 3);
-    assert.equal(mock.pulse.trend.at(-1).label, 'Nov 2026');
-    assert.equal(mock.forecast.projectedFrom, 'Dec 2026');
-    assert.deepEqual(mock.lateRisk.categories.map((c) => c.key), ['low', 'medium', 'high', 'critical']);
-    assert.equal(mock.lateRisk.categories.reduce((s, c) => s + c.count, 0), mock.lateRisk.total);
-    assert.ok(mock.pulse.kpis.length >= 3 && mock.insights.length >= 3);
-  });
-
-  it('joins history and projection at the last actual value, and is deterministic', () => {
-    const joint = mock.forecast.points[11];
-    assert.equal(joint.actual, joint.forecast);
-    assert.deepEqual(getMockAnalytics(CAMPUS, { now: NOW }), mock);
-  });
-
-  it('is marked as sample data in every sentence and never claims to be a finding', () => {
-    for (const s of mock.insights) assert.match(s.text, /sample/i);
-  });
-
-  it('is built from the same pieces as the API path: re-normalizing it changes nothing', () => {
-    const again = buildOverview({ pulse: mock.pulse, forecast: mock.forecast, lateRisk: mock.lateRisk, heatmap: mock.heatmap, insights: mock.insights }, { source: 'mock', scope: CAMPUS });
-    assert.deepEqual(again, mock);
-  });
-});
-
-describe('API data provider (adapter boundary)', () => {
-  const answers = {
-    [ANALYTICS_PATHS.pulse]: { current: 91, previous: 89.5, trend: [{ period: '2026-10', label: 'Oct 2026', value: 91 }], kpis: [{ label: 'On-time', value: 91, unit: '%' }] },
-    [ANALYTICS_PATHS.forecast]: { points: [{ period: '2026-10', label: 'Oct', actual: 91 }, { period: '2026-11', label: 'Nov', forecast: 92 }] },
-    [ANALYTICS_PATHS.lateRisk]: { categories: [{ key: 'High', count: 3 }, { key: 'low', count: 9, description: 'ok' }] },
-    [ANALYTICS_PATHS.heatmap]: { periods: [{ key: '2026-10', label: 'Oct' }], rows: [{ office_id: 'office-1', office_name: 'A', cells: [{ period: '2026-10', value: 88 }] }] },
-    [ANALYTICS_PATHS.insights]: { items: [{ id: 'a', kind: 'positive', text: 'Good.' }, { text: '' }] },
+describe('live Dashboard API adapter boundary (zero mock data)', () => {
+  const sampleOverview = {
+    scope: { kind: 'office', office_id: 'office-1' },
+    pulse: {
+      on_time_rate: 91,
+      previous_on_time_rate: 89.5,
+      results: 120,
+      previous_results: 100,
+      open_now: 14,
+      oldest_open_age_minutes: 95,
+      trend: [
+        { period: '2026-10', label: 'Oct 2026', value: 89.5 },
+        { period: '2026-11', label: 'Nov 2026', value: 91 },
+      ],
+    },
+    sentences: [
+      { id: 'c1', kind: 'warning', template: 'service_lag', params: { service_id: 'srv-1', late_rate: 25 }, chart: 'charter' },
+    ],
+    compliance_heatmap: {
+      periods: ['2026-10', '2026-11'],
+      rows: [{ office_id: 'office-1', cells: [{ period: '2026-10', value: 89.5 }, { period: '2026-11', value: 91 }] }],
+    },
+    about: { completed_rows: 120, late_cases: 10 },
   };
-  const calls = [];
-  const fakeFetch = async (path) => {
-    calls.push(path);
-    return answers[path.split('?')[0]];
+  const sampleRisk = {
+    office_id: 'office-1',
+    as_of: '2026-11-10T06:00:00Z',
+    stale: false,
+    items: [
+      { transaction_id: 't1', level: 'HIGH' },
+      { transaction_id: 't2', level: 'MEDIUM' },
+      { transaction_id: 't3', level: 'LOW' },
+    ],
+  };
+  const sampleForecast = {
+    status: 'SUCCESS',
+    officeId: 'office-1',
+    weeklyTotal: 42,
+    history: [
+      { date: '2026-11-05', label: '11-05', count: 6 },
+      { date: '2026-11-06', label: '11-06', count: 6 },
+      { date: '2026-11-07', label: '11-07', count: 6 },
+      { date: '2026-11-08', label: '11-08', count: 6 },
+      { date: '2026-11-09', label: '11-09', count: 6 },
+    ],
+    forecast: [{ date: '2026-11-11', label: '11-11', point: 9, lower: 6, upper: 12 }],
   };
 
-  it('reads all five answers and returns one normalized overview', async () => {
-    calls.length = 0;
-    const overview = await getAnalyticsOverview(CAMPUS, fakeFetch);
-    assert.equal(calls.length, 5);
-    assert.deepEqual(new Set(calls), new Set(Object.values(ANALYTICS_PATHS)));
-    assert.equal(overview.source, 'api');
-    assert.equal(overview.pulse.change, 1.5);
-    assert.equal(overview.forecast.projectedFrom, 'Nov');
-    assert.deepEqual(overview.lateRisk.categories.map((c) => [c.key, c.count]), [['low', 9], ['high', 3]]);
-    assert.equal(overview.lateRisk.total, 12);
-    assert.deepEqual(overview.insights, [{ id: 'a', kind: 'positive', text: 'Good.' }]);
-  });
-
-  it('asks for the office when the person is office-bound, and for nothing extra for the campus', async () => {
-    calls.length = 0;
-    await getAnalyticsOverview(OFFICE, fakeFetch);
-    assert.ok(calls.every((c) => c.endsWith('?office_id=office-1')), calls.join());
-    calls.length = 0;
-    await getAnalyticsOverview(CAMPUS, fakeFetch);
-    assert.ok(calls.every((c) => !c.includes('?')), calls.join());
-  });
-
-  it('fails as a whole if any one of the five fails (a half-filled screen would mislead)', async () => {
-    const broken = async (path) => {
-      if (path.includes('/forecast')) throw new Error('forecast down');
-      return fakeFetch(path);
+  it('fetches Oversight overview once plus per-office Operations models without duplicates', async () => {
+    const calls = [];
+    const fakeFetch = async (url) => {
+      calls.push(url);
+      if (url.startsWith('/api/logs/analytics/insights/overview')) return sampleOverview;
+      if (url.startsWith('/api/operations/analytics/late-risk')) return sampleRisk;
+      if (url.startsWith('/api/operations/analytics/forecast')) return sampleForecast;
+      throw new Error(`Unexpected URL: ${url}`);
     };
-    await assert.rejects(getAnalyticsOverview(CAMPUS, broken), /forecast down/);
+
+    const result = await getDashboardAnalytics({ period: 'monthly', officeId: 'office-1' }, fakeFetch);
+    assert.equal(calls.length, 3);
+    assert.ok(calls[0].startsWith('/api/logs/analytics/insights/overview?period=monthly&office_id=office-1'));
+    assert.equal(result.modelOfficeId, 'office-1');
+    assert.equal(result.lateRisk.state, 'ok');
+    assert.equal(result.forecast.state, 'ok');
+
+    const pulse = dashboardTrendPulse(result.overview);
+    assert.equal(pulse.current, 91);
+    assert.equal(pulse.change, 1.5);
+    assert.equal(pulse.trend.length, 2);
+
+    const kpis = dashboardKpis({ overview: result.overview, lateRisk: result.lateRisk });
+    assert.equal(kpis.length, 4);
+    assert.equal(kpis[3].value, 1);
+    assert.equal(kpis[3].tone, 'danger');
+
+    const riskView = dashboardLateRisk({ lateRisk: result.lateRisk, officeName: 'Registrar' });
+    assert.deepEqual(riskView.categories.map((c) => [c.key, c.count]), [['low', 1], ['medium', 1], ['high', 1]]);
+
+    const extraRiskView = dashboardLateRisk({
+      lateRisk: { state: 'ok', value: { items: [{ level: 'HIGH' }, { level: 'CRITICAL' }] } },
+    });
+    assert.deepEqual(extraRiskView.categories.map((c) => [c.key, c.count]), [['low', 0], ['medium', 0], ['high', 1], ['critical', 1]]);
+
+    const insights = dashboardKeyInsights({
+      overview: result.overview,
+      forecast: result.forecast,
+      lateRisk: result.lateRisk,
+      names: { services: { 'srv-1': 'TOR Request' }, offices: { 'office-1': 'Registrar' } },
+      modelOffice: 'office-1',
+    });
+    assert.ok(insights.some((i) => i.href === '#charter'));
+    assert.ok(insights.some((i) => i.href === '#request-forecast-heading'));
+    assert.ok(insights.some((i) => i.eyebrow === 'SLA Breach Warning' && i.primaryAction?.href === '/late-risk'));
   });
 
-  it('keeps all analytics access in lib/api/analytics.js: no page or chart calls a service directly', () => {
-    const files = [...dashboardFiles(), ...readdirSync(root('src/components/charts')).map((f) => `src/components/charts/${f}`)];
-    for (const file of files) {
-      const text = read(file);
-      assert.doesNotMatch(text, /apiFetch|fetch\(|['"`]\/api\//, file);
-      assert.doesNotMatch(text, /analytics-mock/, file);
+  it('propagates overview failure cleanly and isolates individual model failures without mock fallback', async () => {
+    const failOverview = async () => {
+      throw new Error('Oversight unreachable');
+    };
+    await assert.rejects(getDashboardAnalytics({ period: 'monthly' }, failOverview), /Oversight unreachable/);
+
+    const failRisk = async (url) => {
+      if (url.includes('/late-risk')) throw new Error('Late-risk unavailable');
+      return sampleForecast;
+    };
+    const partial = await fetchOfficeModels('office-1', failRisk);
+    assert.equal(partial.lateRisk.state, 'error');
+    assert.equal(partial.lateRisk.message, 'Late-risk unavailable');
+    assert.equal(partial.forecast.state, 'ok');
+    const riskErrView = dashboardLateRisk({ lateRisk: partial.lateRisk });
+    assert.equal(riskErrView.state, 'error');
+    assert.deepEqual(riskErrView.categories, []);
+  });
+
+  it('purges mock analytics modules, sample env flags, /insights page files, and chart-level API fetches', () => {
+    assert.equal(existsSync(root('src/lib/api/analytics-mock.js')), false);
+    assert.equal(existsSync(root('src/components/dashboard/ComplianceForecastChart.js')), false);
+    assert.equal(existsSync(root('src/app/insights/page.js')), false);
+    assert.equal(existsSync(root('src/components/insights/InsightsPage.js')), false);
+    for (const file of [
+      'src/lib/api/analytics.js',
+      'src/lib/ui/useAnalytics.js',
+      'src/lib/ui/analytics.js',
+      '.env.example',
+      ...dashboardFiles(),
+    ]) {
+      assert.doesNotMatch(read(file), /NEXT_PUBLIC_ANALYTICS_USE_MOCK_DATA|analytics-mock|getMockAnalytics|isMockAnalytics/, file);
     }
-  });
-});
-
-describe('feature flag (AC4)', () => {
-  it('true is sample data, false is the API, unset is sample data only outside production', () => {
-    assert.equal(isMockAnalytics({ flag: 'true', nodeEnv: 'production' }), true);
-    assert.equal(isMockAnalytics({ flag: 'true', nodeEnv: 'development' }), true);
-    assert.equal(isMockAnalytics({ flag: 'false', nodeEnv: 'development' }), false);
-    assert.equal(isMockAnalytics({ flag: undefined, nodeEnv: 'development' }), true);
-    assert.equal(isMockAnalytics({ flag: undefined, nodeEnv: 'production' }), false);
-    assert.equal(isMockAnalytics({ flag: 'maybe', nodeEnv: 'production' }), false);
-  });
-
-  it('the flag alone switches the source; both give the same overview shape and the page code is the same', async () => {
-    let apiCalls = 0;
-    const fetcher = async () => {
-      apiCalls++;
-      return { items: [] };
-    };
-    const mock = await loadAnalytics(CAMPUS, { env: { flag: 'true', nodeEnv: 'development' }, fetcher, now: NOW });
-    assert.equal(apiCalls, 0, 'the sample data path never touches the API');
-    const api = await loadAnalytics(CAMPUS, { env: { flag: 'false', nodeEnv: 'development' }, fetcher });
-    assert.equal(apiCalls, 5);
-    assert.equal(mock.source, 'mock');
-    assert.equal(api.source, 'api');
-    assert.deepEqual(Object.keys(api), Object.keys(mock));
-    for (const key of ['pulse', 'forecast', 'lateRisk', 'heatmap']) assert.deepEqual(Object.keys(api[key]).sort(), Object.keys(mock[key]).sort(), key);
-  });
-
-  it('never falls back to sample data when the API fails', async () => {
-    const down = async () => {
-      throw new Error('API down');
-    };
-    await assert.rejects(loadAnalytics(CAMPUS, { env: { flag: 'false', nodeEnv: 'production' }, fetcher: down }), /API down/);
-    await assert.rejects(loadAnalytics(CAMPUS, { env: { flag: undefined, nodeEnv: 'production' }, fetcher: down }), /API down/);
-  });
-
-  it('the flag is read in one file; charts and the page know nothing about it or the mock', () => {
-    const flagFiles = [...dashboardFiles(), ...readdirSync(root('src/components/charts')).map((f) => `src/components/charts/${f}`), 'src/lib/ui/useAnalytics.js', 'src/lib/ui/analytics.js'];
-    for (const file of flagFiles) assert.doesNotMatch(read(file), /NEXT_PUBLIC_ANALYTICS_USE_MOCK_DATA/, file);
-    assert.match(read('src/lib/api/analytics.js'), /NEXT_PUBLIC_ANALYTICS_USE_MOCK_DATA/);
-    assert.match(read('.env.example'), /NEXT_PUBLIC_ANALYTICS_USE_MOCK_DATA=/);
+    for (const file of readdirSync(root('src/components/charts')).map((f) => `src/components/charts/${f}`)) {
+      assert.doesNotMatch(read(file), /apiFetch|fetch\(|['"`]\/api\//, file);
+    }
   });
 });
 
@@ -400,10 +431,12 @@ describe('chart empty states and the answers behind them', () => {
 
   it('every chart on the page has its own empty message and the shared frame shows it instead of the plot', () => {
     const view = dashboardSource();
-    for (const id of ['pulse', 'forecast', 'risk', 'heatmap']) assert.match(view, new RegExp(`id="${id}"[\\s\\S]*?emptyMessage=`), id);
+    for (const id of ['pulse', 'risk', 'heatmap']) assert.match(view, new RegExp(`id="${id}"[\\s\\S]*?emptyMessage=`), id);
     const frame = read('src/components/charts/ChartCard.js');
     assert.match(frame, /role="status"/);
     assert.match(frame, /empty \? \(/);
+    assert.match(view, /forecast-empty/);
+    assert.match(view, /forecast-not-enough-history/);
     assert.match(view, /insights-sentences-empty/);
   });
 
@@ -415,6 +448,7 @@ describe('chart empty states and the answers behind them', () => {
 describe('chart quality: responsive, accessible, labelled', () => {
   it('charts size to their frame, and wide grids scroll inside theirs', () => {
     for (const file of ['TrendChart.js', 'RiskBars.js']) assert.match(read(`src/components/charts/${file}`), /<ResponsiveContainer width="100%" height="100%">/, file);
+    assert.match(read('src/components/dashboard/RequestForecastChart.js'), /<ResponsiveContainer width="100%" height="100%">/);
     assert.match(read('src/components/ui/TableShell.js'), /overflow-x-auto/);
     assert.match(read('src/components/charts/Heatmap.js'), /<Table\s/);
     const view = dashboardSource();
@@ -429,7 +463,12 @@ describe('chart quality: responsive, accessible, labelled', () => {
       assert.match(text, /<Tooltip/, file);
       assert.match(text, /isAnimationActive=\{false\}/, file);
     }
+    const fcChart = read('src/components/dashboard/RequestForecastChart.js');
+    assert.match(fcChart, /role="img" aria-label=/);
+    assert.match(fcChart, /<Tooltip/);
+    assert.match(fcChart, /isAnimationActive=\{false\}/);
     assert.match(read('src/components/charts/ChartCard.js'), /View as table/);
+    assert.match(read('src/components/dashboard/RequestForecastSection.js'), /View as table/);
     assert.match(read('src/components/charts/RiskBars.js'), /LabelList/);
     const heat = read('src/components/charts/Heatmap.js');
     assert.match(heat, /<Table\s[\s\S]*label=\{caption\}/);
@@ -437,11 +476,14 @@ describe('chart quality: responsive, accessible, labelled', () => {
     assert.match(heat, /aria-label=\{label\}/);
   });
 
-  it('forecast separates history from projection by shape (dashed line, shaded area), not colour alone', () => {
+  it('forecast separates history from projection by shape (dashed line, shaded band), not colour alone', () => {
     const trend = read('src/components/charts/TrendChart.js');
     assert.match(trend, /strokeDasharray=\{s\.dashed/);
     assert.match(trend, /<ReferenceArea/);
-    assert.match(dashboardSource(), /label="Projected" dashed/);
+    const fcChart = read('src/components/dashboard/RequestForecastChart.js');
+    assert.match(fcChart, /strokeDasharray="5 4"/);
+    assert.match(fcChart, /<ReferenceLine/);
+    assert.match(fcChart, /<Area[\s\S]*dataKey="upper"/);
   });
 
   it('heatmap bands are one hue, light to dark, and every value is also printed', () => {
@@ -464,8 +506,9 @@ describe('library and about panel (AC2)', () => {
     assert.doesNotMatch(pkg.dependencies.recharts, /[\^~><*xX]/);
   });
 
-  it('the about panel explains the indicators, the forecast and late risk, and says development data is illustrative until Sprint 6', () => {
-    const view = dashboardSource();
-    for (const word of ['Compliance:', 'Forecast:', 'Late risk:', 'Heatmap:', 'illustrative', 'Sprint 6']) assert.ok(view.includes(word), word);
+  it('the about panel explains the indicators, forecast, late risk, heatmap, and live data limitations without mock disclaimers', () => {
+    const about = read('src/components/dashboard/AboutAnalyticsPanel.js');
+    for (const word of ['Compliance:', 'Forecast:', 'Late risk:', 'Heatmap:', 'Data limitations:', 'seededHistoryDisclosure']) assert.ok(about.includes(word), word);
+    assert.doesNotMatch(about, /illustrative|Sprint 6/i);
   });
 });

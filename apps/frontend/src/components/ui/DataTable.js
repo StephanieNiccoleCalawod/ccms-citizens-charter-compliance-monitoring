@@ -44,7 +44,7 @@ export function TruncatedCell({
   const content = (
     <span
       ref={textRef}
-      className={`block font-semibold text-slate-900 hover:underline ${expanded ? 'whitespace-normal break-words' : 'truncate'}`}
+      className={`block font-semibold text-ink hover:underline ${expanded ? 'whitespace-normal break-words' : 'truncate'}`}
     >
       {text}
     </span>
@@ -82,21 +82,22 @@ export function TruncatedCell({
             }}
             aria-expanded={expanded}
             aria-label={expanded ? `Collapse title: ${text}` : `Expand title: ${text}`}
-            className="shrink-0 rounded px-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon"
+            className="shrink-0 rounded px-1 text-[11px] font-semibold text-ink-muted hover:bg-slate-100 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon"
           >
             {expanded ? '▲' : '…'}
           </button>
         ) : null}
       </div>
-      {subtitle ? <p className="mt-0.5 text-xs text-slate-500 truncate" title={subtitle}>{subtitle}</p> : null}
+      {subtitle ? <p className="mt-0.5 text-xs text-ink-muted truncate" title={subtitle}>{subtitle}</p> : null}
     </div>
   );
 }
 
 function SortIcon({ direction }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className={`h-3.5 w-3.5 shrink-0 ${direction ? 'opacity-100' : 'opacity-50'}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      {direction === 'asc' ? <path d="m6 12 4-4 4 4" /> : direction === 'desc' ? <path d="m6 8 4 4 4-4" /> : <path d="m7 8 3-3 3 3M7 12l3 3 3-3" />}
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m7 8 3-3 3 3" className={direction === 'asc' ? 'text-pup-gold opacity-100' : direction === 'desc' ? 'opacity-30' : 'opacity-55'} />
+      <path d="m7 12 3 3 3-3" className={direction === 'desc' ? 'text-pup-gold opacity-100' : direction === 'asc' ? 'opacity-30' : 'opacity-55'} />
     </svg>
   );
 }
@@ -107,7 +108,7 @@ function SkeletonRows({ columns, rows = 4 }) {
     <tr key={`skeleton-${r}`} className="tr-row" aria-hidden="true">
       {columns.map((col, c) => (
         <td key={col.key || col.header || c} className="td">
-          <span className={`block h-2.5 animate-pulse rounded-full bg-slate-200 motion-reduce:animate-none ${c === 0 ? 'w-3/4' : 'w-1/2'}`} />
+          <span className={`block h-2.5 animate-pulse rounded-full bg-line motion-reduce:animate-none ${c === 0 ? 'w-3/4' : 'w-1/2'}`} />
         </td>
       ))}
     </tr>
@@ -150,13 +151,14 @@ export default function DataTable({
   const header = (col) => {
     if (!col.sortable || !onSortChange) return col.header;
     const direction = directionOf(col);
+    const alignBtn = col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : '';
     return (
       <button
         type="button"
         onClick={() => onSortChange(col.key)}
-        className={`inline-flex items-center gap-1 rounded uppercase tracking-wider hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${col.align === 'right' ? 'flex-row-reverse' : ''}`}
+        className={`-mx-1.5 -my-1 inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 uppercase tracking-wider transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-gold ${alignBtn}`.trim()}
       >
-        {col.header}
+        <span>{col.header}</span>
         <SortIcon direction={direction} />
         <span className="sr-only">{direction ? `, sorted ${direction === 'asc' ? 'ascending' : 'descending'}` : ', select to sort'}</span>
       </button>
@@ -168,13 +170,13 @@ export default function DataTable({
       {/* Optional summary bar above the header */}
       {hasSummary ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5">
-          <div className="text-sm text-stone-600">{summaryLeftSlot ?? (summaryText ? <p>{summaryText}</p> : null)}</div>
+          <div className="text-sm text-ink-muted">{summaryLeftSlot ?? (summaryText ? <p>{summaryText}</p> : null)}</div>
           <div>
             {summaryRightSlot ?? (
               totalCount !== null ? (
                 <div className="text-right">
-                  <span className="block text-base font-bold leading-tight text-stone-900">{totalCount}</span>
-                  <span className="block text-xs leading-tight text-stone-500">{countLabel}</span>
+                  <span className="block text-base font-bold leading-tight tabular-nums text-ink">{totalCount}</span>
+                  <span className="block text-xs leading-tight text-ink-muted">{countLabel}</span>
                 </div>
               ) : null
             )}

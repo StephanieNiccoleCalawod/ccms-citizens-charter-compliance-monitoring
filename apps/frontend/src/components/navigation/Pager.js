@@ -40,7 +40,7 @@ export default function Pager({
 
   return (
     <div className={`table-pager ${className}`.trim()}>
-      <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+      <label className="inline-flex items-center gap-2 text-xs font-medium text-ink-muted">
         <span>Items per page:</span>
         <select
           aria-label="Items per page"

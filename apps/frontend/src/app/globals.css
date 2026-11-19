@@ -11,15 +11,15 @@
   --color-gold-500: #d4a017;
   /* CCMS Brand palette */
   --color-pup-maroon: #800000;
-  --color-pup-maroon-dark: #600000;
+  --color-pup-maroon-dark: #4A0808;
   --color-pup-maroon-active: #8f2020;
   --color-pup-maroon-divider: #962020;
-  --color-pup-gold: #ffdf00;
+  --color-pup-gold: #FFDF00;
   --color-pup-gray: #e5e5e5;
-  --color-table-divider: #E5E7EB;
+  --color-table-divider: #E2E8F0;
   /* Content area and tables */
-  --color-page: #F5F6FA;
-  --color-line: #E5E7EB;
+  --color-page: #F4F5F8;
+  --color-line: #E2E8F0;
   --color-table-head: #800000;
   --color-table-hover: rgba(128, 0, 0, 0.04);
   /* Shadows */
@@ -27,12 +27,13 @@
 
   /* Design system: semantic tokens. Components use these names (bg-surface, text-ink-muted, text-danger...) instead of raw hex. */
   --color-brand: #800000;
-  --color-accent: #ffdf00;
+  --color-brand-hover: #4A0808;
+  --color-accent: #FFDF00;
   --color-accent-50: #fff8cc;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f9fafb;
-  --color-ink: #1f2937;
-  --color-ink-muted: #6b7280;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F8FAFC;
+  --color-ink: #202938;
+  --color-ink-muted: #64748B;
   --color-success: #16a34a;
   --color-warning: #d97706;
   --color-danger: #dc2626;
@@ -60,16 +61,16 @@
 
 @layer base {
   body {
-    @apply bg-page text-slate-800 antialiased;
+    @apply bg-page text-ink antialiased;
   }
   /* DM Serif Display is for each page's own <h1> only (see title-page); every other heading uses the body font (see
      title-section, title-card). */
   h1 {
-    @apply font-serif text-slate-900;
+    @apply font-serif text-ink;
   }
   h2,
   h3 {
-    @apply text-slate-900;
+    @apply text-ink;
   }
   input[type="checkbox"],
   input[type="radio"] {
@@ -82,7 +83,7 @@
    btn-link) and one per size (btn-sm, btn-lg, btn-icon; medium is the default). The size classes only set the --btn-* variables, so a
    size never competes with a variant over the same property. In React, prefer <Button variant size> (components/ui/Button.js). */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-control text-sm font-semibold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-control text-sm font-semibold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
   padding: var(--btn-py, 0.5rem) var(--btn-px, 1rem);
 }
 @utility btn-sm {
@@ -106,7 +107,7 @@
   @apply btn bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-500;
 }
 @utility btn-secondary {
-  @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  @apply btn border border-line bg-surface text-ink hover:bg-surface-muted;
 }
 @utility btn-success {
   @apply btn-save;
@@ -115,30 +116,30 @@
   @apply btn border border-pup-maroon bg-transparent text-pup-maroon hover:bg-maroon-50;
 }
 @utility btn-ghost {
-  @apply btn bg-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900;
+  @apply btn bg-transparent text-ink hover:bg-slate-100;
 }
 @utility btn-danger {
   @apply btn bg-red-700 text-white hover:bg-red-600 focus-visible:ring-red-500;
 }
 @utility btn-link {
-  @apply text-sm font-semibold text-pup-maroon hover:underline disabled:opacity-50;
+  @apply cursor-pointer text-sm font-semibold text-pup-maroon hover:underline disabled:opacity-50;
 }
 /* A ghost icon button for toolbars and headers (hamburger, bell, modal close, month arrows): 36px square, the same hover and focus ring.
    icon-button-outline adds the hairline border. In React use <IconButton> (components/ui/IconButton.js). */
 @utility icon-button {
-  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-control text-ink-muted transition hover:bg-slate-100 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility icon-button-outline {
-  @apply icon-button border border-line bg-white;
+  @apply icon-button border border-line bg-surface;
 }
 @utility label {
-  @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500;
+  @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted;
 }
 @utility input {
-  @apply block w-full rounded-control border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-pup-maroon focus:outline-none focus:ring-1 focus:ring-pup-maroon disabled:bg-slate-100 aria-invalid:border-red-600 aria-invalid:focus:border-red-700 aria-invalid:focus:ring-red-700;
+  @apply block w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink shadow-2xs transition-colors placeholder:text-ink-muted hover:border-slate-300 focus:border-pup-maroon focus:outline-none focus:ring-1 focus:ring-pup-maroon disabled:bg-surface-muted aria-invalid:border-red-600 aria-invalid:focus:border-red-700 aria-invalid:focus:ring-red-700;
 }
 @utility card {
-  @apply rounded-xl border border-line bg-white shadow-card;
+  @apply rounded-xl border border-line bg-surface shadow-card;
 }
 @utility badge {
   @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
@@ -167,40 +168,48 @@
   @apply px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-white;
 }
 @utility td {
-  @apply px-4 py-2.5 align-middle text-xs leading-snug text-slate-800;
+  @apply px-4 py-2.5 align-middle text-xs leading-snug text-ink;
 }
 /* A data row: about 52px tall, the same hover everywhere. */
 @utility tr-row {
   @apply h-[52px] transition-colors hover:bg-table-hover;
 }
+/* Summary / totals row inside a table footer or bottom total line. */
+@utility tr-summary {
+  @apply h-[52px] border-t-2 border-line bg-surface-muted font-semibold text-ink;
+}
 /* Small square icon button inside a row (expand arrow, row menu): same size, border and radius everywhere. */
 @utility row-icon-button {
-  @apply inline-flex h-7 w-7 items-center justify-center rounded-lg border border-line bg-white text-slate-500 hover:bg-table-hover hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-7 w-7 items-center justify-center rounded-lg border border-line bg-white text-ink-muted transition-colors hover:bg-table-hover hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 @utility table-pager {
-  @apply flex flex-wrap items-center justify-between gap-3 border-t border-table-divider px-4 py-3;
+  @apply flex flex-wrap items-center justify-between gap-3 border-t border-table-divider bg-surface px-4 py-3;
 }
 @utility page-size-select {
-  @apply rounded-full border border-line bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon;
+  @apply appearance-none rounded-full border border-line bg-white bg-[length:0.875rem] bg-[right_0.5rem_center] bg-no-repeat py-1.5 pl-3 pr-7 text-xs font-medium text-ink transition-colors hover:border-slate-300 focus:border-pup-maroon focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2364748b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 8 5 5 5-5'/%3E%3C/svg%3E");
 }
 @utility page-arrow {
-  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-table-hover hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent;
+  @apply inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-table-hover hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent;
 }
 @utility page-current {
-  @apply inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-pup-maroon px-2 text-xs font-semibold text-white;
+  @apply inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-pup-maroon px-2 text-xs font-semibold tabular-nums text-white;
 }
 
 /* Heading scale: page title, section title inside a page, card title. Serif (DM Serif Display) is for the page's own
    title only (title-page); a section heading or a card title is DM Sans, same as the rest of the page. */
 @utility title-page {
-  @apply font-serif text-3xl text-slate-900;
+  @apply font-serif text-[30px] font-normal leading-tight text-ink;
 }
 @utility title-section {
-  @apply font-sans text-xl font-bold text-slate-900;
+  @apply font-sans text-2xl font-normal leading-tight text-ink;
 }
 @utility title-card {
-  @apply font-sans text-lg font-bold text-slate-900;
+  @apply font-sans text-base font-medium leading-snug text-ink;
+}
+@utility title-modal {
+  @apply font-sans text-lg font-semibold leading-snug text-ink;
 }
 
 /* Text-style action inside a table row or list: at least 24px tall so it is easy to hit. */

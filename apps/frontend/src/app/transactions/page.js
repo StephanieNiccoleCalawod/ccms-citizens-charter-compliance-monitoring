@@ -3,7 +3,7 @@
 import { recordOption } from '../../lib/ui/record-status.js';
 import RecordOption from '../../components/forms/RecordOption.js';
 import SearchInput from '../../components/forms/SearchInput.js';
-import ClearFiltersButton from '../../components/forms/ClearFiltersButton.js';
+import FilterBar from '../../components/forms/FilterBar.js';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -186,65 +186,67 @@ function TransactionList({ user }) {
     <div className="space-y-4">
       <ErrorBanner message={state.error} onDismiss={() => setState((current) => ({ ...current, error: null }))} />
 
-      <form className="card p-5 sm:p-6" onSubmit={apply} noValidate aria-label="Filter the transactions">
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-4">
-          <div className="w-full sm:w-44">
-            <label className="label" htmlFor="tx-q">Tracking number</label>
-            <SearchInput id="tx-q" value={draft.q} onChange={set('q')} onBlur={() => draft.q.trim() !== (applied.q ?? '') && applyNow(draft)} maxLength={TRACKING_MAX} autoComplete="off" spellCheck={false} aria-invalid={fieldErrors.q ? true : undefined} aria-describedby={describedBy('q')} />
-            {fieldError('q')}
-          </div>
-          <div className="w-full sm:w-36">
-            <label className="label" htmlFor="tx-status">Status</label>
-            <select id="tx-status" className="input select-chevron" value={draft.status} onChange={choose('status')} aria-invalid={fieldErrors.status ? true : undefined} aria-describedby={describedBy('status')}>
-              <option value="">All statuses</option>
-              {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-            {fieldError('status')}
-          </div>
-          <div className="w-full sm:w-52">
-            <label className="label" htmlFor="tx-service">Service</label>
-            <SearchableSelect
-              id="tx-service"
-              options={serviceFilterOptions}
-              value={draft.service_id}
-              onChange={(value) => applyNow({ ...draft, service_id: value })}
-              placeholder="All services"
-              noMatchText="No service matches what you typed."
-              clearable={false}
-              listMinWidth={420}
-              invalid={Boolean(fieldErrors.service_id)}
-              describedBy={describedBy('service_id')}
-            />
-            {fieldError('service_id')}
-          </div>
-          {campusWide ? (
-            <div className="w-full sm:w-48">
-              <label className="label" htmlFor="tx-office">Office</label>
-              <select id="tx-office" className="input select-chevron" value={draft.office_id} onChange={choose('office_id')} aria-invalid={fieldErrors.office_id ? true : undefined} aria-describedby={describedBy('office_id')}>
-                <option value="">All offices</option>
-                {options.offices.map((o) => <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>)}
-              </select>
-              {fieldError('office_id')}
-            </div>
-          ) : null}
-          {showCounter ? (
-            <div className="w-full sm:w-40">
-              <label className="label" htmlFor="tx-counter">Counter</label>
-              <select id="tx-counter" className="input select-chevron" value={draft.counter_id} onChange={choose('counter_id')} aria-invalid={fieldErrors.counter_id ? true : undefined} aria-describedby={describedBy('counter_id')}>
-                <option value="">All counters</option>
-                {options.counters.map((c) => <RecordOption key={c.counter_id} record={c} value={c.counter_id}>{c.label}</RecordOption>)}
-              </select>
-              {fieldError('counter_id')}
-            </div>
-          ) : null}
-          {filtered ? (
-            <div className="sm:mt-[21px]">
-              <ClearFiltersButton onClick={clear} disabled={state.loading} />
-            </div>
-          ) : null}
-          {readOnly ? null : <AddTransactionButton className="w-full justify-center sm:ml-auto sm:mt-[21px] sm:w-auto" onClick={() => setAddOpen(true)} />}
+      <FilterBar
+        label="Filter the transactions"
+        align="top"
+        spacerAt="2xl"
+        onSubmit={apply}
+        noValidate
+        dirty={filtered}
+        onClear={clear}
+        clearDisabled={state.loading}
+        actions={readOnly ? null : <AddTransactionButton className="w-full justify-center sm:w-auto" onClick={() => setAddOpen(true)} />}
+      >
+        <div className="w-full sm:w-44">
+          <label className="label" htmlFor="tx-q">Tracking number</label>
+          <SearchInput id="tx-q" value={draft.q} onChange={set('q')} onBlur={() => draft.q.trim() !== (applied.q ?? '') && applyNow(draft)} maxLength={TRACKING_MAX} autoComplete="off" spellCheck={false} aria-invalid={fieldErrors.q ? true : undefined} aria-describedby={describedBy('q')} />
+          {fieldError('q')}
         </div>
-      </form>
+        <div className="w-full sm:w-36">
+          <label className="label" htmlFor="tx-status">Status</label>
+          <select id="tx-status" className="input select-chevron" value={draft.status} onChange={choose('status')} aria-invalid={fieldErrors.status ? true : undefined} aria-describedby={describedBy('status')}>
+            <option value="">All statuses</option>
+            {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          {fieldError('status')}
+        </div>
+        <div className="w-full sm:w-52">
+          <label className="label" htmlFor="tx-service">Service</label>
+          <SearchableSelect
+            id="tx-service"
+            options={serviceFilterOptions}
+            value={draft.service_id}
+            onChange={(value) => applyNow({ ...draft, service_id: value })}
+            placeholder="All services"
+            noMatchText="No service matches what you typed."
+            clearable={false}
+            listMinWidth={420}
+            invalid={Boolean(fieldErrors.service_id)}
+            describedBy={describedBy('service_id')}
+          />
+          {fieldError('service_id')}
+        </div>
+        {campusWide ? (
+          <div className="w-full sm:w-48">
+            <label className="label" htmlFor="tx-office">Office</label>
+            <select id="tx-office" className="input select-chevron" value={draft.office_id} onChange={choose('office_id')} aria-invalid={fieldErrors.office_id ? true : undefined} aria-describedby={describedBy('office_id')}>
+              <option value="">All offices</option>
+              {options.offices.map((o) => <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>)}
+            </select>
+            {fieldError('office_id')}
+          </div>
+        ) : null}
+        {showCounter ? (
+          <div className="w-full sm:w-40">
+            <label className="label" htmlFor="tx-counter">Counter</label>
+            <select id="tx-counter" className="input select-chevron" value={draft.counter_id} onChange={choose('counter_id')} aria-invalid={fieldErrors.counter_id ? true : undefined} aria-describedby={describedBy('counter_id')}>
+              <option value="">All counters</option>
+              {options.counters.map((c) => <RecordOption key={c.counter_id} record={c} value={c.counter_id}>{c.label}</RecordOption>)}
+            </select>
+            {fieldError('counter_id')}
+          </div>
+        ) : null}
+      </FilterBar>
 
       <TableShell
         footer={<Pager page={state.page} pageSize={pageSize} total={state.total} onPage={(next) => run(applied, next, pageSize)} onPageSizeChange={changePageSize} loading={state.loading} />}

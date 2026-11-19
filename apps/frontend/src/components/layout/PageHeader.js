@@ -9,7 +9,7 @@ export default function PageHeader({ title, description, eyebrow, actions, title
       <div className="min-w-0">
         {eyebrow ? <div className="mb-2">{eyebrow}</div> : null}
         <h1 className={titleClassName ?? 'title-page'}>{title}</h1>
-        {description ? <p className={descriptionClassName ?? 'mt-1 text-sm text-slate-600'}>{description}</p> : null}
+        {description ? <p className={descriptionClassName ?? 'mt-1 text-sm text-ink-muted'}>{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>

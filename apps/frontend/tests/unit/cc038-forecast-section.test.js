@@ -1,9 +1,10 @@
 // CC038 source-level checks for RequestForecastSection and RequestForecastChart.
 // These tests verify structure, RBAC guards, and design-token compliance without a browser.
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { retrainRequestForecast } from '../../src/lib/api/request-forecast.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const read = (rel) => readFileSync(`${ROOT}${rel}`, 'utf8');
@@ -14,9 +15,11 @@ const apiLib  = read('src/lib/api/request-forecast.js');
 const dashboard = read('src/components/dashboard/DashboardAnalytics.js');
 
 describe('CC038 RequestForecastSection', () => {
-  it('imports and renders inside DashboardAnalytics', () => {
+  it('imports and renders inside DashboardAnalytics (and /insights route is removed)', () => {
     assert.match(dashboard, /import RequestForecastSection from '\.\/RequestForecastSection\.js'/);
-    assert.match(dashboard, /<RequestForecastSection user=\{user\} \/>/);
+    assert.match(dashboard, /<RequestForecastSection[\s\S]*user=\{user\}/);
+    assert.equal(existsSync(`${ROOT}src/components/insights/InsightsPage.js`), false);
+    assert.equal(existsSync(`${ROOT}src/app/insights/page.js`), false);
   });
 
   it('uses TableShell for the forecast table (no raw <table>/<thead>/<th> tags)', () => {
@@ -96,7 +99,34 @@ describe('CC038 request-forecast API module', () => {
     assert.match(apiLib, /FORECAST_BASE = '\/api\/operations\/analytics\/forecast'/);
   });
 
-  it('retrain uses POST method', () => {
+  it('retrain uses POST method and passes an unstringified object body for apiFetch', async () => {
     assert.match(apiLib, /method: 'POST'/);
+    let captured;
+    await retrainRequestForecast({ officeId: 'o1', serviceId: 's1' }, async (url, opts) => {
+      captured = { url, opts };
+      return { status: 'SUCCESS' };
+    });
+    assert.equal(captured.url, '/api/operations/analytics/forecast/retrain');
+    assert.equal(captured.opts.method, 'POST');
+    assert.deepEqual(captured.opts.body, { officeId: 'o1', serviceId: 's1' });
+  });
+});
+
+describe('CC038 controlled Insights integration and stale warning', () => {
+  it('calls useSingleSubmit() as a function for handleRetrain', () => {
+    assert.match(section, /const once = useSingleSubmit\(\)/);
+    assert.match(section, /await once\(async \(\) =>/);
+  });
+
+  it('accepts externalRun and skips duplicate office-level GET when controlled', () => {
+    assert.match(section, /externalRun/);
+    assert.match(section, /refreshRevision/);
+    assert.match(section, /usingExternal = controlledOfficeId !== undefined && hasExternalRun && !serviceId/);
+    assert.match(section, /controlledOfficeId !== undefined && hasExternalRun && !sId/);
+  });
+
+  it('displays an explicit warning banner when an earlier fallback forecast is marked stale', () => {
+    assert.match(section, /activeRun\.stale/);
+    assert.match(section, /Showing an earlier forecast/);
   });
 });

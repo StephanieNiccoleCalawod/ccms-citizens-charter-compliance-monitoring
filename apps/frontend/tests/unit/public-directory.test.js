@@ -99,7 +99,7 @@ describe('the split-screen directory (source checks, not a browser)', () => {
     assert.ok(dir.includes('id="public-office"') && dir.includes('All offices ({counts.total})'));
   });
   it('the search, the three time filters with A-Z, the numbered rows, View requirements and the pager are all there', () => {
-    assert.ok(dir.includes('placeholder="Search by service or office name"'));
+    assert.ok(dir.includes('Search by service or office name'));
     assert.ok(dir.includes('TIME_FILTERS.map'));
     assert.ok(dir.includes('sequenceLabel(number)'));
     assert.ok(dir.includes('View requirements'));
@@ -121,14 +121,16 @@ describe('service listing typography (source checks, not a browser)', () => {
 
 describe('search and pagination match the rest of CCMS (source checks, not a browser)', () => {
   const dir = read('src/components/public/PublicDirectory.js');
-  it('the search is the Services-style field (label, icon inside the input, Search button) on the page background, not in a white card', () => {
+  it('the search uses the shared SearchInput (label, icon inside the input, Search button) on the page background, not in a white card', () => {
     assert.ok(!dir.includes('rounded-2xl border border-[#EAE3D9] bg-white p-5 sm:p-6'), 'no white card behind it');
     assert.ok(dir.includes('<div className="flex flex-wrap items-end gap-3">'));
     assert.ok(dir.includes('<div className="w-full min-w-0 sm:w-80">'), 'same width as the Services search');
     assert.ok(dir.includes('<label className="label" htmlFor="public-search">Search</label>'));
-    assert.ok(dir.includes('className="input pl-9"'));
+    assert.ok(dir.includes("import SearchInput from '../forms/SearchInput.js'"));
+    assert.ok(dir.includes('<SearchInput id="public-search" customPlaceholder="Search by service or office name"'));
+    assert.ok(read('src/components/forms/SearchInput.js').includes('input pl-9'));
+    assert.ok(dir.includes('<select id="public-office" className="input select-chevron"'));
     assert.ok(dir.includes('<button type="submit" className="btn-secondary w-full sm:w-auto">Search</button>'));
-    assert.ok(dir.includes('placeholder="Search by service or office name"'));
   });
   it('pagination is the shared Pager (Items per page, arrows, maroon current page) on the page background, with a page-size change going back to page 1', () => {
     assert.ok(dir.includes("import Pager from '../navigation/Pager.js'"));

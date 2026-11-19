@@ -133,10 +133,39 @@ export function createDemoFetcher() {
     return { total: registry.size, enrolled, alumni, by_program: [...programs.values()].sort((a, b) => a.program_code.localeCompare(b.program_code)) };
   }
 
+  function search(path) {
+    const qIndex = path.indexOf('?');
+    const params = new URLSearchParams(qIndex === -1 ? '' : path.slice(qIndex + 1));
+    const q = String(params.get('q') ?? '').trim().toLowerCase();
+    const rawStatus = String(params.get('status') ?? '').trim().toUpperCase();
+    const wantedStatus = rawStatus === 'STUDENT' || rawStatus === 'ENROLLED' ? 'ENROLLED' : rawStatus === 'ALUMNI' ? 'ALUMNI' : null;
+    if (!q) return { items: [] };
+    const items = [];
+    for (const r of registry.values()) {
+      if (wantedStatus && r.status !== wantedStatus) continue;
+      const numMatch = String(r.student_number ?? '').toLowerCase() === q;
+      const nameMatch = String(r.full_name ?? '').toLowerCase().includes(q);
+      if (numMatch || nameMatch) {
+        items.push({
+          student_number: r.student_number,
+          full_name: r.full_name,
+          program: r.program,
+          year_level: r.year_level ? Number(r.year_level) : null,
+          status: r.status,
+          valid_until: r.valid_until || null,
+          is_expired: false,
+        });
+      }
+      if (items.length >= 10) break;
+    }
+    return { items };
+  }
+
   return async function demoFetch(path, { method = 'GET', body } = {}) {
     if (method === 'POST' && path.endsWith('/registry/imports')) return post(body);
     if (path.endsWith('/registry/imports')) return { items: [...history].reverse(), total: history.length };
     if (path.endsWith('/registry/summary')) return summary();
+    if (path.includes('/registry/search')) return search(path);
     throw new ApiError('Not found', { status: 404 });
   };
 }

@@ -69,7 +69,7 @@ export default function ComplaintForm() {
             {offices.failed ? <ErrorBanner message="The list of offices could not be loaded. Please reload the page." /> : null}
             <div>
               <label htmlFor="c-office" className="label">Office *</label>
-              <select id="c-office" className="input" value={form.office_id} onChange={set('office_id')} disabled={offices.loading} {...aria('office_id')}>
+              <select id="c-office" className="input select-chevron" value={form.office_id} onChange={set('office_id')} disabled={offices.loading} {...aria('office_id')}>
                 <option value="">{offices.loading ? 'Loading offices…' : 'Choose an office'}</option>
                 {offices.items.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
               </select>
@@ -77,7 +77,7 @@ export default function ComplaintForm() {
             </div>
             <div>
               <label htmlFor="c-category" className="label">Category *</label>
-              <select id="c-category" className="input" value={form.category} onChange={set('category')} {...aria('category')}>
+              <select id="c-category" className="input select-chevron" value={form.category} onChange={set('category')} {...aria('category')}>
                 <option value="">Choose a category</option>
                 {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>

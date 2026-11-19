@@ -5,9 +5,9 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import { GET as cellRoute } from '../src/app/api/analytics/insights/cell/route.js';
 import { GET as overviewRoute } from '../src/app/api/analytics/insights/overview/route.js';
 import { FLAG_FAR_LONGER, FLAG_NOT_ENOUGH, FLAG_OFTEN_MISSED, charterCheck } from '../src/modules/insights/charter.js';
-import { buildHeatmap, buildOfficeTrend, previousPeriod } from '../src/modules/insights/insights.js';
+import { buildHeatmap, buildOfficeTrend, getInsights, previousPeriod, recentMonths } from '../src/modules/insights/insights.js';
 import { buildSentences, rankSentences } from '../src/modules/insights/sentences.js';
-import { OFFICE_A, OFFICE_B, call, req, setupTestEnv, tokens } from './helpers.js';
+import { OFFICE_A, OFFICE_B, USERS, call, req, setupTestEnv, tokens } from './helpers.js';
 
 const SVC = '11111111-1111-4111-8111-111111111111';
 const SVC2 = '22222222-2222-4222-8222-222222222222';
@@ -50,6 +50,46 @@ describe('CC054 Charter check', () => {
     const out = charterCheck(rows);
     assert.equal(out.services.length, 2);
     assert.ok(out.services.every((s) => s.completed === 20));
+  });
+  it('flags seeded QA patterns OSAS-CRD-007 (LIMIT_OFTEN_MISSED + outlier) and ADMREG-ACC-003 (LIMIT_FAR_LONGER)', () => {
+    const osasRows = Array.from({ length: 24 }, (_, i) => {
+      if (i === 0) {
+        return done({
+          service_id: SVC,
+          service_code: 'OSAS-CRD-007',
+          tracking_no: 'OSAS-20261001-9001',
+          elapsed_working_minutes: 960,
+          variance_minutes: 720,
+          is_compliant: false,
+        });
+      }
+      const late = i <= 6;
+      return done({
+        service_id: SVC,
+        service_code: 'OSAS-CRD-007',
+        tracking_no: `OSAS-20261001-${9001 + i}`,
+        elapsed_working_minutes: late ? 260 + (i % 3) : 180 + (i % 4),
+        variance_minutes: late ? 20 + (i % 3) : -60 + (i % 4),
+        is_compliant: !late,
+      });
+    }); // limit = 240, 7/24 late (29.2% > 20%), plus 960-min outlier
+    const admregRows = Array.from({ length: 24 }, (_, i) => done({
+      office_id: OFFICE_B,
+      service_id: SVC2,
+      service_code: 'ADMREG-ACC-003',
+      tracking_no: `ADMREG-20261001-${9100 + i}`,
+      elapsed_working_minutes: 30 + (i % 10),
+      variance_minutes: -(480 - (30 + (i % 10))),
+      is_compliant: true,
+    })); // limit = 480, p90 ~ 39 min (8.1% < 25%)
+
+    const out = charterCheck([...osasRows, ...admregRows]);
+    const osas = out.services.find((s) => s.service_code === 'OSAS-CRD-007');
+    const admreg = out.services.find((s) => s.service_code === 'ADMREG-ACC-003');
+    assert.ok(osas.flags.includes(FLAG_OFTEN_MISSED));
+    assert.ok(admreg.flags.includes(FLAG_FAR_LONGER));
+    assert.equal(out.unusual.length, 1);
+    assert.equal(out.unusual[0].tracking_no, 'OSAS-20261001-9001');
   });
 });
 
@@ -130,7 +170,7 @@ describe('Insights routes', () => {
         `INSERT INTO analytics_transactions (transaction_id, tracking_no, office_id, service_id, service_code, classification, client_type, standard_days, standard_hours, standard_minutes,
            started_at, ended_at, status, elapsed_working_minutes, is_compliant, variance_minutes, held_minutes, is_backdated, started_outside_hours, registry_status, started_by_user_id, event_version, is_seeded, received_at)
          VALUES ($1,$2,$3,$4,$5,'SIMPLE','STUDENT',0,2,0,$6,$7,'COMPLETED',$8,$9,$10,0,false,false,'NONE',$11,1,false,now())`,
-        [r.transaction_id, `PUP-${i}`, r.office_id, r.service_id, r.service_code, r.started_at ?? '2026-10-05T01:00:00Z', r.ended_at, r.elapsed_working_minutes, r.is_compliant, r.variance_minutes, randomUUID()],
+        [r.transaction_id, `PUP-${i}`, r.office_id, r.service_id, r.service_code, r.started_at ?? '2026-10-05T01:00:00Z', r.ended_at, r.elapsed_working_minutes, r.is_compliant, r.variance_minutes, r.started_by_user_id ?? randomUUID()],
       );
     }
   }
@@ -172,6 +212,71 @@ describe('Insights routes', () => {
     const other = await call(cellRoute, req('GET', `/analytics/insights/cell${q}`, { token: tokens.officeHeadB }));
     assert.equal(other.status, 403);
     assert.equal((await call(cellRoute, req('GET', `/analytics/insights/cell${OCT}&office_id=${OFFICE_A}`, { token: tokens.superAdmin }))).status, 400);
+  });
+  it('sets can_open on unusual cases per caller permissions without leaking staff IDs', async () => {
+    const otherStaff = randomUUID();
+    const rowsWithOutliers = many(22, (i) => {
+      if (i === 0) {
+        return {
+          elapsed_working_minutes: 900, variance_minutes: 780, is_compliant: false, started_by_user_id: USERS.staffA,
+        };
+      }
+      if (i === 1) {
+        return {
+          elapsed_working_minutes: 1100, variance_minutes: 980, is_compliant: false, started_by_user_id: otherStaff,
+        };
+      }
+      return { elapsed_working_minutes: 90 + (i % 5), variance_minutes: -30 + (i % 5), started_by_user_id: otherStaff };
+    });
+    await seed(rowsWithOutliers);
+
+    const staffRes = await get(tokens.officeStaffA, OCT);
+    assert.equal(staffRes.status, 200);
+    assert.equal(staffRes.body.charter.unusual.length, 2);
+    const ownOutlier = staffRes.body.charter.unusual.find((u) => u.transaction_id === rowsWithOutliers[0].transaction_id);
+    const coworkerOutlier = staffRes.body.charter.unusual.find((u) => u.transaction_id === rowsWithOutliers[1].transaction_id);
+    assert.equal(ownOutlier.can_open, true);
+    assert.equal(coworkerOutlier.can_open, false);
+    assert.ok(!JSON.stringify(staffRes.body).includes('started_by'));
+
+    const headRes = await get(tokens.officeHeadA, OCT);
+    assert.ok(headRes.body.charter.unusual.every((u) => u.can_open === true));
+
+    const execRes = await get(tokens.executive, OCT);
+    assert.ok(execRes.body.charter.unusual.every((u) => u.can_open === true));
+    assert.ok(!JSON.stringify(execRes.body).includes('started_by'));
+  });
+  it('returns 6-month weighted Compliance Trend and office-scoped Compliance Heatmap', async () => {
+    const fixedNow = new Date('2026-11-18T04:00:00Z');
+    const months = recentMonths(fixedNow, 6);
+    assert.deepEqual(months.map((m) => m.key), ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11']);
+
+    await seed([
+      // September: Office A 2 on-time + 2 late (50%)
+      ...many(2, { office_id: OFFICE_A, started_at: '2026-09-10T01:00:00Z', ended_at: '2026-09-10T03:00:00Z', is_compliant: true }),
+      ...many(2, { office_id: OFFICE_A, started_at: '2026-09-11T01:00:00Z', ended_at: '2026-09-11T03:00:00Z', is_compliant: false, elapsed_working_minutes: 130, variance_minutes: 10 }),
+      // October: Office A 3 on-time (100%), Office B 1 late (0%) -> weighted total 3/4 = 75% (not unweighted 50%)
+      ...many(3, { office_id: OFFICE_A, started_at: '2026-10-05T01:00:00Z', ended_at: '2026-10-05T03:00:00Z', is_compliant: true }),
+      ...many(1, { office_id: OFFICE_B, service_id: SVC2, service_code: 'SVC-2', started_at: '2026-10-06T01:00:00Z', ended_at: '2026-10-06T03:00:00Z', is_compliant: false, elapsed_working_minutes: 130, variance_minutes: 10 }),
+    ]);
+
+    const campus = await getInsights(env.ds, { id: USERS.adminId, role: 'super_admin', officeId: null }, { period: 'monthly' }, fixedNow);
+    assert.equal(campus.pulse.trend.length, 6);
+    const sepPoint = campus.pulse.trend.find((p) => p.period === '2026-09');
+    const octPoint = campus.pulse.trend.find((p) => p.period === '2026-10');
+    assert.equal(sepPoint.value, 50);
+    assert.equal(octPoint.value, 75);
+    assert.deepEqual(campus.compliance_heatmap.periods.map((p) => p.key), ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11']);
+    assert.deepEqual(campus.compliance_heatmap.rows.map((r) => r.office_id).sort(), [OFFICE_A, OFFICE_B].sort());
+
+    const head = await getInsights(env.ds, { id: USERS.headA, role: 'office_head', officeId: OFFICE_A }, { period: 'monthly' }, fixedNow);
+    assert.deepEqual(head.compliance_heatmap.rows.map((r) => r.office_id), [OFFICE_A]);
+    assert.equal(head.pulse.trend.find((p) => p.period === '2026-10').value, 100);
+
+    const routeRes = await get(tokens.executive, OCT);
+    assert.equal(routeRes.status, 200);
+    assert.equal(routeRes.body.pulse.trend.length, 6);
+    assert.ok(Array.isArray(routeRes.body.compliance_heatmap.rows));
   });
   it('rejects a bad office or period', async () => {
     assert.equal((await get(tokens.superAdmin, '?office_id=nope')).status, 400);

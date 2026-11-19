@@ -9,7 +9,8 @@ import SubmitButton from '../../components/ui/SubmitButton.js';
 import { notify } from '../../lib/ui/notify.js';
 import { MESSAGES, saveFailureMessage, savedMessage } from '../../lib/ui/save-feedback.js';
 import SearchInput from '../../components/forms/SearchInput.js';
-import ClearFiltersButton from '../../components/forms/ClearFiltersButton.js';
+import FilterBar from '../../components/forms/FilterBar.js';
+import Button from '../../components/ui/Button.js';
 import { RequiredMark } from '../../components/forms/Field.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -234,53 +235,51 @@ function AccountsManager() {
     <div className="space-y-4">
       <ErrorBanner message={list.error} onDismiss={() => setList((current) => ({ ...current, error: null }))} />
 
-      <div className="card p-5 sm:p-6">
-        <div className="flex flex-wrap items-end gap-x-5 gap-y-4">
-          <div className="w-full sm:w-72">
-            <label className="label" htmlFor="account-search">Search</label>
-            <SearchInput id="account-search" value={filters.q} onChange={(e) => setFilter('q', e.target.value)} />
-          </div>
-          <div className="w-full sm:w-44">
-            <label className="label" htmlFor="filter-role">Role</label>
-            <select id="filter-role" className="input select-chevron" value={filters.role} onChange={(e) => setFilter('role', e.target.value)}>
-              <option value="">All roles</option>
-              {ROLE_LIST.map((role) => (
-                <option key={role} value={role}>{ROLE_LABELS[role]}</option>
-              ))}
-            </select>
-          </div>
-          <div className="w-full sm:w-56">
-            <label className="label" htmlFor="filter-office">Office</label>
-            <select id="filter-office" className="input select-chevron" value={filters.office_id} onChange={(e) => setFilter('office_id', e.target.value)}>
-              <option value="">All offices</option>
-              {offices.filter((o) => isSelectable(o) || filters.status !== 'active' || o.office_id === filters.office_id).map((o) => (
-                <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>
-              ))}
-            </select>
-          </div>
-          <div className="w-full sm:w-36">
-            <label className="label" htmlFor="filter-status">Status</label>
-            <select id="filter-status" className="input select-chevron" value={filters.status} onChange={(e) => setFilter('status', e.target.value)}>
-              <option value="">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-          {filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active' ? (
-            <ClearFiltersButton
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setFilters({ ...NO_FILTERS });
-                setAppliedQuery('');
-                setPage(1);
-              }}
-            />
-          ) : null}
-          <div className="w-full sm:ml-auto sm:w-auto">
-            <button ref={addButtonRef} type="button" className="btn-primary w-full sm:w-auto" onClick={() => openForm(null)}>+ Add Account</button>
-          </div>
+      <FilterBar
+        label="Account filters"
+        dirty={Boolean(filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active')}
+        onClear={() => {
+          setFilters({ ...NO_FILTERS });
+          setAppliedQuery('');
+          setPage(1);
+        }}
+        actions={
+          <Button ref={addButtonRef} className="w-full sm:w-auto" onClick={() => openForm(null)}>
+            + Add Account
+          </Button>
+        }
+      >
+        <div className="w-full sm:w-56">
+          <label className="label" htmlFor="account-search">Search</label>
+          <SearchInput id="account-search" value={filters.q} onChange={(e) => setFilter('q', e.target.value)} />
         </div>
-      </div>
+        <div className="w-full sm:w-40">
+          <label className="label" htmlFor="filter-role">Role</label>
+          <select id="filter-role" className="input select-chevron" value={filters.role} onChange={(e) => setFilter('role', e.target.value)}>
+            <option value="">All roles</option>
+            {ROLE_LIST.map((role) => (
+              <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+            ))}
+          </select>
+        </div>
+        <div className="w-full sm:w-48">
+          <label className="label" htmlFor="filter-office">Office</label>
+          <select id="filter-office" className="input select-chevron" value={filters.office_id} onChange={(e) => setFilter('office_id', e.target.value)}>
+            <option value="">All offices</option>
+            {offices.filter((o) => isSelectable(o) || filters.status !== 'active' || o.office_id === filters.office_id).map((o) => (
+              <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>
+            ))}
+          </select>
+        </div>
+        <div className="w-full sm:w-32">
+          <label className="label" htmlFor="filter-status">Status</label>
+          <select id="filter-status" className="input select-chevron" value={filters.status} onChange={(e) => setFilter('status', e.target.value)}>
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </FilterBar>
 
       <TableShell footer={<Pager page={page} pageSize={pageSize} total={list.total} onPage={setPage} onPageSizeChange={changePageSize} loading={list.loading} />}>
         <Table
@@ -392,7 +391,7 @@ function AccountsManager() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="label" htmlFor="role">Role</label>
-                <select id="role" className="input" value={form.role} onChange={(e) => changeRole(e.target.value)}>
+                <select id="role" className="input select-chevron" value={form.role} onChange={(e) => changeRole(e.target.value)}>
                   {ROLE_LIST.map((role) => (
                     <option key={role} value={role}>{ROLE_LABELS[role]}</option>
                   ))}
@@ -402,7 +401,7 @@ function AccountsManager() {
               {isOfficeBound(form.role) ? (
                 <div>
                   <label className="label" htmlFor="office_id">Office<RequiredMark /></label>
-                  <select id="office_id" className="input" value={form.office_id} onChange={(e) => setForm({ ...form, office_id: e.target.value })}>
+                  <select id="office_id" className="input select-chevron" value={form.office_id} onChange={(e) => setForm({ ...form, office_id: e.target.value })}>
                     <option value="">Select an office</option>
                     {offices.filter((o) => isSelectable(o) || o.office_id === form.office_id).map((o) => (
                       <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>

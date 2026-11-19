@@ -97,7 +97,12 @@ export default function RequestForecastChart({ data, firstForecastDate, height =
 
           {/* Forecast/history separator */}
           {firstForecastDate && (
-            <ReferenceLine x={firstForecastDate} stroke={FORECAST_COLOR} strokeDasharray="3 3" />
+            <ReferenceLine
+              x={firstForecastDate}
+              stroke={FORECAST_COLOR}
+              strokeDasharray="3 3"
+              label={{ value: 'FORECAST', position: 'insideTop', fill: FORECAST_COLOR, fontSize: 10, fontWeight: 700 }}
+            />
           )}
 
           {/* Actual history line */}

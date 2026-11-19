@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import StatusBanner from '../feedback/StatusBanner.js';
+import FilterBar from '../forms/FilterBar.js';
 import SearchInput from '../forms/SearchInput.js';
 import Button from '../ui/Button.js';
 import DataTable from '../ui/DataTable.js';
@@ -360,28 +361,30 @@ export default function ClerkAccessPanel({ active = true }) {
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
       <StatusBanner variant="success" message={notice} onDismiss={() => setNotice(null)} dismissAriaLabel="Dismiss message" />
 
-      <section aria-label="Clerk sign-in access filters" className="card p-5 sm:p-6">
-        <div className="flex flex-wrap items-end gap-x-5 gap-y-4">
-          <div className="w-full sm:w-72">
-            <label className="label" htmlFor="clerk-access-search">Search</label>
-            <SearchInput id="clerk-access-search" value={filters.q} onChange={(e) => setFilter('q', e.target.value)} />
-          </div>
-          <div className="w-full sm:w-44">
-            <label className="label" htmlFor="clerk-access-status">Status</label>
-            <select id="clerk-access-status" className="input select-chevron" value={filters.status} onChange={(e) => setFilter('status', e.target.value)}>
-              <option value="">All</option>
-              {CLERK_ACCESS_STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="w-full sm:ml-auto sm:w-auto">
-            <Button variant="secondary" className="w-full sm:w-auto" onClick={refresh} disabled={busy !== null || loading}>
-              Refresh
-            </Button>
-          </div>
+      <FilterBar
+        label="Clerk sign-in access filters"
+        dirty={Boolean(filters.q.trim() || filters.status)}
+        onClear={() => setFilters({ q: '', status: '' })}
+        actions={
+          <Button variant="secondary" className="w-full sm:w-auto" onClick={refresh} disabled={busy !== null || loading}>
+            Refresh
+          </Button>
+        }
+      >
+        <div className="w-full sm:w-72">
+          <label className="label" htmlFor="clerk-access-search">Search</label>
+          <SearchInput id="clerk-access-search" value={filters.q} onChange={(e) => setFilter('q', e.target.value)} />
         </div>
-      </section>
+        <div className="w-full sm:w-44">
+          <label className="label" htmlFor="clerk-access-status">Status</label>
+          <select id="clerk-access-status" className="input select-chevron" value={filters.status} onChange={(e) => setFilter('status', e.target.value)}>
+            <option value="">All</option>
+            {CLERK_ACCESS_STATUSES.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+      </FilterBar>
 
       <DataTable
         label="Clerk sign-in access"

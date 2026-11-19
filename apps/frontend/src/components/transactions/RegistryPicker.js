@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { searchRegistry } from '../../lib/api/registry.js';
 import { formatDate } from '../../lib/ui/date-format.js';
 import { REGISTRY_NOTE_MAX, REGISTRY_REASONS, isSearchable, registryNeedsReason } from '../../lib/ui/start-transaction.js';
+import SearchInput from '../forms/SearchInput.js';
 
 const FieldError = ({ id, children }) => (children ? <p id={id} className="mt-1 text-xs text-red-700">{children}</p> : null);
 const SEARCH_DELAY_MS = 350;
@@ -86,14 +87,11 @@ export default function RegistryPicker({ clientType, value, onChange, errors = {
       {value.choice !== 'match' ? (
         <div>
           <label className="sr-only" htmlFor="start-registry-search">Search the registry by student number or name</label>
-          <input
+          <SearchInput
             id="start-registry-search"
-            type="search"
-            className="input"
-            placeholder="Student number, or at least 3 letters of the name"
+            customPlaceholder="Student number, or at least 3 letters of the name"
             value={query}
             maxLength={100}
-            autoComplete="off"
             disabled={disabled || value.choice === 'not_found'}
             onChange={(e) => {
               setQuery(e.target.value);

@@ -6,7 +6,7 @@ import Spinner from './Spinner.js';
  */
 export default function LoadingState({ children = 'Loading…', className = '' }) {
   return (
-    <p role="status" className={`inline-flex items-center gap-2 text-sm text-slate-500 ${className}`.trim()}>
+    <p role="status" className={`inline-flex items-center gap-2 text-sm text-ink-muted ${className}`.trim()}>
       <Spinner />
       {children}
     </p>

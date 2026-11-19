@@ -7,7 +7,8 @@ import SubmitButton from '../../components/ui/SubmitButton.js';
 import { notify } from '../../lib/ui/notify.js';
 import { saveFailureMessage, savedMessage } from '../../lib/ui/save-feedback.js';
 import SearchInput from '../../components/forms/SearchInput.js';
-import ClearFiltersButton from '../../components/forms/ClearFiltersButton.js';
+import FilterBar from '../../components/forms/FilterBar.js';
+import Button from '../../components/ui/Button.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
@@ -227,68 +228,65 @@ function ServicesManager({ user }) {
     <div className="space-y-4">
       <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: null }))} />
 
-      <form
-        className="card p-5 sm:p-6"
+      <FilterBar
+        label="Service filters"
         onSubmit={(e) => {
           e.preventDefault();
           applyFilters(filters);
         }}
+        dirty={Boolean(applied.search.trim() || applied.office_id || applied.classification || applied.status !== 'active')}
+        onClear={() => applyFilters({ search: '', office_id: '', classification: '', status: 'active' })}
+        actions={isAdmin ? (
+          <Button className="w-full sm:w-auto" onClick={() => openForm(null)}>
+            + Add Service
+          </Button>
+        ) : null}
       >
-        <div className="flex flex-wrap items-end gap-x-4 gap-y-4">
-          <div className="w-full sm:w-64">
-            <label className="label" htmlFor="svc-search">
-              Search
+        <div className="w-full sm:w-64">
+          <label className="label" htmlFor="svc-search">
+            Search
+          </label>
+          <SearchInput id="svc-search" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} onBlur={() => filters.search.trim() !== applied.search.trim() && applyFilters(filters)} />
+        </div>
+        {ownOfficeOnly ? null : offices.length > 0 ? (
+          <div className="w-full sm:w-52">
+            <label className="label" htmlFor="svc-office">
+              Office
             </label>
-            <SearchInput id="svc-search" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} onBlur={() => filters.search.trim() !== applied.search.trim() && applyFilters(filters)} />
-          </div>
-          {ownOfficeOnly ? null : offices.length > 0 ? (
-            <div className="w-full sm:w-52">
-              <label className="label" htmlFor="svc-office">
-                Office
-              </label>
-              <select id="svc-office" className="input select-chevron" value={filters.office_id} onChange={(e) => applyFilters({ ...filters, office_id: e.target.value })}>
-                <option value="">All offices</option>
-                {offices.filter((o) => isSelectable(o) || filters.status !== 'active' || o.office_id === filters.office_id).map((o) => (
-                  <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          <div className="w-full sm:w-40">
-            <label className="label" htmlFor="svc-class">
-              Classification
-            </label>
-            <select id="svc-class" className="input select-chevron" value={filters.classification} onChange={(e) => applyFilters({ ...filters, classification: e.target.value })}>
-              <option value="">All</option>
-              {CLASSIFICATIONS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
+            <select id="svc-office" className="input select-chevron" value={filters.office_id} onChange={(e) => applyFilters({ ...filters, office_id: e.target.value })}>
+              <option value="">All offices</option>
+              {offices.filter((o) => isSelectable(o) || filters.status !== 'active' || o.office_id === filters.office_id).map((o) => (
+                <RecordOption key={o.office_id} record={o} value={o.office_id}>{o.office_name}</RecordOption>
               ))}
             </select>
           </div>
-          {isAdmin ? (
-            <div className="w-full sm:w-32">
-              <label className="label" htmlFor="svc-status">
-                Status
-              </label>
-              <select id="svc-status" className="input select-chevron" value={filters.status} onChange={(e) => applyFilters({ ...filters, status: e.target.value })}>
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          ) : null}
-          {applied.search.trim() || applied.office_id || applied.classification || applied.status !== 'active' ? (
-            <ClearFiltersButton className="w-full sm:w-auto" onClick={() => applyFilters({ search: '', office_id: '', classification: '', status: 'active' })} />
-          ) : null}
-          {isAdmin ? (
-            <button type="button" className="btn-primary w-full sm:ml-auto sm:w-auto" onClick={() => openForm(null)}>
-              + Add Service
-            </button>
-          ) : null}
+        ) : null}
+        <div className="w-full sm:w-40">
+          <label className="label" htmlFor="svc-class">
+            Classification
+          </label>
+          <select id="svc-class" className="input select-chevron" value={filters.classification} onChange={(e) => applyFilters({ ...filters, classification: e.target.value })}>
+            <option value="">All</option>
+            {CLASSIFICATIONS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
         </div>
-      </form>
+        {isAdmin ? (
+          <div className="w-full sm:w-32">
+            <label className="label" htmlFor="svc-status">
+              Status
+            </label>
+            <select id="svc-status" className="input select-chevron" value={filters.status} onChange={(e) => applyFilters({ ...filters, status: e.target.value })}>
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        ) : null}
+      </FilterBar>
 
       <DataTable
         columns={tableColumns}

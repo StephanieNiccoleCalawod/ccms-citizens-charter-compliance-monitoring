@@ -62,3 +62,216 @@ export function queueWaitFigure(bucket) {
   if (!q.measured) return 'Not measured';
   return `${q.average_minutes} min average (${q.measured} measured)`;
 }
+
+const WINDOW_DESK_BY_CODE = Object.freeze({
+  ACAD: 'Academic',
+  REG: 'Registrar',
+  ACCT: 'Cashier/Acct',
+  ADMIN: 'Medical/Dental',
+  ADM: 'Admissions',
+  ADMREG: 'Admissions',
+  OSAS: 'OSAS',
+  OSFA: 'Scholarship',
+  LIB: 'Library Desk',
+});
+
+const QUICK_NAME_BY_CODE = Object.freeze({
+  ACAD: 'Academic Office',
+  REG: "Registrar's Office",
+  ACCT: 'Accounting Office',
+  ADMIN: 'Administrative Office',
+  ADM: 'Admission & Reg.',
+  ADMREG: 'Admission & Reg.',
+  OSAS: 'Student Affairs (OSAS)',
+  OSFA: 'Scholarship (OSFA)',
+  LIB: 'University Library',
+});
+
+/**
+ * Extracts a compact uppercase office badge code (e.g. 'PUP-ACAD' -> 'ACAD', 'PUP-ADMREG' -> 'ADM').
+ */
+export function shortOfficeCode(officeCode = '', officeName = '') {
+  const raw = String(officeCode ?? '').trim().toUpperCase();
+  const stripped = raw.includes('-') ? raw.split('-').slice(1).join('-') : raw;
+  if (stripped === 'ADMREG') return 'ADM';
+  if (stripped) return stripped;
+  const name = String(officeName ?? '').toLowerCase();
+  if (name.includes('academic')) return 'ACAD';
+  if (name.includes('registrar')) return 'REG';
+  if (name.includes('accounting') || name.includes('cashier')) return 'ACCT';
+  if (name.includes('administrative')) return 'ADMIN';
+  if (name.includes('admission')) return 'ADM';
+  if (name.includes('student affairs') || name.includes('osas')) return 'OSAS';
+  if (name.includes('scholarship') || name.includes('osfa')) return 'OSFA';
+  if (name.includes('library')) return 'LIB';
+  return 'DESK';
+}
+
+/**
+ * Compact office shortcut label for the Quick jump bar.
+ */
+export function shortOfficeName(officeName = '', officeCode = '') {
+  const code = shortOfficeCode(officeCode, officeName);
+  if (QUICK_NAME_BY_CODE[code]) return QUICK_NAME_BY_CODE[code];
+  const clean = String(officeName ?? '').trim().replace(/^Campus\s+/i, '');
+  return clean || code;
+}
+
+/**
+ * Derives office counter metadata (shortCode, ticketPrefix, counterWindow, activeCounters, routingPolicy, ready)
+ * from an office record and any configured counter records for that office.
+ */
+export function deriveOfficeCounterMeta(office, index = 0, counters = []) {
+  if (!office) {
+    return {
+      shortCode: 'ACAD',
+      ticketPrefix: 'ACAD-000',
+      counterWindow: 'Window 1 · Academic',
+      activeCounters: [],
+      routingPolicy: 'Priority First',
+      ready: true,
+    };
+  }
+  const rawCode = String(office.office_code ?? '').trim().toUpperCase();
+  const shortCode = shortOfficeCode(rawCode, office.office_name);
+  const officeCounters = (Array.isArray(counters) ? counters : []).filter(
+    (c) => String(c?.office_id ?? '') === String(office.office_id ?? '') && c?.is_active !== false,
+  );
+  const deskLabel = WINDOW_DESK_BY_CODE[shortCode] || shortOfficeName(office.office_name, rawCode);
+  const defaultWindow = `Window ${index + 1} · ${deskLabel}`;
+  const counterWindow = officeCounters.length > 0
+    ? officeCounters[0].label
+    : defaultWindow;
+
+  return {
+    shortCode,
+    ticketPrefix: `${shortCode}-000`,
+    counterWindow,
+    activeCounters: officeCounters,
+    routingPolicy: 'Priority First',
+    ready: office.is_active !== false,
+  };
+}
+
+/**
+ * Builds an isolated client-side sample queue board for the selected office when the operator clicks
+ * "Demo: Load Sample Queue". Never touches production APIs; "Reset Empty State" clears the preview.
+ */
+export function buildSampleQueueBoard(office, nowMs = Date.now()) {
+  const shortCode = shortOfficeCode(office?.office_code, office?.office_name);
+  const officeId = office?.office_id ?? 'demo-office';
+  const nowIso = new Date(nowMs).toISOString();
+  const queueDate = nowIso.slice(0, 10);
+  const calledAtIso = new Date(nowMs - 4 * 60_000).toISOString();
+  const skippableAtIso = new Date(nowMs - 60_000).toISOString();
+
+  const called = [
+    {
+      ticket_id: `demo-called-${shortCode}-1`,
+      ticket_no: `${shortCode}-002`,
+      office_id: officeId,
+      lane: 'PRIORITY',
+      status: 'CALLED',
+      queue_date: queueDate,
+      issued_at: new Date(nowMs - 14 * 60_000).toISOString(),
+      called_at: calledAtIso,
+      skippable_at: skippableAtIso,
+      can_skip: true,
+      call_count: 1,
+      skip_count: 0,
+      version: 1,
+      note: 'Senior Citizen · Credential Request',
+    },
+  ];
+
+  const waiting = [
+    {
+      ticket_id: `demo-wait-${shortCode}-1`,
+      ticket_no: `${shortCode}-004`,
+      office_id: officeId,
+      lane: 'PRIORITY',
+      status: 'WAITING',
+      queue_date: queueDate,
+      issued_at: new Date(nowMs - 9 * 60_000).toISOString(),
+      called_at: null,
+      skippable_at: null,
+      can_skip: false,
+      call_count: 0,
+      skip_count: 0,
+      version: 1,
+      note: 'PWD · Priority Lane Verification',
+    },
+    {
+      ticket_id: `demo-wait-${shortCode}-2`,
+      ticket_no: `${shortCode}-003`,
+      office_id: officeId,
+      lane: 'REGULAR',
+      status: 'WAITING',
+      queue_date: queueDate,
+      issued_at: new Date(nowMs - 11 * 60_000).toISOString(),
+      called_at: null,
+      skippable_at: null,
+      can_skip: false,
+      call_count: 0,
+      skip_count: 0,
+      version: 1,
+      note: 'Transcript / Enrollment Inquiry',
+    },
+    {
+      ticket_id: `demo-wait-${shortCode}-3`,
+      ticket_no: `${shortCode}-005`,
+      office_id: officeId,
+      lane: 'REGULAR',
+      status: 'WAITING',
+      queue_date: queueDate,
+      issued_at: new Date(nowMs - 5 * 60_000).toISOString(),
+      called_at: null,
+      skippable_at: null,
+      can_skip: false,
+      call_count: 0,
+      skip_count: 1,
+      version: 2,
+      note: 'Document Clearance',
+    },
+  ];
+
+  const history = [
+    {
+      id: `demo-hist-${shortCode}-1`,
+      ticket_id: `demo-served-${shortCode}-1`,
+      ticket_no: `${shortCode}-001`,
+      lane: 'REGULAR',
+      action: 'SERVED',
+      timestamp: new Date(nowMs - 18 * 60_000).toISOString(),
+      note: 'Walk-in Verification Completed',
+    },
+    {
+      id: `demo-hist-${shortCode}-2`,
+      ticket_id: `demo-wait-${shortCode}-3`,
+      ticket_no: `${shortCode}-005`,
+      lane: 'REGULAR',
+      action: 'SKIPPED',
+      timestamp: new Date(nowMs - 6 * 60_000).toISOString(),
+      note: 'No-show after 3-minute grace period',
+    },
+  ];
+
+  return {
+    board: {
+      office_id: officeId,
+      queue_date: queueDate,
+      now: nowIso,
+      grace_seconds: 180,
+      called,
+      waiting,
+      counts: {
+        waiting: waiting.length,
+        waiting_priority: waiting.filter((t) => t.lane === 'PRIORITY').length,
+        called: called.length,
+        served: 1,
+      },
+      queue_empty: false,
+    },
+    history,
+  };
+}

@@ -176,4 +176,19 @@ describe('runForecastEngine', () => {
     const { historyWorkingDays } = runForecastEngine(counts);
     assert.equal(historyWorkingDays, 22);
   });
+
+  it('matches hand-calculated back-test MAE on a 30-day fixture and is deterministic', () => {
+    // Five-day cycle repeated 5 times (days 0..24), then a shifted last 5 days (days 25..29).
+    // Both Seasonal Naive and Holt-Winters on the exact periodic prefix predict [10, 20, 30, 40, 50];
+    // against [12, 22, 32, 42, 52], every absolute error is 2 -> hand MAE = 2.0.
+    const prefix = Array.from({ length: 25 }, (_, i) => 10 * ((i % 5) + 1));
+    const fixture30 = [...prefix, 12, 22, 32, 42, 52];
+    const first = runForecastEngine(fixture30);
+    const second = runForecastEngine(fixture30);
+    assert.equal(first.status, 'SUCCESS');
+    assert.equal(first.historyWorkingDays, 30);
+    assert.equal(first.mae, 2);
+    assert.deepEqual(first.forecast, second.forecast);
+    assert.equal(first.weeklyTotal, second.weeklyTotal);
+  });
 });

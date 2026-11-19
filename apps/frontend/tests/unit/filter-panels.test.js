@@ -24,34 +24,38 @@ describe('the shared Clear filters button', () => {
 });
 
 describe('every admin filter panel works the same way (source checks, not a browser)', () => {
+  const filterBar = read('src/components/forms/FilterBar.js');
+
   for (const [name, file] of Object.entries(PAGES)) {
-    it(`${name}: no Apply or Search button, the shared Clear filters button, and the shared panel look`, () => {
+    it(`${name}: no Apply or Search button, uses the shared FilterBar and Clear filters button, with no mt-[21px] spacer hack`, () => {
       const page = read(file);
       assert.ok(!page.includes('Apply filters'));
-      assert.ok(page.includes("import ClearFiltersButton from '../../components/forms/ClearFiltersButton.js'"));
-      assert.ok(page.includes('<ClearFiltersButton'));
+      assert.ok(page.includes("import FilterBar from '../../components/forms/FilterBar.js'"));
+      assert.ok(page.includes('<FilterBar'));
+      assert.ok(filterBar.includes('<ClearFiltersButton'));
+      assert.ok(filterBar.includes('card p-5 sm:p-6'), 'shared FilterBar provides panel padding');
       assert.ok(!page.includes('border border-maroon-800 bg-transparent'), 'no page keeps its own copy of the button style');
-      assert.ok(page.includes('card p-5 sm:p-6'), 'same panel padding');
+      assert.ok(!page.includes('mt-[21px]'), 'no arbitrary margin spacer hack');
     });
   }
 
   it('Clear filters only shows while something differs from the default, and puts everything back to the default', () => {
     const offices = read('src/app/offices/page.js');
-    assert.ok(offices.includes("{search.trim() || status !== 'active' ? ("));
-    assert.ok(offices.includes("setSearch('');\n                setStatus('active');"));
+    assert.ok(offices.includes("dirty={Boolean(search.trim() || status !== 'active')}"));
+    assert.ok(offices.includes("setSearch('');\n          setStatus('active');"));
     const accounts = read('src/app/accounts/page.js');
     // CC046's position search was folded into the one Search box (the service already matches q against the position too).
-    assert.ok(accounts.includes("{filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active' ? ("));
-    assert.ok(accounts.includes("setFilters({ ...NO_FILTERS });\n                setAppliedQuery('');\n                setPage(1);"));
+    assert.ok(accounts.includes("dirty={Boolean(filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active')}"));
+    assert.ok(accounts.includes("setFilters({ ...NO_FILTERS });\n          setAppliedQuery('');\n          setPage(1);"));
     assert.ok(accounts.includes("const NO_FILTERS = { q: '', role: '', office_id: '', status: 'active' };"));
     const services = read('src/app/services/page.js');
     assert.ok(services.includes("applied.search.trim() || applied.office_id || applied.classification || applied.status !== 'active'"));
     assert.ok(services.includes("applyFilters({ search: '', office_id: '', classification: '', status: 'active' })"));
     const holidays = read('src/app/calendar/Holidays.js');
-    assert.ok(holidays.includes('{filters.search.trim() || filters.type || appliesFilter ? ('));
+    assert.ok(holidays.includes('dirty={Boolean(filters.search.trim() || filters.type || appliesFilter)}'));
     assert.ok(holidays.includes("setFilters({ search: '', type: '', applies_to: '' })"));
-    assert.ok(read('src/app/logs/page.js').includes('{filtered ? ('));
-    assert.ok(read('src/app/transactions/page.js').includes('{filtered ? ('));
+    assert.ok(read('src/app/logs/page.js').includes('dirty={filtered}'));
+    assert.ok(read('src/app/transactions/page.js').includes('dirty={filtered}'));
   });
 
   it('a filter change goes back to page 1', () => {
@@ -83,7 +87,7 @@ describe('every admin filter panel works the same way (source checks, not a brow
     assert.equal([...read('src/app/calendar/Holidays.js').matchAll(/id="holiday-(type|month)" className="input select-chevron"/g)].length, 2);
     assert.ok(read('src/app/offices/page.js').includes('id="office-status" className="input select-chevron"'));
     assert.equal([...read('src/app/services/page.js').matchAll(/className="input select-chevron"/g)].length, 3);
-    assert.equal([...read('src/app/accounts/page.js').matchAll(/className="input select-chevron"/g)].length, 3);
+    assert.equal([...read('src/app/accounts/page.js').matchAll(/id="filter-(role|office|status)" className="input select-chevron"/g)].length, 3);
   });
 
   it('the Holidays filters are client-side, so only the Holidays tab is affected and no request is made', () => {
@@ -103,6 +107,34 @@ describe('the Services filter row and its default status (source checks, not a b
   });
   it('the fields are narrow enough that Clear filters and + Add Service fit on the same row on a laptop', () => {
     for (const width of ['sm:w-64', 'sm:w-52', 'sm:w-40', 'sm:w-32']) assert.ok(page.includes(width), width);
-    assert.ok(page.includes('flex flex-wrap items-end gap-x-4 gap-y-4'));
+    assert.ok(read('src/components/forms/FilterBar.js').includes('flex flex-wrap'));
+  });
+});
+
+describe('Phase 3 global SearchInput and FilterBar adoption', () => {
+  it('migrated Registry, LateRisk, ServiceLateRateMatrix, RegistryPicker and PublicDirectory to shared SearchInput', () => {
+    for (const file of [
+      'src/app/registry/RegistryOverview.js',
+      'src/components/analytics/LateRiskSection.js',
+      'src/components/dashboard/ServiceLateRateMatrix.js',
+      'src/components/transactions/RegistryPicker.js',
+      'src/components/public/PublicDirectory.js',
+      'src/components/account/ClerkAccessPanel.js',
+      'src/components/account/RolesMatrix.js',
+    ]) {
+      assert.ok(read(file).includes('<SearchInput'), file);
+    }
+  });
+
+  it('uses FilterBar across Registry and ClerkAccessPanel as well as admin modules', () => {
+    for (const file of [
+      'src/app/registry/RegistryOverview.js',
+      'src/components/account/ClerkAccessPanel.js',
+      'src/components/reports/ReportsPage.js',
+      'src/components/complaints/ComplaintsPage.js',
+      'src/components/dashboard/DashboardAnalytics.js',
+    ]) {
+      assert.ok(read(file).includes('<FilterBar'), file);
+    }
   });
 });

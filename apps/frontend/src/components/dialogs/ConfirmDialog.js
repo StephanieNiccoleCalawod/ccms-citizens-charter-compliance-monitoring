@@ -51,7 +51,7 @@ export default function ConfirmDialog({
         </>
       }
     >
-      <p id={messageId} className="text-sm text-slate-600">
+      <p id={messageId} className="text-sm text-ink-muted">
         {message}
       </p>
       {children}

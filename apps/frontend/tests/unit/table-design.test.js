@@ -24,8 +24,8 @@ const TABLE_PAGES = {
 
 describe('the shared design tokens', () => {
   it('define the shared palette once: page, line, table header and row hover', () => {
-    assert.match(css, /--color-page:\s*#F5F6FA;/i);
-    assert.match(css, /--color-line:\s*#E5E7EB;/i);
+    assert.match(css, /--color-page:\s*#F4F5F8;/i);
+    assert.match(css, /--color-line:\s*#E2E8F0;/i);
     assert.match(css, /--color-table-head:\s*#800000;/i);
     assert.match(css, /--color-table-hover:\s*rgba\(128, 0, 0, 0\.04\);/i);
   });
@@ -175,7 +175,7 @@ describe('pagination is the one shared Pager', () => {
     const users = sources.filter((f) => /variant="simple"/.test(readFileSync(f, 'utf8'))).map(rel);
     assert.deepEqual(users, []);
     assert.doesNotMatch(read('src/components/navigation/Pager.js'), /variant === 'simple'/);
-    assert.match(read('src/app/page.js'), /<Pager page=\{page\} pageSize=\{pageSize\}/);
+    assert.match(read('src/components/public/PublicDirectory.js'), /<Pager page=\{current\} pageSize=\{pageSize\}/);
   });
 });
 
@@ -189,5 +189,37 @@ describe('row controls', () => {
   it('each audit row has exactly one details button (the arrow), not two with the same label', () => {
     const page = read('src/app/logs/page.js');
     assert.equal([...page.matchAll(/aria-label=\{`\$\{open \? 'Hide' : 'Show'\} details of /g)].length, 1);
+  });
+});
+
+describe('Phase 3 table, sorting, tabs and summary consistency', () => {
+  it('defines a shared summary/total row token and uses it across Registry, Reports and Ratings totals rows', () => {
+    assert.match(css, /@utility tr-summary \{\s*@apply h-\[52px\] border-t-2 border-line bg-surface-muted font-semibold text-ink;/);
+    for (const file of [
+      'src/app/registry/RegistryOverview.js',
+      'src/components/reports/ReportsPage.js',
+      'src/components/ratings/RatingsSection.js',
+    ]) {
+      assert.match(read(file), /tr-summary/, file);
+    }
+  });
+
+  it('DataTable uses neutral ink tokens in its summary bar and standardized gold/muted dual SortIcon indicators', () => {
+    const dt = read('src/components/ui/DataTable.js');
+    assert.doesNotMatch(dt, /stone-/);
+    assert.match(dt, /text-ink-muted/);
+    assert.match(dt, /text-ink/);
+    assert.match(dt, /text-pup-gold/);
+  });
+
+  it('Pager item-size dropdown carries the custom chevron styling consistent with other selects', () => {
+    assert.match(css, /@utility page-size-select \{[^}]*appearance-none[^}]*background-image:/);
+  });
+
+  it('Tabs default and analytics variants share maroon active indicator, muted inactive ink, and horizontal scroll', () => {
+    const tabs = read('src/components/ui/Tabs.js');
+    assert.equal([...tabs.matchAll(/overflow-x-auto/g)].length >= 2, true);
+    assert.equal([...tabs.matchAll(/border-\[#800000\]/g)].length >= 2, true);
+    assert.doesNotMatch(tabs, /border-gold-500/);
   });
 });

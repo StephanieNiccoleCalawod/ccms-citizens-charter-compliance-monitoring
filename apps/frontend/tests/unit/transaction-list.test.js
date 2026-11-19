@@ -261,10 +261,14 @@ describe('the Transactions page matches the other CCMS admin pages (source check
     assert.ok(page.includes('<AppShell'));
     for (const name of ['TableShell', 'Table', 'Th', 'Pager']) assert.ok(page.includes(name), name);
   });
-  it('the filter panel has the same padding, gaps and select arrow as the Accounts, Offices and Services panels', () => {
-    assert.ok(page.includes('<form className="card p-5 sm:p-6"'));
-    assert.ok(page.includes('flex flex-wrap items-start gap-x-4 gap-y-4'));
-    // narrow enough that the four filters, Apply and Add Transaction fit on one row on a laptop
+  it('the filter panel uses the shared FilterBar with aligned controls and select arrow across admin panels', () => {
+    const filterBar = read('src/components/forms/FilterBar.js');
+    assert.ok(page.includes('<FilterBar'));
+    assert.ok(page.includes('align="top"'));
+    assert.ok(page.includes('onSubmit={apply}'));
+    assert.ok(!page.includes('mt-[21px]'), 'no brittle margin spacer hack');
+    assert.ok(filterBar.includes('card p-5 sm:p-6') && filterBar.includes('flex flex-wrap'));
+    // narrow enough that the four filters, Clear filters and Add Transaction fit on one row on a laptop
     for (const width of ['sm:w-44', 'sm:w-36', 'sm:w-52', 'sm:w-48']) assert.ok(page.includes(width), width);
     assert.equal([...page.matchAll(/className="input select-chevron"/g)].length, 3);
     assert.ok(!page.includes('px-3!'), 'the buttons keep their normal size');
@@ -272,10 +276,10 @@ describe('the Transactions page matches the other CCMS admin pages (source check
   it('every filter and Add Transaction are still there, and the request still goes through the same functions', () => {
     for (const id of ['tx-q', 'tx-status', 'tx-service', 'tx-office', 'tx-counter']) assert.ok(page.includes(`htmlFor="${id}"`), id);
     assert.ok(!page.includes('Apply filters'), 'there is no Apply button: the filters apply by themselves');
-    assert.ok(page.includes('<ClearFiltersButton') && page.includes('<AddTransactionButton'));
+    assert.ok(page.includes('onClear={clear}') && page.includes('<AddTransactionButton'));
     for (const name of ['status', 'office_id', 'counter_id']) assert.ok(page.includes(`onChange={choose('${name}')}`), name);
     // the Service filter is the searchable dropdown, and it applies through the same applyNow as the others
-    assert.match(page, /<SearchableSelect\r?\n {14}id="tx-service"/);
+    assert.match(page, /<SearchableSelect\s+id="tx-service"/);
     assert.ok(page.includes("onChange={(value) => applyNow({ ...draft, service_id: value })}"));
     assert.ok(page.includes('listMinWidth={420}'));
     assert.ok(page.includes('clearable={false}'), 'no X button inside the filter: "All services" is the first choice');

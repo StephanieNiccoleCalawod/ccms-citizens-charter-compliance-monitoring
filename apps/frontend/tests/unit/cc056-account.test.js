@@ -7,7 +7,7 @@ import { CAPABILITIES, SWITCH_KEYS, capabilitiesFor } from 'ccms-shared';
 import { ROLES } from 'ccms-shared/roles';
 import { changeMyPassword, getMe, getPermissionSwitches, savePermissionSwitches } from '../../src/lib/api/account.js';
 import { appNavForRole } from '../../src/lib/auth/permissions.js';
-import { LAST_SIGN_IN_NONE, accessLabel, groupRows, lastSignIn, myAccessLabel, passwordFormErrors, passwordServerErrors, switchChanges, switchValues } from '../../src/lib/ui/account.js';
+import { LAST_SIGN_IN_NONE, accessBadgeMeta, accessLabel, affectedRolesForSwitch, countSwitchControlledRows, filterCapabilityRows, groupRows, isSwitchCell, isSwitchControlledRow, lastSignIn, myAccessLabel, passwordFormErrors, passwordServerErrors, roleMeta, summarizeCategories, switchChanges, switchValues } from '../../src/lib/ui/account.js';
 
 const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8');
 
@@ -67,6 +67,40 @@ describe('CC056 labels and switches', () => {
     const keys = capabilitiesFor(ROLES.OFFICE_STAFF, {}).map((c) => c.switchKey).filter(Boolean).sort();
     assert.deepEqual(keys, [...SWITCH_KEYS].sort());
   });
+  it('summarizes actual module categories, counts switch-controlled rows, filters by category/query, and maps real access states', () => {
+    const summary = summarizeCategories(CAPABILITIES);
+    assert.equal(summary.total, CAPABILITIES.length);
+    assert.deepEqual(summary.categories.map((c) => c.name), ['Administration', 'Reference', 'Transactions', 'Analytics', 'Reports', 'Complaints']);
+    assert.equal(countSwitchControlledRows(CAPABILITIES), SWITCH_KEYS.length);
+    assert.equal(isSwitchControlledRow(CAPABILITIES.find((c) => c.key === 'tx.hold')), true);
+    assert.equal(isSwitchControlledRow(CAPABILITIES.find((c) => c.key === 'accounts')), false);
+
+    const adminRows = filterCapabilityRows(CAPABILITIES, { category: 'Administration' });
+    assert.equal(adminRows.every((r) => r.group === 'Administration'), true);
+    const searchByKey = filterCapabilityRows(CAPABILITIES, { query: 'tx.backdate' });
+    assert.deepEqual(searchByKey.map((r) => r.key), ['tx.backdate']);
+    const searchByLabel = filterCapabilityRows(CAPABILITIES, { query: 'audit log' });
+    assert.deepEqual(searchByLabel.map((r) => r.key), ['logs']);
+
+    assert.equal(accessBadgeMeta('yes').kind, 'yes');
+    assert.equal(accessBadgeMeta('own office').kind, 'own_office');
+    assert.equal(accessBadgeMeta('own records').kind, 'own_records');
+    assert.equal(accessBadgeMeta('read only').kind, 'read_only');
+    assert.equal(accessBadgeMeta('no').kind, 'no');
+    assert.equal(accessBadgeMeta({ switch: 'STAFF_HOLD_RESUME' }, { STAFF_HOLD_RESUME: false }).kind, 'switch_off');
+    assert.equal(accessBadgeMeta({ switch: 'STAFF_HOLD_RESUME' }, { STAFF_HOLD_RESUME: true }).kind, 'switch_on');
+    assert.equal(roleMeta(ROLES.SUPER_ADMIN).description, 'Full campus control');
+    assert.equal(isSwitchCell({ switch: 'STAFF_HOLD_RESUME' }), true);
+    assert.equal(isSwitchCell('yes'), false);
+    const fakeMatrix = {
+      roles: [
+        { role: ROLES.SUPER_ADMIN, label: 'Super Admin' },
+        { role: ROLES.OFFICE_STAFF, label: 'Office Staff' },
+      ],
+      rows: CAPABILITIES,
+    };
+    assert.deepEqual(affectedRolesForSwitch(fakeMatrix, 'STAFF_HOLD_RESUME').map((r) => r.role), [ROLES.OFFICE_STAFF]);
+  });
 });
 
 describe('CC056 screens (source checks)', () => {
@@ -79,10 +113,21 @@ describe('CC056 screens (source checks)', () => {
     assert.match(read('src/app/account/page.js'), /allowedRoles=\{ROLE_LIST\}/);
     assert.match(read('src/components/layout/AppShell.js'), /label: 'My account', href: '\/account'/);
   });
-  it('the matrix is a shared table, read-only, and the only controls on the page are the four switches', () => {
+  it('the matrix renders interactive switches only on switch-controlled cells with Super Admin confirmation + persistence via page.js and PermissionSwitches', () => {
     const matrix = read('src/components/account/RolesMatrix.js');
     assert.match(matrix, /TableShell/);
-    assert.ok(!/<input|<button|onChange/.test(matrix));
+    assert.match(matrix, /SearchInput/);
+    assert.match(matrix, /customPlaceholder="Filter capabilities\.\.\."/);
+    assert.match(matrix, /Highlight Switch-Controlled/);
+    assert.match(matrix, /Access Scope Legend/);
+    assert.match(matrix, /CAPABILITY \/ ACTION/);
+    assert.match(matrix, /aria-expanded=\{!isCollapsed\}/);
+    assert.match(matrix, /role="switch"/);
+    assert.match(matrix, /showInteractiveSwitch/);
+    assert.doesNotMatch(matrix, /savePermissionSwitches/);
+    const page = read('src/app/settings/roles/page.js');
+    assert.match(page, /<ConfirmDialog/);
+    assert.match(page, /savePermissionSwitches\(\{ \[switchKey\]: nextEnabled \}\)/);
     assert.ok(read('src/components/account/PermissionSwitches.js').includes('view.switches.map'));
   });
   it('the password form never shows a saved message before the server answers, and clears the passwords after', () => {

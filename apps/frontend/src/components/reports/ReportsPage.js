@@ -34,15 +34,15 @@ function FiguresTable({ report }) {
       <TableShell>
         <Table label="Report figures" minWidth="56rem" head={<tr><Th>Service</Th>{heads.map((h) => <Th key={h} align="right">{h}</Th>)}</tr>}>
           {rows.map((r) => (
-            <tr key={r.key} className={`tr-row ${r.total ? 'font-bold' : ''}`}>
+            <tr key={r.key} className={r.total ? 'tr-summary font-bold' : 'tr-row'}>
               <td className="td">{r.label}</td>
-              {[r.received, r.onTime, r.late, r.closedAutomatically, r.rate, r.cancelled, r.autoClosed, r.pending, r.notInRegistry, r.queueWait].map((v, i) => <td key={i} className="td text-right">{v}</td>)}
+              {[r.received, r.onTime, r.late, r.closedAutomatically, r.rate, r.cancelled, r.autoClosed, r.pending, r.notInRegistry, r.queueWait].map((v, i) => <td key={i} className="td text-right tabular-nums">{v}</td>)}
             </tr>
           ))}
         </Table>
       </TableShell>
-      <p className="mt-2 text-xs text-slate-500">{report.figures?.basis}</p>
-      <p className="mt-1 text-xs text-slate-500">Queue wait: minutes from taking a queue ticket to the start of the transaction, for transactions started with a ticket. It is not part of compliance.</p>
+      <p className="mt-2 text-xs text-ink-muted">{report.figures?.basis}</p>
+      <p className="mt-1 text-xs text-ink-muted">Queue wait: minutes from taking a queue ticket to the start of the transaction, for transactions started with a ticket. It is not part of compliance.</p>
     </div>
   );
 }

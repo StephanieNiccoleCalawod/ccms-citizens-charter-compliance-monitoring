@@ -84,3 +84,156 @@ export function staffAccessFrom(me) {
   const on = (key) => (me?.what_i_can_do ?? []).some((item) => item.switch_key === key && item.switch_on === true);
   return { reports: on('STAFF_VIEW_REPORTS'), complaints: on('STAFF_VIEW_COMPLAINTS') };
 }
+
+export const ROLE_META = Object.freeze({
+  super_admin: { description: 'Full campus control', dotClass: 'bg-[#800000]', headerToneClass: 'bg-white' },
+  office_head: { description: 'Unit supervisor', dotClass: 'bg-blue-600', headerToneClass: 'bg-white' },
+  office_staff: { description: 'Counter operators', dotClass: 'bg-amber-500', headerToneClass: 'bg-white' },
+  executive: { description: 'Campus leadership', dotClass: 'bg-purple-600', headerToneClass: 'bg-white' },
+});
+
+export function roleMeta(role) {
+  return ROLE_META[role] ?? { description: 'System role', dotClass: 'bg-slate-400', headerToneClass: 'bg-white' };
+}
+
+/** True when any role cell in this capability row is gated by a configurable switch object. */
+export function isSwitchControlledRow(row) {
+  return Object.values(row?.cells ?? {}).some((cell) => Boolean(cell && typeof cell === 'object' && cell.switch));
+}
+
+/** Switch keys referenced by any role cell in this capability row. */
+export function rowSwitchKeys(row) {
+  const keys = [];
+  for (const cell of Object.values(row?.cells ?? {})) {
+    if (cell && typeof cell === 'object' && cell.switch && !keys.includes(cell.switch)) {
+      keys.push(cell.switch);
+    }
+  }
+  return keys;
+}
+
+/** Number of capabilities in the matrix that depend on a configurable switch. */
+export function countSwitchControlledRows(rows) {
+  return (rows ?? []).filter(isSwitchControlledRow).length;
+}
+
+/** Preserves group order from matrix.rows and returns total + [{ name, count }]. */
+export function summarizeCategories(rows) {
+  const groups = groupRows(rows ?? []);
+  return {
+    total: (rows ?? []).length,
+    categories: groups.map((g) => ({ name: g.name, count: g.rows.length })),
+  };
+}
+
+/**
+ * Filters capability rows by selected category tab and search query (matches capability label,
+ * module group name, capability identifier key, and linked switch description).
+ */
+export function filterCapabilityRows(rows, { category = 'ALL', query = '', switches = [] } = {}) {
+  const switchMap = new Map((switches ?? []).map((s) => [s.key, s]));
+  const needle = String(query ?? '').trim().toLowerCase();
+  return (rows ?? []).filter((row) => {
+    if (category && category !== 'ALL' && row.group !== category) return false;
+    if (!needle) return true;
+    const linkedInfo = rowSwitchKeys(row)
+      .map((k) => {
+        const s = switchMap.get(k);
+        return s ? `${k} ${s.label} ${s.description ?? ''}` : k;
+      })
+      .join(' ');
+    const haystack = `${row.label ?? ''} ${row.group ?? ''} ${row.key ?? ''} ${linkedInfo}`.toLowerCase();
+    return haystack.includes(needle);
+  });
+}
+
+/**
+ * Maps an actual backend cell value ('yes' | 'own office' | 'own records' | 'read only' | 'no' | { switch })
+ * to semantic badge metadata without inventing or altering any permission state.
+ */
+export function accessBadgeMeta(cell, switchOn = {}) {
+  if (cell && typeof cell === 'object' && cell.switch) {
+    const enabled = switchOn?.[cell.switch] === true;
+    return enabled
+      ? {
+          kind: 'switch_on',
+          label: 'Yes (switch on)',
+          shortLabel: 'Yes',
+          tooltip: 'Enabled via configurable staff permission switch',
+          className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        }
+      : {
+          kind: 'switch_off',
+          label: 'Off (switch off)',
+          shortLabel: 'Off (switch off)',
+          tooltip: 'Configurable staff permission switch is currently off',
+          className: 'border-[#F0DDB0] bg-[#FFFBEB] text-[#B45309]',
+        };
+  }
+  switch (cell) {
+    case 'yes':
+      return {
+        kind: 'yes',
+        label: 'Yes',
+        shortLabel: 'Yes',
+        tooltip: 'Permission is fully granted',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      };
+    case 'own office':
+      return {
+        kind: 'own_office',
+        label: 'Own office',
+        shortLabel: 'Own office',
+        tooltip: "Access is limited to the user's assigned office",
+        className: 'border-blue-200 bg-blue-50 text-blue-700',
+      };
+    case 'own records':
+      return {
+        kind: 'own_records',
+        label: 'Own records',
+        shortLabel: 'Own records',
+        tooltip: "Access is restricted to the user's own records",
+        className: 'border-teal-200 bg-teal-50 text-teal-700',
+      };
+    case 'read only':
+      return {
+        kind: 'read_only',
+        label: 'Read only',
+        shortLabel: 'Read only',
+        tooltip: 'Viewing is allowed without modification',
+        className: 'border-purple-200 bg-purple-50 text-purple-700',
+      };
+    default:
+      return {
+        kind: 'no',
+        label: 'No',
+        shortLabel: 'No',
+        tooltip: 'Permission is not granted',
+        className: 'text-slate-400',
+      };
+  }
+}
+
+/** True when a single role cell is controlled by an existing configurable switch. */
+export function isSwitchCell(cell) {
+  return Boolean(cell && typeof cell === 'object' && typeof cell.switch === 'string' && cell.switch);
+}
+
+/**
+ * Inspects the permission matrix to identify every role affected by a given configurable switch key,
+ * preserving the actual role-configuration model rather than hardcoding a single role.
+ */
+export function affectedRolesForSwitch(matrix, switchKey) {
+  if (!matrix || !switchKey) return [];
+  const roles = matrix.roles ?? [];
+  const rows = matrix.rows ?? [];
+  const matchedRoleKeys = new Set();
+  for (const r of rows) {
+    for (const [roleKey, cell] of Object.entries(r?.cells ?? {})) {
+      if (isSwitchCell(cell) && cell.switch === switchKey) {
+        matchedRoleKeys.add(roleKey);
+      }
+    }
+  }
+  return roles.filter((r) => matchedRoleKeys.has(r.role));
+}

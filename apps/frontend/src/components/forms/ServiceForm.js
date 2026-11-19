@@ -151,7 +151,7 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
         <select
           id={`${id}-office_id`}
           data-field="office_id"
-          className="input"
+          className="input select-chevron"
           value={form.office_id}
           onChange={set('office_id')}
           aria-required="true"
@@ -265,7 +265,7 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
           <select
             id={`${id}-classification`}
             data-field="classification"
-            className="input"
+            className="input select-chevron"
             value={form.classification}
             onChange={set('classification')}
             aria-required="true"

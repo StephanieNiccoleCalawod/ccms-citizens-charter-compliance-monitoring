@@ -33,7 +33,7 @@ export const CAPABILITIES = Object.freeze([
   row('tx.backdate', 'Transactions', 'Record a transaction with past dates', 'yes', 'own office', { switch: 'STAFF_BACKDATE' }, 'no'),
   row('tx.cancel', 'Transactions', 'Cancel a transaction', 'yes', 'own office', 'no', 'no'),
   row('tx.view', 'Transactions', 'View transactions', 'yes', 'own office', 'own records', 'read only'),
-  row('insights', 'Insights', 'View the Insights dashboard', 'yes', 'own office', 'own office', 'yes'),
+  row('insights', 'Analytics', 'View Dashboard analytics and late-risk predictions', 'yes', 'own office', 'own office', 'yes'),
   row('reports', 'Reports', 'Read office reports', 'yes', 'own office', { switch: 'STAFF_VIEW_REPORTS' }, 'read only'),
   row('complaints', 'Complaints', 'View complaints', 'yes', 'own office', { switch: 'STAFF_VIEW_COMPLAINTS' }, 'read only'),
   row('permissions', 'Administration', 'Change the four staff permission switches', 'yes', 'no', 'no', 'no'),

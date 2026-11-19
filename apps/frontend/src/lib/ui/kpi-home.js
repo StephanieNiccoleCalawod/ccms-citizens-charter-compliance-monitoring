@@ -12,7 +12,7 @@ export const PERIOD_OPTIONS = Object.freeze([
   { value: 'half_year', label: 'This half-year' },
   { value: 'annual', label: 'This year' },
 ]);
-export const DEFAULT_PERIOD = 'monthly';
+export const DEFAULT_PERIOD = 'half_year';
 
 export const HOME_MESSAGES = {
   loadFailed: 'The figures could not be loaded right now. Please try again in a few minutes.',
@@ -48,12 +48,18 @@ export function tilesFor(bucket) {
   // DEF-16: the KPI answer is { ..., totals, groups }; the figures are under `totals`. A bare bucket (one group) is read as it is.
   const b = bucket?.totals ?? bucket ?? {};
   const r = b.results ?? {};
+  const completedCount = b.outcomes?.completed != null ? count(b.outcomes.completed) : count(r.on_time) + count(r.late) + count(r.awaiting_result);
   return [
     { key: 'received', label: 'Received', value: count(b.received) },
+    { key: 'completed', label: 'Completed', value: completedCount },
     { key: 'on_time_rate', label: 'On-time rate', value: rateText(r.on_time_rate), note: targetNote(r.on_time_rate), rate: r.on_time_rate ?? null },
     { key: 'on_time', label: 'On time', value: count(r.on_time) },
     { key: 'late', label: 'Late', value: count(r.late_total ?? r.late), note: count(r.late_auto_closed) ? `${count(r.late_auto_closed)} closed automatically` : '' },
-    { key: 'pending', label: 'Pending now', value: count(b.pending?.count) },
+    { key: 'pending', label: 'Pending now', value: count(b.pending?.count), note: b.pending?.oldest_age_minutes != null ? `Oldest ${minutesText(b.pending.oldest_age_minutes)}` : '' },
+    { key: 'average_time', label: 'Average time', value: minutesText(b.time?.average_minutes) },
+    { key: 'median_time', label: 'Median time', value: minutesText(b.time?.median_minutes) },
+    { key: 'early', label: 'Early', value: count(b.early?.count), note: b.early?.average_margin_minutes != null ? `Avg margin ${minutesText(b.early.average_margin_minutes)}` : '' },
+    { key: 'auto_closed', label: 'Auto-closed', value: count(b.auto_closed ?? r.late_auto_closed) },
     { key: 'cancelled', label: 'Cancelled', value: count(b.cancelled) },
     // CC040: ticket-to-Start wait, its own figure (not a compliance input). Only rows started with a ticket count.
     { key: 'queue_wait', label: 'Average queue wait', value: b.queue_wait?.measured ? `${b.queue_wait.average_minutes} min` : '-', note: b.queue_wait ? `${count(b.queue_wait.measured)} measured` : '' },
@@ -76,10 +82,11 @@ export function staffRows(groups, names = new Map()) {
     .sort((a, b) => a.name.localeCompare(b.name) || String(a.id).localeCompare(String(b.id)));
 }
 
-/** Rows of the per-office table (Executive), named from `names` (office_id -> office_name); lowest on-time rate first. */
+/** Rows of the per-office table (Executive), including all active offices from `names` (0 counts / null rate when absent from `groups`); lowest on-time rate first. */
 export function officeRows(groups, names = new Map()) {
-  return (groups ?? [])
-    .map((g) => ({
+  const rowsById = new Map();
+  for (const g of groups ?? []) {
+    rowsById.set(g.office_id, {
       id: g.office_id,
       name: names.get(g.office_id) || HOME_MESSAGES.notAvailable,
       received: count(g.received),
@@ -87,8 +94,46 @@ export function officeRows(groups, names = new Map()) {
       late: count(g.results?.late_total ?? g.results?.late),
       rate: g.results?.on_time_rate ?? null,
       pending: count(g.pending?.count),
-    }))
+    });
+  }
+  for (const [officeId, officeName] of names instanceof Map ? names.entries() : Object.entries(names ?? {})) {
+    if (!rowsById.has(officeId)) {
+      rowsById.set(officeId, {
+        id: officeId,
+        name: officeName || HOME_MESSAGES.notAvailable,
+        received: 0,
+        onTime: 0,
+        late: 0,
+        rate: null,
+        pending: 0,
+      });
+    }
+  }
+  return [...rowsById.values()]
     .sort((a, b) => (a.rate ?? 101) - (b.rate ?? 101) || a.name.localeCompare(b.name));
+}
+
+/** Sort office comparison rows on Campus Home by any table column; rows without a rate stay last when sorting by rate. */
+export function sortOfficeRows(rows, sort) {
+  if (!sort?.key) return rows;
+  const dir = sort.direction === 'desc' ? -1 : 1;
+  return [...(rows ?? [])].sort((a, b) => {
+    if (sort.key === 'name') return dir * (a.name.localeCompare(b.name) || String(a.id).localeCompare(String(b.id)));
+    if (sort.key === 'rate') {
+      if (a.rate === null && b.rate === null) return a.name.localeCompare(b.name);
+      if (a.rate === null) return 1;
+      if (b.rate === null) return -1;
+    }
+    const diff = Number(a[sort.key] ?? 0) - Number(b[sort.key] ?? 0);
+    return diff !== 0 ? dir * diff : a.name.localeCompare(b.name);
+  });
+}
+
+/** Open transactions (IN_PROGRESS / ON_HOLD) ordered oldest first for Office Home. */
+export function oldestFirstPending(items = []) {
+  return [...items]
+    .filter((item) => item?.status === 'IN_PROGRESS' || item?.status === 'ON_HOLD')
+    .sort((a, b) => new Date(a.started_at || 0).getTime() - new Date(b.started_at || 0).getTime() || String(a.tracking_no).localeCompare(String(b.tracking_no)));
 }
 
 /** What each role asks for: Executive per office (never per staff), Office Head per staff, Office Staff per staff (own row). */

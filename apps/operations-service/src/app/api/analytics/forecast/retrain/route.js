@@ -1,7 +1,6 @@
 import { Errors, ROLES, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';
 import { getDb } from '../../../../../lib/data-source.js';
-import { createCalendarClient } from '../../../../../lib/forecast/calendar-client.js';
-import { computeForecast, saveForecastRun } from '../../../../../lib/forecast/forecast-service.js';
+import { retrainForecast } from '../../../../../lib/forecast/forecast-service.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,24 +25,6 @@ export const POST = route(async (request) => {
   if (!isUuid(officeId)) throw Errors.validation('officeId must be a valid UUID', { officeId: 'officeId must be a valid UUID' });
   if (serviceId && !isUuid(serviceId)) throw Errors.validation('serviceId must be a valid UUID', { serviceId: 'serviceId must be a valid UUID' });
 
-  const db = await getDb();
-  const calClient = createCalendarClient();
-  const result = await computeForecast(db, calClient, { officeId, serviceId: serviceId || null });
-  await saveForecastRun(db, result);
-
-  return json({
-    status: result.status,
-    scope: { officeId: result.officeId, serviceId: result.serviceId ?? null },
-    history: result.history,
-    forecast: result.forecast,
-    weeklyTotal: result.weeklyTotal,
-    model: { name: result.model, mae: result.mae },
-    historyWorkingDays: result.historyWorkingDays,
-    historicalTransactionCount: result.historicalTransactionCount,
-    historyStartDate: result.historyStartDate ?? null,
-    historyEndDate:   result.historyEndDate ?? null,
-    errorCode: result.errorCode ?? null,
-    errorMessage: result.errorMessage ?? null,
-    generatedAt: result.generatedAt,
-  }, 200);
+  const run = await retrainForecast(await getDb(), { officeId, serviceId: serviceId || null });
+  return json(run, 200, { 'cache-control': 'private, no-store' });
 });

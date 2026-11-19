@@ -4,6 +4,7 @@ import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { ROLES, createDataSource, setDataSource } from 'ccms-shared';
+import { GET as singularKpiRoute } from '../src/app/api/analytics/kpi/route.js';
 import { GET as kpiRoute } from '../src/app/api/analytics/kpis/route.js';
 import { entities } from '../src/lib/entities/index.js';
 import { computeKpis, getKpis } from '../src/modules/analytics/kpi.js';
@@ -258,5 +259,16 @@ describe('TT3 through the route (real database, runtime role)', () => {
     for (const r of FIXTURE) await insert(r);
     const text = JSON.stringify((await get({ ...OCT, group_by: 'office' }, tokens.executive)).body);
     assert.equal(text.includes(S1) || text.includes(S2), false);
+  });
+
+  it('singular alias GET /api/analytics/kpi matches /api/analytics/kpis and enforces the same RBAC', async () => {
+    for (const r of FIXTURE) await insert(r);
+    const qs = new URLSearchParams({ ...OCT, officeId: OFFICE_A });
+    const singular = await call(singularKpiRoute, req('GET', `/analytics/kpi?${qs}`, { token: tokens.superAdmin }));
+    const plural = await get({ ...OCT, office_id: OFFICE_A }, tokens.superAdmin);
+    assert.equal(singular.status, 200);
+    assert.deepEqual(singular.body.totals, plural.body.totals);
+    assert.equal((await call(singularKpiRoute, req('GET', `/analytics/kpi?${new URLSearchParams({ ...OCT, groupBy: 'staff' })}`, { token: tokens.executive }))).status, 403);
+    assert.equal((await call(singularKpiRoute, req('GET', `/analytics/kpi?${new URLSearchParams({ ...OCT, officeId: OFFICE_B })}`, { token: tokens.officeStaffA }))).status, 403);
   });
 });

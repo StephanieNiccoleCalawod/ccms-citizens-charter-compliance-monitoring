@@ -27,6 +27,24 @@ function scopeOffice(actor, query) {
   return { officeId: officeId ?? null, get };
 }
 
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function recentMonths(now = new Date(), count = 6) {
+  const anchor = toManilaDate(now);
+  const year = Number(anchor.slice(0, 4));
+  const monthIndex = Number(anchor.slice(5, 7)) - 1;
+  const out = [];
+  for (let offset = -(count - 1); offset <= 0; offset += 1) {
+    const d = new Date(Date.UTC(year, monthIndex + offset, 1));
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+    const to = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10);
+    out.push({ key, label: `${MONTH_LABELS[m]} ${y}`, from: `${key}-01`, to });
+  }
+  return out;
+}
+
 async function loadRows(db, { officeId, from, to }) {
   return rowsOf(await db.query(
     `SELECT ${COLUMNS} FROM analytics_transactions
@@ -37,6 +55,42 @@ async function loadRows(db, { officeId, from, to }) {
       ORDER BY office_id, service_id, started_at, transaction_id`,
     [from, to, officeId],
   ));
+}
+
+async function loadTrendRows(db, { officeId, from, to }) {
+  return rowsOf(await db.query(
+    `SELECT started_at, ended_at, office_id, service_id, status, outcome, is_compliant, variance_minutes, elapsed_working_minutes,
+            is_backdated, started_outside_hours, registry_status, registry_miss_reason, started_by_user_id, ended_by_user_id, queue_wait_minutes
+       FROM analytics_transactions
+      WHERE ((started_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND started_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila'))
+          OR (status = 'COMPLETED' AND ended_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND ended_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila')))
+        AND ($3::uuid IS NULL OR office_id = $3::uuid)
+      ORDER BY office_id, started_at, transaction_id`,
+    [from, to, officeId],
+  ));
+}
+
+function buildMonthlySeries(trendRows, months, { officeId, now }) {
+  const officeIds = new Set(officeId ? [officeId] : []);
+  const monthData = months.map((m) => {
+    const kpi = computeKpis(trendRows, { officeId: officeId ?? undefined, from: m.from, to: m.to, groupBy: 'office', now });
+    const byOffice = new Map();
+    for (const g of kpi.groups) {
+      officeIds.add(g.office_id);
+      byOffice.set(g.office_id, g.results.on_time_rate);
+    }
+    return { key: m.key, label: m.label, rate: kpi.totals.results.on_time_rate, byOffice };
+  });
+  return {
+    trend: monthData.map((m) => ({ period: m.key, label: m.label, value: m.rate })),
+    compliance_heatmap: {
+      periods: monthData.map(({ key, label }) => ({ key, label })),
+      rows: [...officeIds].sort().map((id) => ({
+        office_id: id,
+        cells: monthData.map((m) => ({ period: m.key, value: m.byOffice.get(id) ?? null })),
+      })),
+    },
+  };
 }
 
 const inRange = (date, from, to) => date >= from && date <= to;
@@ -74,11 +128,27 @@ export function buildOfficeTrend(rows, { from, to }) {
   return [...offices.values()];
 }
 
+function canOpenInsightTransaction(actor, row) {
+  if (!row) return false;
+  if (actor.role === ROLES.SUPER_ADMIN || actor.role === ROLES.EXECUTIVE) return true;
+  if (actor.role === ROLES.OFFICE_HEAD) {
+    return Boolean(actor.officeId) && String(row.office_id).toLowerCase() === String(actor.officeId).toLowerCase();
+  }
+  if (actor.role === ROLES.OFFICE_STAFF) {
+    return Boolean(row.started_by_user_id) && String(row.started_by_user_id).toLowerCase() === String(actor.id).toLowerCase();
+  }
+  return false;
+}
+
 export async function getInsights(db, actor, query, now = new Date()) {
   const { officeId } = scopeOffice(actor, query);
   const period = resolvePeriod(query, now);
   const prev = previousPeriod(period);
-  const rows = await loadRows(db, { officeId, from: prev.from, to: period.to });
+  const months = recentMonths(now, 6);
+  const [rows, trendRows] = await Promise.all([
+    loadRows(db, { officeId, from: prev.from, to: period.to }),
+    loadTrendRows(db, { officeId, from: months[0].from, to: months.at(-1).to }),
+  ]);
   const opts = { officeId: officeId ?? undefined, now };
   const current = computeKpis(rows, { ...opts, from: period.from, to: period.to, groupBy: 'office' });
   const before = computeKpis(rows, { ...opts, from: prev.from, to: prev.to });
@@ -86,7 +156,13 @@ export async function getInsights(db, actor, query, now = new Date()) {
   const today = toManilaDate(now);
   const periodRows = rows.filter((r) => (r.started_at && inRange(toManilaDate(r.started_at), period.from, period.to)) || r.status === 'IN_PROGRESS' || r.status === 'ON_HOLD' || (r.ended_at && inRange(toManilaDate(r.ended_at), period.from, period.to)));
   const heatmap = buildHeatmap(periodRows, period);
-  const charter = charterCheck(completedIn(periodRows, period));
+  const { trend, compliance_heatmap } = buildMonthlySeries(trendRows, months, { officeId, now });
+  const rawCharter = charterCheck(completedIn(periodRows, period));
+  const rowById = new Map(periodRows.map((r) => [r.transaction_id, r]));
+  const charter = {
+    ...rawCharter,
+    unusual: rawCharter.unusual.map((u) => ({ ...u, can_open: canOpenInsightTransaction(actor, rowById.get(u.transaction_id)) })),
+  };
   const codeOf = new Map(rows.map((r) => [r.service_id, r.service_code]));
   const totals = current.totals;
 
@@ -98,6 +174,8 @@ export async function getInsights(db, actor, query, now = new Date()) {
     on_time_rate: totals.results.on_time_rate,
     previous_on_time_rate: before.totals.results.on_time_rate,
     results: totals.results.on_time + totals.results.late_total,
+    previous_results: before.totals.results.on_time + before.totals.results.late_total,
+    trend,
   };
   const sentences = buildSentences({
     period: period.type,
@@ -109,7 +187,7 @@ export async function getInsights(db, actor, query, now = new Date()) {
   return {
     period: period.type, from: period.from, to: period.to, previous: prev, generated_at: now.toISOString(),
     scope: officeId ? { kind: 'office', office_id: officeId } : { kind: 'campus' },
-    pulse, heatmap, min_cell_completed: MIN_CELL_COMPLETED, sentences, max_sentences: MAX_SENTENCES, charter,
+    pulse, heatmap, compliance_heatmap, min_cell_completed: MIN_CELL_COMPLETED, sentences, max_sentences: MAX_SENTENCES, charter,
     about: {
       rows_in_store: rows.length, completed_rows: completedAll.length, late_cases: completedAll.filter((r) => r.is_compliant === false).length,
       earliest_started_at: rows.reduce((min, r) => (!min || r.started_at < min ? r.started_at : min), null),

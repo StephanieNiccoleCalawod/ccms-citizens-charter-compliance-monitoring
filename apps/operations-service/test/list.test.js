@@ -83,6 +83,31 @@ describe('CC027 list', () => {
       assert.equal(r.status, 400, query);
       assert.ok(r.body.error.details[field], query);
     }
+    assert.equal((await list('?sort=sideways')).body.error.details.sort ? 400 : 0, 400);
+    assert.equal((await list('?open=false')).body.error.details.open ? 400 : 0, 400);
+  });
+
+  it('supports paginated open=true&sort=oldest returning oldest open transactions first within caller scope', async () => {
+    const tBase = new Date(at('2026-10-10', '08:00')).getTime();
+    const extra1 = await insertTransaction(env.ds, { tracking_no: 'PUP-OSAS-20261010-0001', started_by: randomUUID(), started_at: new Date(tBase), status: 'ON_HOLD', hold_started_at: new Date(tBase), hold_reason: 'Waiting for client' });
+    const extra2 = await insertTransaction(env.ds, { tracking_no: 'PUP-OSAS-20261010-0002', started_by: randomUUID(), started_at: new Date(tBase + 60_000), status: 'IN_PROGRESS' });
+    try {
+      const p1 = await list('?open=true&sort=oldest&page=1&page_size=2', tokens.officeHeadA);
+      const p2 = await list('?open=true&sort=oldest&page=2&page_size=2', tokens.officeHeadA);
+      assert.equal(p1.status, 200);
+      assert.equal(p1.body.total, 3);
+      assert.deepEqual(trackingOf(p1), ['PUP-OSAS-20261006-0002', 'PUP-OSAS-20261010-0001']);
+      assert.deepEqual(trackingOf(p2), ['PUP-OSAS-20261010-0002']);
+
+      // Office Staff sees only their own open records (none here, since rows.a1 is COMPLETED, a3 is CANCELLED)
+      const staffRes = await list('?open=true&sort=oldest&page=1&page_size=2', tokens.officeStaffA);
+      assert.equal(staffRes.body.total, 0);
+      const staff2Res = await list('?open=true&sort=oldest&page=1&page_size=2', tokens.officeStaffA2);
+      assert.deepEqual(trackingOf(staff2Res), ['PUP-OSAS-20261006-0002']);
+    } finally {
+      await env.ds.query('DELETE FROM transaction_emails WHERE transaction_id = ANY($1)', [[extra1.transaction_id, extra2.transaction_id]]);
+      await env.ds.query('DELETE FROM transactions WHERE transaction_id = ANY($1)', [[extra1.transaction_id, extra2.transaction_id]]);
+    }
   });
 
   it('only Super Admin filters by another office; others get 403 for another office and nothing leaks', async () => {

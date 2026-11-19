@@ -12,12 +12,15 @@ import { buildDemoInvalidCsv, buildDemoValidCsv, createDemoFetcher } from '../..
 import {
   MAX_FILE_BYTES,
   MAX_RECORDS,
+  aggregateProgramTotals,
   canImport,
   canUseRegistry,
   countCsvRecords,
   describeFailure,
   extractIssues,
+  filterAndSortPrograms,
   formatBytes,
+  getProgramDegreeTitle,
   normalizeCheck,
   normalizeHistory,
   normalizeImportResult,
@@ -317,9 +320,72 @@ describe('the import screen\'s behaviour (source checks, not a browser)', () => 
     assert.match(panel, /The file passed the check/);
   });
 
-  it('is responsive: grids collapse to one column on a phone and wide tables scroll inside their frame', () => {
-    assert.match(read('src/app/registry/RegistryOverview.js'), /grid gap-4 sm:grid-cols-3/);
+  it('is responsive: header bar uses FilterBar and stacks on a phone, and wide tables scroll inside their frame', () => {
+    assert.match(read('src/app/registry/RegistryOverview.js'), /<FilterBar/);
+    assert.match(read('src/components/forms/FilterBar.js'), /flex-wrap/);
     assert.match(read('src/components/ui/TableShell.js'), /overflow-x-auto/);
     assert.match(panel, /flex flex-wrap/);
+  });
+
+  it('renders Program Summary and Individual Student / Alumni Directory underline tabs, removes the 3 KPI cards, and shows 4 columns only (no Cohort Split)', () => {
+    const overview = read('src/app/registry/RegistryOverview.js');
+    assert.match(overview, /<Tabs/);
+    assert.match(overview, /variant="analytics"/);
+    assert.match(overview, /Program Summary/);
+    assert.match(overview, /Individual Student \/ Alumni Directory/);
+    assert.match(overview, /Search program code or degree\.\.\./);
+    assert.match(overview, /Program &amp; Degree Title/);
+    assert.match(overview, /Click to inspect \{p\.program_code\} roster/);
+    assert.match(overview, /All programs/);
+    assert.match(overview, /align="center"/);
+    assert.match(overview, /text-center/);
+    assert.doesNotMatch(overview, /SortGlyph|SortableHeaderButton|aria-sort/);
+    assert.doesNotMatch(overview, /font-mono/);
+    assert.doesNotMatch(overview, /StatCard/);
+    assert.doesNotMatch(overview, /Cohort Split/i);
+  });
+});
+
+describe('Program Summary degree titles, filtering, sorting, and aggregation', () => {
+  const samplePrograms = [
+    { program_code: 'BSIT', enrolled: 80, alumni: 20, total: 100 },
+    { program_code: 'BSA', enrolled: 60, alumni: 15, total: 75 },
+    { program_code: 'BSCS', enrolled: 50, alumni: 30, total: 80 },
+  ];
+
+  it('resolves full degree titles for known program codes and respects explicit API degree titles', () => {
+    assert.equal(getProgramDegreeTitle('BSA'), 'Bachelor of Science in Accountancy');
+    assert.equal(getProgramDegreeTitle('BSIT'), 'Bachelor of Science in Information Technology');
+    assert.equal(getProgramDegreeTitle('BSPSY'), 'Bachelor of Science in Psychology');
+    assert.equal(getProgramDegreeTitle('CUSTOM', 'Bachelor of Custom Studies'), 'Bachelor of Custom Studies');
+    assert.equal(getProgramDegreeTitle('XYZ'), 'Academic Degree Program (XYZ)');
+  });
+
+  it('filters case-insensitively by program code or degree title and sorts by code, enrolled, alumni, or total', () => {
+    const byCodeAsc = filterAndSortPrograms(samplePrograms, { query: '', sort: { key: 'program_code', direction: 'asc' } });
+    assert.deepEqual(byCodeAsc.map((p) => p.program_code), ['BSA', 'BSCS', 'BSIT']);
+
+    const byTotalDesc = filterAndSortPrograms(samplePrograms, { query: '', sort: { key: 'total', direction: 'desc' } });
+    assert.deepEqual(byTotalDesc.map((p) => p.program_code), ['BSIT', 'BSCS', 'BSA']);
+
+    const byAlumniDesc = filterAndSortPrograms(samplePrograms, { query: '', sort: { key: 'alumni', direction: 'desc' } });
+    assert.deepEqual(byAlumniDesc.map((p) => p.program_code), ['BSCS', 'BSIT', 'BSA']);
+
+    const matchByDegree = filterAndSortPrograms(samplePrograms, { query: 'accountancy' });
+    assert.equal(matchByDegree.length, 1);
+    assert.equal(matchByDegree[0].program_code, 'BSA');
+
+    const matchByCode = filterAndSortPrograms(samplePrograms, { query: 'bsit' });
+    assert.equal(matchByCode.length, 1);
+    assert.equal(matchByCode[0].program_code, 'BSIT');
+  });
+
+  it('aggregates enrolled, alumni, and combined total counts across displayed rows', () => {
+    assert.deepEqual(aggregateProgramTotals(samplePrograms), {
+      count: 3,
+      enrolled: 190,
+      alumni: 65,
+      total: 255,
+    });
   });
 });

@@ -119,6 +119,16 @@ export const TRANSACTION_PAGE_SIZE = 20;
  * { items, page, page_size, total }, newest start first (ORDER BY started_at DESC), without the client email or reference.
  * Only filters that have a value are sent.
  */
+export function listPendingTransactionsPage({ page = 1, pageSize = TRANSACTION_PAGE_SIZE } = {}, fetcher = apiFetch) {
+  const params = new URLSearchParams({
+    open: 'true',
+    sort: 'oldest',
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  return fetcher(`${TRANSACTIONS_API}?${params.toString()}`);
+}
+
 export function listTransactionPage(filters = {}, page = 1, pageSize = TRANSACTION_PAGE_SIZE, fetcher = apiFetch) {
   const params = new URLSearchParams();
   for (const name of ['status', 'service_id', 'counter_id', 'office_id']) {

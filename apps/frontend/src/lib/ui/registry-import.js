@@ -125,6 +125,50 @@ export function describeFailure(error) {
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
+/** Canonical PUP / academic degree titles keyed by uppercase program code. */
+export const PROGRAM_DEGREE_TITLES = Object.freeze({
+  BSA: 'Bachelor of Science in Accountancy',
+  BSBA: 'Bachelor of Science in Business Administration',
+  'BSBA-HRM': 'Bachelor of Science in Business Administration Major in Human Resource Management',
+  'BSBA-MM': 'Bachelor of Science in Business Administration Major in Marketing Management',
+  'BSBA-FM': 'Bachelor of Science in Business Administration Major in Financial Management',
+  BSCS: 'Bachelor of Science in Computer Science',
+  BSECE: 'Bachelor of Science in Electronics Engineering',
+  BSED: 'Bachelor of Secondary Education',
+  'BSED-ENG': 'Bachelor of Secondary Education Major in English',
+  'BSED-MATH': 'Bachelor of Secondary Education Major in Mathematics',
+  'BSED-FIL': 'Bachelor of Secondary Education Major in Filipino',
+  BSIT: 'Bachelor of Science in Information Technology',
+  BSN: 'Bachelor of Science in Nursing',
+  BSPSY: 'Bachelor of Science in Psychology',
+  BSENTREP: 'Bachelor of Science in Entrepreneurship',
+  BTLED: 'Bachelor of Technology and Livelihood Education',
+  BPED: 'Bachelor of Physical Education',
+  BPA: 'Bachelor of Public Administration',
+  BSOA: 'Bachelor of Science in Office Administration',
+  DOMT: 'Diploma in Office Management Technology',
+  DICT: 'Diploma in Information Communication Technology',
+  BSCPE: 'Bachelor of Science in Computer Engineering',
+  BSEE: 'Bachelor of Science in Electrical Engineering',
+  BSME: 'Bachelor of Science in Mechanical Engineering',
+  BSCE: 'Bachelor of Science in Civil Engineering',
+  BSIE: 'Bachelor of Science in Industrial Engineering',
+  BSARCH: 'Bachelor of Science in Architecture',
+  BSHM: 'Bachelor of Science in Hospitality Management',
+  BSTM: 'Bachelor of Science in Tourism Management',
+  BSMA: 'Bachelor of Science in Management Accounting',
+});
+
+/** Resolves the full academic degree title for a program code, preferring an explicit API title when present. */
+export function getProgramDegreeTitle(programCode, explicitTitle = null) {
+  if (explicitTitle && String(explicitTitle).trim()) {
+    return String(explicitTitle).trim();
+  }
+  const code = String(programCode ?? '').trim().toUpperCase();
+  if (!code || code === '—') return 'Academic Degree Program';
+  return PROGRAM_DEGREE_TITLES[code] || `Academic Degree Program (${code})`;
+}
+
 /** The summary screen data from GET /summary, whether statuses come as an object or a list. */
 export function normalizeSummary(answer) {
   const byStatus = {};
@@ -136,9 +180,86 @@ export function normalizeSummary(answer) {
   const programs = (answer?.by_program ?? answer?.programs ?? []).map((p) => {
     const e = num(p.enrolled ?? p.ENROLLED);
     const a = num(p.alumni ?? p.ALUMNI);
-    return { program_code: String(p.program_code ?? p.program ?? '—'), enrolled: e, alumni: a, total: num(p.total ?? p.count) || e + a };
+    const code = String(p.program_code ?? p.program ?? '—');
+    const row = {
+      program_code: code,
+      enrolled: e,
+      alumni: a,
+      total: num(p.total ?? p.count) || e + a,
+    };
+    const explicitTitle = p.degree_title ?? p.program_name ?? p.title ?? null;
+    if (explicitTitle) row.degree_title = String(explicitTitle).trim();
+    return row;
   });
   return { total: num(answer?.total ?? answer?.total_records) || enrolled + alumni, enrolled, alumni, programs };
+}
+
+/**
+ * Filters and sorts program summary rows by program code or degree title, and sorts by
+ * program_code, enrolled, alumni, or total.
+ */
+export function filterAndSortPrograms(
+  programs = [],
+  { query = '', sort = { key: 'program_code', direction: 'asc' } } = {},
+) {
+  const list = Array.isArray(programs) ? programs : [];
+  const enriched = list.map((p) => {
+    const enrolled = num(p?.enrolled);
+    const alumni = num(p?.alumni);
+    const total = num(p?.total) || enrolled + alumni;
+    const code = String(p?.program_code ?? p?.program ?? '—');
+    const degreeTitle = getProgramDegreeTitle(code, p?.degree_title ?? p?.program_name ?? p?.title);
+    return {
+      ...p,
+      program_code: code,
+      degree_title: degreeTitle,
+      enrolled,
+      alumni,
+      total,
+    };
+  });
+
+  const q = String(query ?? '').trim().toLowerCase();
+  const filtered = !q
+    ? enriched
+    : enriched.filter((p) => (
+      p.program_code.toLowerCase().includes(q)
+      || p.degree_title.toLowerCase().includes(q)
+    ));
+
+  if (!sort || !sort.key) return filtered;
+  const dir = sort.direction === 'desc' ? -1 : 1;
+  const key = sort.key;
+
+  return [...filtered].sort((a, b) => {
+    if (key === 'enrolled' || key === 'alumni' || key === 'total') {
+      const diff = (a[key] - b[key]) * dir;
+      if (diff !== 0) return diff;
+    } else if (key === 'degree_title') {
+      const cmp = a.degree_title.localeCompare(b.degree_title) * dir;
+      if (cmp !== 0) return cmp;
+    }
+    return a.program_code.localeCompare(b.program_code) * dir;
+  });
+}
+
+/**
+ * Aggregates enrolled, alumni, and combined total counts across the currently displayed program rows.
+ */
+export function aggregateProgramTotals(programs = []) {
+  const list = Array.isArray(programs) ? programs : [];
+  let enrolled = 0;
+  let alumni = 0;
+  let total = 0;
+  for (const p of list) {
+    const e = num(p?.enrolled);
+    const a = num(p?.alumni);
+    const t = num(p?.total) || e + a;
+    enrolled += e;
+    alumni += a;
+    total += t;
+  }
+  return { count: list.length, enrolled, alumni, total };
 }
 
 /** The import history rows from GET /imports (newest first). */

@@ -5,7 +5,8 @@ import SubmitButton from '../../components/ui/SubmitButton.js';
 import { notify } from '../../lib/ui/notify.js';
 import { saveFailureMessage, savedMessage } from '../../lib/ui/save-feedback.js';
 import SearchInput from '../../components/forms/SearchInput.js';
-import ClearFiltersButton from '../../components/forms/ClearFiltersButton.js';
+import FilterBar from '../../components/forms/FilterBar.js';
+import Button from '../../components/ui/Button.js';
 import { RequiredMark } from '../../components/forms/Field.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
@@ -145,35 +146,41 @@ function OfficesManager() {
         onSaved={(code) => setSettings({ loading: false, code, error: null })}
       />
 
-      <div className="card p-5 sm:p-6">
-        <div className="flex flex-wrap items-end gap-x-5 gap-y-4">
-          <div className="w-full sm:w-72">
-            <label className="label" htmlFor="office-search">
-              Search office
-            </label>
-            <SearchInput id="office-search" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          <div className="w-full sm:w-40">
-            <label className="label" htmlFor="office-status">
-              Status
-            </label>
-            <select id="office-status" className="input select-chevron" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-          {search.trim() || status !== 'active' ? (
-            <ClearFiltersButton className="w-full sm:w-auto" onClick={() => {
-                setSearch('');
-                setStatus('active');
-              }} />
-          ) : null}
-          <button type="button" className="btn-primary w-full sm:ml-auto sm:w-auto" onClick={() => openForm(null)} disabled={!prefix} title={prefix ? undefined : 'Set the institution code first'}>
+      <FilterBar
+        label="Office filters"
+        dirty={Boolean(search.trim() || status !== 'active')}
+        onClear={() => {
+          setSearch('');
+          setStatus('active');
+        }}
+        actions={
+          <Button
+            className="w-full sm:w-auto"
+            onClick={() => openForm(null)}
+            disabled={!prefix}
+            title={prefix ? undefined : 'Set the institution code first'}
+          >
             + Add Office
-          </button>
+          </Button>
+        }
+      >
+        <div className="w-full sm:w-72">
+          <label className="label" htmlFor="office-search">
+            Search office
+          </label>
+          <SearchInput id="office-search" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-      </div>
+        <div className="w-full sm:w-40">
+          <label className="label" htmlFor="office-status">
+            Status
+          </label>
+          <select id="office-status" className="input select-chevron" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </FilterBar>
 
       <TableShell>
         <Table

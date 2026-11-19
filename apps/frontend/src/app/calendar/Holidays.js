@@ -5,7 +5,8 @@ import SubmitButton from '../../components/ui/SubmitButton.js';
 import { notify } from '../../lib/ui/notify.js';
 import { saveFailureMessage, savedMessage } from '../../lib/ui/save-feedback.js';
 import SearchInput from '../../components/forms/SearchInput.js';
-import ClearFiltersButton from '../../components/forms/ClearFiltersButton.js';
+import FilterBar from '../../components/forms/FilterBar.js';
+import Button from '../../components/ui/Button.js';
 import { RequiredMark } from '../../components/forms/Field.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppliesToSetting from '../../components/calendar/AppliesToSetting.js';
@@ -312,8 +313,16 @@ export default function Holidays({ canWrite = false, onChanged }) {
 
       {canWrite ? <AppliesToSetting settings={setting} onRetry={loadSetting} onSaved={(value) => setSetting({ loading: false, enabled: value, error: null })} /> : null}
 
-      <div className="card p-5 sm:p-6">
-      <div className="flex flex-wrap items-end gap-x-4 gap-y-4">
+      <FilterBar
+        label="Holiday filters"
+        dirty={Boolean(filters.search.trim() || filters.type || appliesFilter)}
+        onClear={() => setFilters({ search: '', type: '', applies_to: '' })}
+        actions={canWrite ? (
+          <Button className="w-full sm:w-auto" onClick={() => openForm(null)}>
+            + Add Holiday
+          </Button>
+        ) : null}
+      >
         <div className="w-full sm:w-64">
           <label className="label" htmlFor="holiday-search">
             Search holiday
@@ -361,18 +370,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
             ))}
           </select>
         </div>
-        {filters.search.trim() || filters.type || appliesFilter ? (
-          <ClearFiltersButton className="w-full sm:w-auto" onClick={() => setFilters({ search: '', type: '', applies_to: '' })} />
-        ) : null}
-        {canWrite ? (
-          <div className="ml-auto">
-            <button type="button" className="btn-primary btn-lg" onClick={() => openForm(null)}>
-              + Add Holiday
-            </button>
-          </div>
-        ) : null}
-      </div>
-      </div>
+      </FilterBar>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <div className="space-y-6">
@@ -617,7 +615,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
                     <label className="label" htmlFor="exception_type">
                       Type
                     </label>
-                    <select id="exception_type" className="input" value={form.exception_type} onChange={(e) => setType(e.target.value)} required>
+                    <select id="exception_type" className="input select-chevron" value={form.exception_type} onChange={(e) => setType(e.target.value)} required>
                       <option value="" disabled>Choose holiday type</option>
                       {EXCEPTION_TYPES.map((t) => (
                         <option key={t.value} value={t.value}>
@@ -692,7 +690,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
                   <label className="label" htmlFor="office_id">
                     Scope
                   </label>
-                  <select id="office_id" className="input" value={form.office_id} onChange={(e) => setForm({ ...form, office_id: e.target.value })}>
+                  <select id="office_id" className="input select-chevron" value={form.office_id} onChange={(e) => setForm({ ...form, office_id: e.target.value })}>
                     <option value="">Campus-wide (all offices)</option>
                     {offices.items.map((o) => (
                       <RecordOption key={o.office_id} record={o} value={o.office_id}>{`${o.office_code} - ${o.office_name}`}</RecordOption>

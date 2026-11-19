@@ -1,7 +1,7 @@
 'use client';
 
 import SearchInput from '../../components/forms/SearchInput.js';
-import ClearFiltersButton from '../../components/forms/ClearFiltersButton.js';
+import FilterBar from '../../components/forms/FilterBar.js';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ROLES, ROLE_LABELS } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
@@ -164,48 +164,49 @@ function AuditLog() {
   const filtered = Object.keys(EMPTY_AUDIT_FILTERS).some((key) => applied[key]);
   return (
     <div className="space-y-4">
-      <form className="card p-5 sm:p-6" onSubmit={apply} noValidate aria-label="Filter the audit log">
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-4">
-          <div className="w-full sm:w-64">
-            <label className="label" htmlFor="audit-search">
-              Search
-            </label>
-            <SearchInput
-              id="audit-search"
-              value={draft.search}
-              onChange={set('search')}
-              onBlur={() => draft.search.trim() !== (appliedSearch?.text ?? '') && applyNow(draft)}
-              autoComplete="off"
-              spellCheck={false}
-              aria-invalid={fieldErrors.search ? true : undefined}
-              aria-describedby={describedBy('search', 'audit-search-help')}
-            />
-            <p id="audit-search-help" className="sr-only">
-              Matches a full user ID, an exact action such as ACCOUNT_CREATED, or an entity type such as account. Names are not searchable.
-            </p>
-            {fieldError('search')}
-          </div>
-          <div className="w-full sm:w-36">
-            <label className="label" htmlFor="audit-from">
-              Start date
-            </label>
-            <input id="audit-from" type="date" className="input" value={draft.from} onChange={(e) => applyNow({ ...draft, from: e.target.value })} aria-invalid={fieldErrors.from ? true : undefined} aria-describedby={describedBy('from')} />
-            {fieldError('from')}
-          </div>
-          <div className="w-full sm:w-36">
-            <label className="label" htmlFor="audit-to">
-              End date
-            </label>
-            <input id="audit-to" type="date" className="input" value={draft.to} onChange={(e) => applyNow({ ...draft, to: e.target.value })} aria-invalid={fieldErrors.to ? true : undefined} aria-describedby={describedBy('to')} />
-            {fieldError('to')}
-          </div>
-          {filtered ? (
-            <div className="sm:mt-[21px]">
-              <ClearFiltersButton onClick={clear} disabled={state.loading} />
-            </div>
-          ) : null}
+      <FilterBar
+        label="Filter the audit log"
+        align="top"
+        onSubmit={apply}
+        noValidate
+        dirty={filtered}
+        onClear={clear}
+        clearDisabled={state.loading}
+      >
+        <div className="w-full sm:w-64">
+          <label className="label" htmlFor="audit-search">
+            Search
+          </label>
+          <SearchInput
+            id="audit-search"
+            value={draft.search}
+            onChange={set('search')}
+            onBlur={() => draft.search.trim() !== (appliedSearch?.text ?? '') && applyNow(draft)}
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={fieldErrors.search ? true : undefined}
+            aria-describedby={describedBy('search', 'audit-search-help')}
+          />
+          <p id="audit-search-help" className="sr-only">
+            Matches a full user ID, an exact action such as ACCOUNT_CREATED, or an entity type such as account. Names are not searchable.
+          </p>
+          {fieldError('search')}
         </div>
-      </form>
+        <div className="w-full sm:w-36">
+          <label className="label" htmlFor="audit-from">
+            Start date
+          </label>
+          <input id="audit-from" type="date" className="input" value={draft.from} onChange={(e) => applyNow({ ...draft, from: e.target.value })} aria-invalid={fieldErrors.from ? true : undefined} aria-describedby={describedBy('from')} />
+          {fieldError('from')}
+        </div>
+        <div className="w-full sm:w-36">
+          <label className="label" htmlFor="audit-to">
+            End date
+          </label>
+          <input id="audit-to" type="date" className="input" value={draft.to} onChange={(e) => applyNow({ ...draft, to: e.target.value })} aria-invalid={fieldErrors.to ? true : undefined} aria-describedby={describedBy('to')} />
+          {fieldError('to')}
+        </div>
+      </FilterBar>
 
       <TableShell
         footer={

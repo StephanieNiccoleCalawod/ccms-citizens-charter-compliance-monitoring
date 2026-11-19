@@ -1,5 +1,5 @@
 import { ROLES, Errors, endOfManilaDay, fromManila, isUuid, isValidManilaDate } from 'ccms-shared';
-import { STATUS_LIST } from './constants.js';
+import { OPEN_STATUSES, STATUS_LIST } from './constants.js';
 import { TRANSACTION_SELECT, loadTransactionRow, notFound } from './db.js';
 import { transactionDtoFor } from './dto.js';
 import { assertCanRead } from './access.js';
@@ -41,6 +41,8 @@ export async function listTransactions(dataSource, user, params) {
   const { page, pageSize } = parsePaging(params);
   const details = {};
   const status = params.get('status');
+  const open = params.get('open');
+  const sort = params.get('sort');
   const serviceId = params.get('service_id');
   const counterId = params.get('counter_id');
   const officeId = params.get('office_id');
@@ -48,6 +50,8 @@ export async function listTransactions(dataSource, user, params) {
   const to = params.get('to');
   const q = params.get('q')?.trim();
   if (status && !STATUS_LIST.includes(status)) details.status = `Status must be one of ${STATUS_LIST.join(', ')}`;
+  if (open && open !== 'true') details.open = 'open must be true';
+  if (sort && !['newest', 'oldest'].includes(sort)) details.sort = 'sort must be newest or oldest';
   if (serviceId && !isUuid(serviceId)) details.service_id = 'service_id must be a valid ID';
   if (counterId && !isUuid(counterId)) details.counter_id = 'counter_id must be a valid ID';
   if (officeId && !isUuid(officeId)) details.office_id = 'office_id must be a valid ID';
@@ -76,17 +80,19 @@ export async function listTransactions(dataSource, user, params) {
     throw Errors.forbidden();
   }
   if (status) add('t.status = ?', status);
+  else if (open === 'true') add('t.status = ANY(?::text[])', [...OPEN_STATUSES]);
   if (serviceId) add('t.service_id = ?::uuid', serviceId);
   if (counterId) add('t.counter_id = ?::uuid', counterId);
   if (from) add('t.started_at >= ?', fromManila(from));
   if (to) add('t.started_at <= ?', endOfManilaDay(fromManila(to)));
   if (q) add(`t.tracking_no ILIKE ? ESCAPE '\\'`, likePattern(q));
   const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+  const dir = sort === 'oldest' ? 'ASC' : 'DESC';
 
   const [{ total }] = await dataSource.query(`SELECT count(*)::int AS total FROM transactions t${whereSql}`, values);
   values.push(pageSize, (page - 1) * pageSize);
   const rows = await dataSource.query(
-    `${TRANSACTION_SELECT}${whereSql} ORDER BY t.started_at DESC, t.transaction_id DESC LIMIT $${values.length - 1} OFFSET $${values.length}`,
+    `${TRANSACTION_SELECT}${whereSql} ORDER BY t.started_at ${dir}, t.transaction_id ${dir} LIMIT $${values.length - 1} OFFSET $${values.length}`,
     values,
   );
   return { items: rows.map((row) => transactionDtoFor(user, row, { detail: false })), page, page_size: pageSize, total };

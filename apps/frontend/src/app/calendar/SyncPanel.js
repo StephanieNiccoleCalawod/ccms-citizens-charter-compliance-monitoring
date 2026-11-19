@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
+import Button from '../../components/ui/Button.js';
 import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
+import TableState from '../../components/ui/TableState.js';
 import { apiFetch } from '../../lib/auth/session.js';
 import { SYNC_LABELS } from '../../lib/api/calendar.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
@@ -87,11 +89,9 @@ export default function SyncPanel({ refreshKey }) {
           <h2 id="sync-heading" className="text-2xl">
             Connected systems
           </h2>
-          <p className="mt-1 text-sm text-slate-500">These are separate systems. CCCMS sends them the campus calendar.</p>
+          <p className="mt-1 text-sm text-ink-muted">These are separate systems. CCCMS sends them the campus calendar.</p>
         </div>
-        <button type="button" className="btn-secondary btn-sm" onClick={load}>
-          Refresh
-        </button>
+        <Button variant="secondary" size="sm" onClick={load}>Refresh</Button>
       </div>
       <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: null }))} />
       {state.loading ? (
@@ -128,11 +128,7 @@ export default function SyncPanel({ refreshKey }) {
                     }
                   >
                     {data.recent.length === 0 ? (
-                      <tr>
-                        <td className="td text-slate-500" colSpan={5}>
-                          No changes have been shared yet.
-                        </td>
-                      </tr>
+                      <TableState colSpan={5}>No changes have been shared yet.</TableState>
                     ) : (
                       data.recent.map((row) => (
                         <tr key={row.sync_id} className={`tr-row ${row.status === 'FAILED' ? 'bg-red-50' : ''}`}>

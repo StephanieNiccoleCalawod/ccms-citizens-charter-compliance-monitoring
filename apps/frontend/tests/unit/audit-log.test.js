@@ -259,7 +259,8 @@ describe('the Logs page is read only and keeps its filters honest (source checks
   it('has the reference layout: one search box, two native dates, no Apply button, and the five columns plus the details control', () => {
     assert.match(page, /<SearchInput\s+id="audit-search"/);
     assert.doesNotMatch(page, /Apply filters/);
-    assert.match(page, /<ClearFiltersButton/);
+    assert.match(page, /<FilterBar[\s\S]*?onClear=\{clear\}/);
+    assert.match(read('src/components/forms/FilterBar.js'), /<ClearFiltersButton/);
     for (const heading of ['Date &amp; time', 'Done by', 'Action', 'Affected entity', 'Office']) assert.ok(page.includes(heading), heading);
     assert.match(page, /<Pager[\s\S]*?pageSize=\{pageSize\}[\s\S]*?onPageSizeChange=\{changePageSize\}/);
     assert.match(page, /A read-only record of changes made in CCCMS, newest first\. Dates are Manila calendar days \(Asia\/Manila\)\./);
@@ -426,8 +427,8 @@ describe('the table and filter bar after the clean-up (source checks, not a brow
   });
 
   it('has no Apply button: dates apply when chosen, the search on Enter or when the field is left, and Clear filters shows only while filters are applied', () => {
-    assert.match(code, /\{filtered \? \(/);
-    assert.match(code, /onClick=\{clear\}/);
+    assert.match(code, /dirty=\{filtered\}/);
+    assert.match(code, /onClear=\{clear\}/);
     assert.doesNotMatch(code, /Apply filters/);
     assert.match(code, /function applyNow\(next\)/);
     assert.ok(code.includes('applyNow({ ...draft, from: e.target.value })'));

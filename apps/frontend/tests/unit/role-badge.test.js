@@ -48,9 +48,11 @@ describe('where the role badge is used', () => {
 
 describe('the Accounts filter row (source checks, not a browser)', () => {
   const page = read('src/app/accounts/page.js');
-  it('has even padding and gaps, wraps on tablet and stacks on mobile', () => {
-    assert.ok(page.includes('<div className="card p-5 sm:p-6">'));
-    assert.ok(page.includes('flex flex-wrap items-end gap-x-5 gap-y-4'));
+  const filterBar = read('src/components/forms/FilterBar.js');
+  it('uses the shared FilterBar with even padding and gaps, wraps on tablet and stacks on mobile', () => {
+    assert.ok(page.includes('<FilterBar'));
+    assert.ok(filterBar.includes('card p-5 sm:p-6'));
+    assert.ok(filterBar.includes('flex flex-wrap'));
     // every filter group is full width on a phone and a fixed width from the sm breakpoint up
     for (const id of ['account-search', 'filter-role', 'filter-office', 'filter-status']) {
       const at = page.indexOf(`htmlFor="${id}"`);
@@ -58,37 +60,40 @@ describe('the Accounts filter row (source checks, not a browser)', () => {
       assert.ok(/w-full sm:w-\d+/.test(group), id);
     }
   });
-  it('the three dropdowns share one arrow style, and search and Add Account keep their places', () => {
-    assert.equal([...page.matchAll(/className="input select-chevron"/g)].length, 3);
-    assert.ok(page.includes('sm:ml-auto sm:w-auto'));
+  it('the filter dropdowns share one arrow style, and search and Add Account keep their places', () => {
+    assert.equal([...page.matchAll(/id="filter-(role|office|status)" className="input select-chevron"/g)].length, 3);
+    assert.ok(filterBar.includes('sm:ml-auto sm:w-auto'));
     assert.ok(page.includes('id="account-search"') && page.includes('+ Add Account'));
   });
 });
 
 describe('the Offices status filter (source checks, not a browser)', () => {
   const page = read('src/app/offices/page.js');
-  it('has a Status dropdown (All, Active, Inactive) beside the search, with the same spacing and arrow as the Accounts filters', () => {
+  const filterBar = read('src/components/forms/FilterBar.js');
+  it('has a Status dropdown (All, Active, Inactive) beside the search, using the shared FilterBar', () => {
     assert.ok(page.includes('htmlFor="office-status"'));
     assert.ok(page.includes('id="office-status" className="input select-chevron"'));
     for (const value of ['value=""', 'value="active"', 'value="inactive"']) assert.ok(page.includes(value), value);
-    assert.ok(page.includes('<div className="card p-5 sm:p-6">'));
-    assert.ok(page.includes('flex flex-wrap items-end gap-x-5 gap-y-4'));
+    assert.ok(page.includes('<FilterBar'));
+    assert.ok(filterBar.includes('card p-5 sm:p-6'));
   });
   it('filters the list already loaded, together with the search, and sends no new request', () => {
     assert.ok(page.includes("(status === '' || (status === 'active') === o.is_active)"));
     assert.ok(page.includes('}, [state.items, search, status]);'));
   });
   it('Search office and + Add Office keep their places', () => {
-    assert.ok(page.includes('id="office-search"') && page.includes('+ Add Office') && page.includes('sm:ml-auto'));
+    assert.ok(page.includes('id="office-search"') && page.includes('+ Add Office') && filterBar.includes('sm:ml-auto'));
   });
 });
 
 describe('the Services filter row (source checks, not a browser)', () => {
   const page = read('src/app/services/page.js');
-  it('is the filter form of the /services page itself, with the same panel padding as the other filter panels', () => {
+  const filterBar = read('src/components/forms/FilterBar.js');
+  it('uses the shared FilterBar with the same panel padding as the other filter panels', () => {
     assert.ok(page.includes('function ServicesManager'));
-    assert.ok(page.includes('p-5 sm:p-6'));
-    assert.ok(page.includes('flex flex-wrap items-end gap-x-4 gap-y-4'));
+    assert.ok(page.includes('<FilterBar'));
+    assert.ok(filterBar.includes('card p-5 sm:p-6'));
+    assert.ok(filterBar.includes('flex flex-wrap'));
   });
   it('Office, Classification and Status share the select arrow and have fixed widths from the sm size, full width on a phone', () => {
     assert.equal([...page.matchAll(/className="input select-chevron"/g)].length, 3);
@@ -98,9 +103,10 @@ describe('the Services filter row (source checks, not a browser)', () => {
       assert.ok(/w-full sm:w-\d+/.test(group), id);
     }
   });
-  it('search, the Search button and Add Service (which still opens the form) keep working and stay at the right', () => {
+  it('search and Add Service (which still opens the form) keep working and stay at the right', () => {
     assert.ok(page.includes('id="svc-search"') && page.includes('applyFilters(filters)'));
-    assert.ok(page.includes('btn-primary w-full sm:ml-auto sm:w-auto" onClick={() => openForm(null)}'));
+    assert.ok(page.includes('onClick={() => openForm(null)}>') && page.includes('+ Add Service'));
+    assert.ok(filterBar.includes('sm:ml-auto'));
   });
 });
 
@@ -111,10 +117,10 @@ describe('no Apply or Search button on the admin filter panels (source checks, n
     assert.ok(!/>\s*Search\s*<\/button>/.test(page));
     assert.ok(page.includes('applyFilters({ ...filters, office_id: e.target.value })'));
   });
-  it('Logs: no Apply button, and the same padding as the other filter panels', () => {
+  it('Logs: no Apply button, uses the shared FilterBar', () => {
     const page = read('src/app/logs/page.js');
     assert.ok(!page.includes('Apply filters'));
-    assert.ok(page.includes('<form className="card p-5 sm:p-6"'));
+    assert.ok(page.includes('<FilterBar') && page.includes('onSubmit={apply}'));
   });
   it('Transactions, Accounts and Offices have none either', () => {
     for (const file of ['src/app/transactions/page.js', 'src/app/accounts/page.js', 'src/app/offices/page.js']) assert.ok(!read(file).includes('Apply filters'), file);

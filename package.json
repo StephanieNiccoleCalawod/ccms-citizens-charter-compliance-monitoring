@@ -67,7 +67,8 @@
   "overrides": {
     "typeorm": {
       "glob": "14.0.2"
-    }
+    },
+    "@vercel/cli-config": "0.3.8"
   },
   "devDependencies": {
     "ccms-shared": "0.1.0",

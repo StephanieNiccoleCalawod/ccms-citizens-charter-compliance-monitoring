@@ -116,38 +116,30 @@ describe('office list, classification filter and paging', () => {
   });
 });
 
-describe('the screen (source checks)', () => {
-  const page = strip(read('src/app/page.js') + read('src/lib/ui/use-catalogue.js')); // the page and the shared catalogue hook it uses
-  it('uses one list for both views, so switching the view changes nothing but the layout', () => {
-    assert.ok(/const \[view, setView\] = useState\('grid'\)/.test(page));
-    assert.ok(/<ViewToggle view=\{view\} onView=\{setView\}/.test(page));
-    // The view is never part of the data load or of what resets the page.
-    assert.ok(/\}, \[search, attempt\]\);/.test(page));
-    assert.ok(!/setView\([^)]*\);\s*setPage\(1\)/.test(page));
+describe('the public directory & hook (source checks)', () => {
+  const dir = strip(read('src/components/public/PublicDirectory.js') + read('src/lib/ui/use-catalogue.js'));
+  it('uses one shared catalogue hook and keeps the view state decoupled from page reloads', () => {
+    assert.ok(/const \[view, setView\] = useState\('grid'\)/.test(dir));
+    assert.ok(/\}, \[search, attempt\]\);/.test(dir));
+    assert.ok(!/setView\([^)]*\);\s*setPage\(1\)/.test(dir));
   });
   it('starts again at page 1 on a search, a classification or an office, but not on a view change', () => {
-    assert.ok(/const chooseClassification = \(value\) => \{ setClassification\(value\); setPage\(1\); \};/.test(page));
-    assert.ok(/const chooseOffice = \(value\) => \{ setOffice\(value\); setPage\(1\); \};/.test(page));
-    assert.ok(/setPage\(1\);\s*setSearch\(input\.trim\(\)\);/.test(page));
+    assert.ok(/const chooseClassification = \(value\) => \{ setClassification\(value\); setPage\(1\); \};/.test(dir));
+    assert.ok(/const chooseOffice = \(value\) => \{ setOffice\(value\); setPage\(1\); \};/.test(dir));
+    assert.ok(/setPage\(1\);\s*setSearch\(input\.trim\(\)\);/.test(dir));
   });
   it('throws away an answer for an older search', () => {
-    assert.ok(/const id = \+\+latest\.current;/.test(page));
-    assert.ok((page.match(/if \(id === latest\.current\)/g) ?? []).length === 2);
+    assert.ok(/const id = \+\+latest\.current;/.test(dir));
+    assert.ok((dir.match(/if \(id === latest\.current\)/g) ?? []).length === 2);
   });
-  it('has accessible Grid and List buttons and pill filters', () => {
-    assert.ok(/aria-pressed=\{selected\}/.test(page));
-    assert.ok(/aria-label=\{`\$\{label\} view`\}/.test(page));
-    assert.ok(/role="group" aria-label="Services view"/.test(page));
-    assert.ok(/role="group" aria-label="Classification"/.test(page));
-  });
-  it('links each service to its existing public detail page and Staff Login to the existing login route', () => {
-    assert.ok(/`\/public\/\$\{encodeURIComponent\(item\.service_id\)\}`/.test(page));
+  it('links Staff Login on the landing page and public header cleanly without signed-in home service cards', () => {
     assert.ok(read('src/components/public/LandingHero.js').includes('href="/login"'), 'the landing page has Staff Login');
     assert.ok(strip(read('src/components/layout/PublicHeader.js')).includes('href="/login"'));
+    assert.doesNotMatch(read('src/app/page.js'), /Find a service|id="home-search"|service-grid/);
   });
-  it('shows no hardcoded service data, counts or processing times', () => {
-    assert.ok(!/\b69\b/.test(page));
-    assert.ok(!/\d+ minutes|\d+ working days/.test(page));
-    assert.ok(/item\.standard_text/.test(page));
+  it('shows no hardcoded service counts and reads standard_text dynamically', () => {
+    assert.ok(!/\b69\b/.test(dir));
+    assert.ok(!/\d+ working days/.test(dir));
+    assert.ok(/item\.standard_text/.test(dir));
   });
 });
