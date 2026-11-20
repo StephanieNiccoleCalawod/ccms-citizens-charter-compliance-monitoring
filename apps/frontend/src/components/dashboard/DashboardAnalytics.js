@@ -151,11 +151,11 @@ function LiveDashboardAnalytics({ user }) {
       const requestedOffice = isCampusRole ? selectedOfficeId : '';
       const activeTarget = isCampusRole ? (selectedOfficeId || modelOfficeRef.current) : (scope.officeId ?? '');
       const background = Boolean(activeTarget) && loadedModelOfficeRef.current === activeTarget;
-      const [nextOverview] = await Promise.all([
-        getInsightsOverview({ period, officeId: requestedOffice }),
-        activeTarget ? loadModels(activeTarget, { background }) : Promise.resolve(),
-      ]);
-      return nextOverview;
+      // The risk and forecast cards fill in on their own (they have loading states), so the overview is shown as soon as it
+      // arrives instead of waiting for the slower of the three requests.
+      const overviewRequest = getInsightsOverview({ period, officeId: requestedOffice });
+      if (activeTarget) loadModels(activeTarget, { background }).catch(() => {});
+      return overviewRequest;
     },
   });
 

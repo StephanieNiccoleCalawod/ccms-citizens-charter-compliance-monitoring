@@ -13,6 +13,24 @@ const instant = (value) => new Date(value).getTime();
 const iso = (value) => new Date(value).toISOString();
 const shareOf = (used, limit) => limit > 0 ? used / limit : Number(used > 0);
 
+// Reading scores needs only when each transaction closed, not its hold events (those are for training), and a transaction with an
+// end time closed at that end time: so the outbox is asked only about rows without one, and not aggregated for holds.
+async function historyForScores(db, officeId, asOf) {
+  return db.query(`SELECT t.transaction_id, t.tracking_no, t.service_id, t.service_name, t.office_id, t.service_classification,
+    t.standard_duration_days, t.standard_duration_hours, t.standard_duration_minutes, t.started_at, t.ended_at, t.status,
+    t.elapsed_working_minutes, t.variance_minutes, t.is_compliant, t.held_minutes, t.hold_started_at, t.started_by,
+    COALESCE(t.ended_at, events.closed_at) AS closed_at, '[]'::jsonb AS hold_events
+    FROM transactions t
+    LEFT JOIN LATERAL (
+      SELECT max(created_at) AS closed_at
+      FROM analytics_outbox
+      WHERE t.ended_at IS NULL AND transaction_id = t.transaction_id AND created_at <= $2
+        AND event_type IN ('TRANSACTION_CANCELLED','TRANSACTION_CANCELED','TRANSACTION_AUTO_CLOSED')
+    ) events ON true
+    WHERE ($1::uuid IS NULL OR t.office_id = $1) AND t.started_at <= $2
+    ORDER BY t.transaction_id`, [officeId, asOf]);
+}
+
 async function history(db, officeId, asOf) {
   return db.query(`SELECT t.transaction_id, t.tracking_no, t.service_id, t.service_name, t.office_id, t.service_classification,
     t.standard_duration_days, t.standard_duration_hours, t.standard_duration_minutes, t.started_at, t.ended_at, t.status,
@@ -183,7 +201,7 @@ export async function readLateRisk(db, officeId, user, { now = new Date(), timin
   if (cache?.run_id === runId && cache.payload.model.method === status.method && now.getTime() - instant(cache.scored_at) < CACHE_TTL) {
     return present(cache.payload, cache.scored_at, false);
   }
-  const rows = await history(db, officeId, now);
+  const rows = await historyForScores(db, officeId, now);
   const jobs = rows.filter(isOpen).map((row) => ({ row, input: { ...timingInput(row, now), heldMinutes: row.held_minutes,
     holdStarted: row.hold_started_at ? iso(row.hold_started_at) : null } }));
   let measured;

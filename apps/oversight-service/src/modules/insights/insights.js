@@ -57,29 +57,55 @@ async function loadRows(db, { officeId, from, to }) {
   ));
 }
 
-async function loadTrendRows(db, { officeId, from, to }) {
+/**
+ * The on-time figures behind the six-month trend and the compliance heatmap, counted by the database instead of pulling every row
+ * of the six months into Node: one line per office and Manila month with the counts computeKpis would reach (same rules: a
+ * completed row with a recordable outcome counts by the Manila month of ended_at; an auto-closed row not marked on time counts as
+ * late by the Manila month of started_at; any row started in the window puts its office on the heatmap).
+ */
+async function loadTrendCounts(db, { officeId, from, to }) {
   return rowsOf(await db.query(
-    `SELECT started_at, ended_at, office_id, service_id, status, outcome, is_compliant, variance_minutes, elapsed_working_minutes,
-            is_backdated, started_outside_hours, registry_status, registry_miss_reason, started_by_user_id, ended_by_user_id, queue_wait_minutes
-       FROM analytics_transactions
-      WHERE ((started_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND started_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila'))
-          OR (status = 'COMPLETED' AND ended_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND ended_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila')))
-        AND ($3::uuid IS NULL OR office_id = $3::uuid)
-      ORDER BY office_id, started_at, transaction_id`,
+    `SELECT office_id, month, sum(on_time)::int AS on_time, sum(late)::int AS late, sum(late_auto)::int AS late_auto
+       FROM (
+         SELECT office_id, to_char((started_at AT TIME ZONE 'Asia/Manila')::date, 'YYYY-MM') AS month,
+                0 AS on_time, 0 AS late,
+                CASE WHEN status = 'AUTO_CLOSED' AND is_compliant IS DISTINCT FROM true THEN 1 ELSE 0 END AS late_auto
+           FROM analytics_transactions
+          WHERE started_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND started_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila')
+            AND ($3::uuid IS NULL OR office_id = $3::uuid)
+         UNION ALL
+         SELECT office_id, to_char((ended_at AT TIME ZONE 'Asia/Manila')::date, 'YYYY-MM') AS month,
+                CASE WHEN is_compliant IS TRUE THEN 1 ELSE 0 END, CASE WHEN is_compliant IS FALSE THEN 1 ELSE 0 END, 0
+           FROM analytics_transactions
+          WHERE status = 'COMPLETED' AND ended_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND ended_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila')
+            AND (outcome IS NULL OR outcome IN ('GRANTED', 'DISAPPROVED'))
+            AND ($3::uuid IS NULL OR office_id = $3::uuid)
+       ) events
+      GROUP BY office_id, month`,
     [from, to, officeId],
   ));
 }
 
-function buildMonthlySeries(trendRows, months, { officeId, now }) {
+const oneDecimal = (value) => Math.round(value * 10) / 10;
+
+function buildMonthlySeries(trendCounts, months, { officeId }) {
   const officeIds = new Set(officeId ? [officeId] : []);
+  const perMonth = new Map(months.map((m) => [m.key, { on_time: 0, late_total: 0, byOffice: new Map() }]));
+  for (const row of trendCounts) {
+    const bucket = perMonth.get(row.month);
+    if (!bucket) continue;
+    officeIds.add(row.office_id);
+    const lateTotal = row.late + row.late_auto;
+    bucket.on_time += row.on_time;
+    bucket.late_total += lateTotal;
+    bucket.byOffice.set(row.office_id, { on_time: row.on_time, late_total: lateTotal });
+  }
+  // On-time rate = on time / (on time + late), one decimal; null when the divisor is 0 (the same rule as the KPI module).
+  const rateOf = ({ on_time: onTime, late_total: lateTotal }) => (onTime + lateTotal > 0 ? oneDecimal((onTime / (onTime + lateTotal)) * 100) : null);
   const monthData = months.map((m) => {
-    const kpi = computeKpis(trendRows, { officeId: officeId ?? undefined, from: m.from, to: m.to, groupBy: 'office', now });
-    const byOffice = new Map();
-    for (const g of kpi.groups) {
-      officeIds.add(g.office_id);
-      byOffice.set(g.office_id, g.results.on_time_rate);
-    }
-    return { key: m.key, label: m.label, rate: kpi.totals.results.on_time_rate, byOffice };
+    const bucket = perMonth.get(m.key);
+    const byOffice = new Map([...bucket.byOffice].map(([id, counts]) => [id, rateOf(counts)]));
+    return { key: m.key, label: m.label, rate: rateOf(bucket), byOffice };
   });
   return {
     trend: monthData.map((m) => ({ period: m.key, label: m.label, value: m.rate })),
@@ -145,9 +171,9 @@ export async function getInsights(db, actor, query, now = new Date()) {
   const period = resolvePeriod(query, now);
   const prev = previousPeriod(period);
   const months = recentMonths(now, 6);
-  const [rows, trendRows] = await Promise.all([
+  const [rows, trendCounts] = await Promise.all([
     loadRows(db, { officeId, from: prev.from, to: period.to }),
-    loadTrendRows(db, { officeId, from: months[0].from, to: months.at(-1).to }),
+    loadTrendCounts(db, { officeId, from: months[0].from, to: months.at(-1).to }),
   ]);
   const opts = { officeId: officeId ?? undefined, now };
   const current = computeKpis(rows, { ...opts, from: period.from, to: period.to, groupBy: 'office' });
@@ -156,7 +182,7 @@ export async function getInsights(db, actor, query, now = new Date()) {
   const today = toManilaDate(now);
   const periodRows = rows.filter((r) => (r.started_at && inRange(toManilaDate(r.started_at), period.from, period.to)) || r.status === 'IN_PROGRESS' || r.status === 'ON_HOLD' || (r.ended_at && inRange(toManilaDate(r.ended_at), period.from, period.to)));
   const heatmap = buildHeatmap(periodRows, period);
-  const { trend, compliance_heatmap } = buildMonthlySeries(trendRows, months, { officeId, now });
+  const { trend, compliance_heatmap } = buildMonthlySeries(trendCounts, months, { officeId });
   const rawCharter = charterCheck(completedIn(periodRows, period));
   const rowById = new Map(periodRows.map((r) => [r.transaction_id, r]));
   const charter = {

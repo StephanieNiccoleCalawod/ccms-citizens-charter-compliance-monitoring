@@ -46,6 +46,7 @@ export function manilaParts(value) {
 const pad = (n, width = 2) => String(n).padStart(width, '0');
 const FAST_FROM_MS = Date.UTC(2000, 0, 1);
 const FAST_TO_MS = Date.UTC(2100, 0, 1);
+const MANILA_DAY_TEXT = new Map();
 
 /** 'YYYY-MM-DD' calendar date in Manila. */
 export function toManilaDate(value) {
@@ -53,7 +54,15 @@ export function toManilaDate(value) {
   const ms = date.getTime();
   // Fast path for current dates: Manila is a fixed UTC+08:00 with no daylight saving, so its calendar date is the UTC date of
   // the instant shifted by 8 hours. Anything outside 2000-2100 takes the general path below, exactly as before.
-  if (ms >= FAST_FROM_MS && ms < FAST_TO_MS) return new Date(ms + MANILA_OFFSET_HOURS * 3_600_000).toISOString().slice(0, 10);
+  if (ms >= FAST_FROM_MS && ms < FAST_TO_MS) {
+    const day = Math.floor((ms + MANILA_OFFSET_HOURS * 3_600_000) / 86_400_000);
+    let text = MANILA_DAY_TEXT.get(day); // at most one entry per calendar day in 2000-2100
+    if (text === undefined) {
+      text = new Date(day * 86_400_000).toISOString().slice(0, 10);
+      MANILA_DAY_TEXT.set(day, text);
+    }
+    return text;
+  }
   const p = manilaParts(date);
   return `${pad(p.year, 4)}-${pad(p.month)}-${pad(p.day)}`;
 }

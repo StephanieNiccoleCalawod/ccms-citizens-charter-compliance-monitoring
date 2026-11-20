@@ -21,6 +21,7 @@
 import { manilaDate, addCalendarDays } from './calendar-client.js';
 
 const HISTORY_SCAN_DAYS = 90; // scan at most 90 calendar days back to find working days
+const HISTORY_ROUND_DAYS = 45; // calendar days asked about at once; 45 days hold well over 30 working days
 
 /**
  * Query the transactions table for daily counts in a calendar range.
@@ -66,12 +67,20 @@ export async function buildHistorySeries(dataSource, calendarClient, { officeId,
   const dailyCounts = await queryDailyCounts(dataSource, { officeId, serviceId, fromDate, toDate: today });
 
   // Walk calendar days newest-first to find working days within the scan window
+  // The days are asked about in rounds, every day of a round at once: one question after another used to cost one round trip
+  // to Core per day (about 40 in a row). The answers are read newest-first exactly as before, so the same days are chosen, and
+  // a failed answer stops the walk only if it is reached before enough working days were found.
   const workingDays = [];
-  for (let i = 0; i < HISTORY_SCAN_DAYS; i++) {
-    const d = addCalendarDays(today, -(i + 1)); // start from yesterday (do not include today — it is incomplete)
-    const isWD = await calendarClient.isWorkingDay(d, officeId);
-    if (isWD) workingDays.push(d);
-    if (workingDays.length >= maxWorkingDays) break;
+  for (let first = 0; first < HISTORY_SCAN_DAYS && workingDays.length < maxWorkingDays; first += HISTORY_ROUND_DAYS) {
+    const days = [];
+    for (let i = first; i < Math.min(first + HISTORY_ROUND_DAYS, HISTORY_SCAN_DAYS); i++) {
+      days.push(addCalendarDays(today, -(i + 1))); // start from yesterday (do not include today — it is incomplete)
+    }
+    const answers = await Promise.allSettled(days.map((d) => calendarClient.isWorkingDay(d, officeId)));
+    for (let k = 0; k < days.length && workingDays.length < maxWorkingDays; k++) {
+      if (answers[k].status === 'rejected') throw answers[k].reason;
+      if (answers[k].value) workingDays.push(days[k]);
+    }
   }
 
   // Sort ascending (oldest first)
