@@ -70,9 +70,15 @@ export default function LandingHero() {
             </button>
           </form>
 
-          <Link href={DIRECTORY_PATH} className="mt-5 inline-flex items-center gap-3 rounded-xl bg-[#FFDF00] px-6 py-3.5 text-base font-bold text-[#2B0A0D] transition hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#570D12]">
-            Browse all services <span aria-hidden="true">&rarr;</span>
-          </Link>
+          <div className="mt-5 flex flex-wrap items-center gap-3 sm:gap-4" data-testid="hero-actions">
+            <Link href={DIRECTORY_PATH} className="inline-flex items-center gap-3 rounded-xl bg-[#FFDF00] px-6 py-3.5 text-base font-bold text-[#2B0A0D] transition hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#570D12]">
+              Browse all services <span aria-hidden="true">&rarr;</span>
+            </Link>
+            {/* The 2px border is taken out of the padding, so this button is exactly as tall and as wide-padded as the one beside it. */}
+            <Link href="/complaint" data-testid="hero-file-complaint" className="inline-flex items-center rounded-xl border-2 border-white/85 px-[22px] py-3 text-base font-bold text-white transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFDF00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#570D12]">
+              File a Complaint
+            </Link>
+          </div>
           <p className="mt-5 max-w-md text-sm text-white/85">Every service shows its requirements, steps, and processing time.</p>
         </div>
       </main>

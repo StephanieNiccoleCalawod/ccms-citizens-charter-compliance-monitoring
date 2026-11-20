@@ -79,6 +79,12 @@ describe('the split-screen directory (source checks, not a browser)', () => {
     assert.ok(hero.includes('placeholder="Search by service or office name"') && hero.includes('Browse all services'));
     assert.ok(hero.includes('<em className="text-[#FFDF00]">what to bring</em>'));
     assert.ok(hero.includes('Every service shows its requirements, steps, and processing time.'));
+    // "File a Complaint" sits beside Browse all services and opens the existing public form (no login), not a new route.
+    const actions = hero.slice(hero.indexOf('data-testid="hero-actions"'));
+    assert.ok(actions.indexOf('href={DIRECTORY_PATH}') < actions.indexOf('href="/complaint"'), 'File a Complaint follows Browse all services in the same row');
+    assert.ok(actions.includes('File a Complaint') && hero.includes('flex flex-wrap items-center gap-3'));
+    const complaintPage = read('src/app/complaint/page.js');
+    assert.ok(complaintPage.includes('ComplaintForm') && !complaintPage.includes('AppShell'), '/complaint is the public form');
     assert.ok(read('src/app/directory/page.js').includes("useSearchParams().get('q')"));
     assert.ok(read('src/lib/ui/use-catalogue.js').includes('useCatalogue(initialSearch'));
     assert.ok(read('src/app/public/[id]/page.js').includes('router.push(DIRECTORY_PATH)'));
