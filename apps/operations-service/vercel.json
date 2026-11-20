@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/jobs/outbox",
-      "schedule": "0 1 * * *"
+      "schedule": "0 18 * * *"
     },
     {
       "path": "/api/jobs/compute-pending",
@@ -36,6 +36,10 @@
     {
       "path": "/api/jobs/receipt-storage-cleanup",
       "schedule": "40 1 * * *"
+    },
+    {
+      "path": "/api/jobs/analytics-outbox",
+      "schedule": "0 18 * * *"
     }
   ]
 }
