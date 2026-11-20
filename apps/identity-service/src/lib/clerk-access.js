@@ -38,6 +38,11 @@ export async function exchangeClerkSession(db, identity, { invitations = null } 
     link = await linkFromInvitation(db, identity, invitations.settings, invitations.api);
     if (link) kickOutbox();
   }
+  // S8-45 (CLERK_REQUIRE_INVITATION): someone CCCMS never invited or registered (for example a user of another system on the shared
+  // Clerk sign-in) is refused here, before any access request is stored. A failing lookup throws, so it never lets anyone in.
+  if (!link && config.clerkRequireInvitation && !(await isKnownToCccms(db, identity, { invitations: Boolean(invitations) }))) {
+    throw Errors.forbidden(NOT_INVITED_MESSAGE, 'NOT_INVITED');
+  }
   if (!link) {
     await db.query(
       `INSERT INTO clerk_access_requests (clerk_issuer, clerk_user_id, email) VALUES ($1, $2, $3)
@@ -470,4 +475,40 @@ async function linkFromInvitation(db, identity, invitations, api) {
     if (isUniqueViolation(err, 'account_clerk_links_subject_uq') || isUniqueViolation(err, 'account_clerk_links_pkey')) return null;
     throw err;
   }
+}
+
+export const NOT_INVITED_MESSAGE = 'This sign-in is not registered for CCCMS. Ask your CCCMS administrator for an invitation.';
+
+/**
+ * S8-45: is this Clerk person known to CCCMS? Yes when they already have a pending access request, or their email matches an open
+ * CCCMS invitation (only looked at when invitations are switched on), or their email matches an active CCCMS account that is not
+ * bound to anyone yet (the Super Admin created it for them). The email only decides whether a request may be recorded: it never
+ * grants access. Nothing in Clerk is read or changed.
+ */
+export async function isKnownToCccms(db, identity, { invitations = false } = {}) {
+  const [pending] = rowsOf(
+    await db.query('SELECT 1 FROM clerk_access_requests WHERE clerk_issuer = $1 AND clerk_user_id = $2 LIMIT 1', [identity.issuer, identity.subject]),
+  );
+  if (pending) return true;
+  const email = String(identity.email ?? '').trim().toLowerCase();
+  if (!email) return false;
+  if (invitations) {
+    const [invited] = rowsOf(
+      await db.query(
+        'SELECT 1 FROM clerk_invitations WHERE clerk_issuer = $1 AND lower(email) = $2 AND used_at IS NULL AND revoked_at IS NULL LIMIT 1',
+        [identity.issuer, email],
+      ),
+    );
+    if (invited) return true;
+  }
+  const [registered] = rowsOf(
+    await db.query(
+      `SELECT 1 FROM accounts a
+        WHERE lower(a.email) = $1 AND a.is_active = true
+          AND NOT EXISTS (SELECT 1 FROM account_clerk_links l WHERE l.account_id = a.account_id)
+        LIMIT 1`,
+      [email],
+    ),
+  );
+  return Boolean(registered);
 }

@@ -89,7 +89,7 @@ describe('read marks and outages', () => {
 });
 
 describe('bell source', () => {
-  const src = read('src/components/notifications/NotificationBell.js');
+  const src = read('src/components/notifications/NotificationBell.js') + read('src/components/notifications/NotificationPanel.js'); // the panel markup lives in its own file
   it('gives focus back to the bell on Escape and links the button to its panel', () => {
     assert.match(src, /e\.key === 'Escape'\) \{ setOpen\(false\); button\.current\?\.focus\(\)/);
     assert.match(src, /aria-controls=\{open \? 'notification-panel'/);
@@ -111,6 +111,6 @@ describe('how each kind looks', () => {
     assert.equal(look.icon, 'bell'); assert.equal(look.label, 'SOMETHING_NEW');
   });
   it('the bell draws each item with its kind style', () => {
-    assert.match(read('src/components/notifications/NotificationBell.js'), /kindStyle\(item\.kind\)/);
+    assert.match(read('src/components/notifications/NotificationPanel.js'), /kindStyle\(item\.kind\)/);
   });
 });
