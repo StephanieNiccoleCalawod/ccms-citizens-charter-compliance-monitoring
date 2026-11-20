@@ -15,6 +15,14 @@ export const config = {
   get refreshTokenDays() {
     return int('REFRESH_TOKEN_TTL_DAYS', 7);
   },
+  // S8-33 (off by default): when 'true', password sign-ins follow the per-role idle and absolute limits in session-policy.js.
+  get sessionPolicyEnabled() {
+    return process.env.SESSION_POLICY_ENABLED === 'true';
+  },
+  // S8-45 (off by default): when 'true', a Clerk person CCCMS does not know is refused with NOT_INVITED and no access request is stored.
+  get clerkRequireInvitation() {
+    return process.env.CLERK_REQUIRE_INVITATION === 'true';
+  },
   // Password reset link expiry is a setting.
   get resetLinkMinutes() {
     return int('PASSWORD_RESET_TTL_MINUTES', 60);
