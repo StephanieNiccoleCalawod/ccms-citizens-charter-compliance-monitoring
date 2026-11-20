@@ -128,6 +128,7 @@ export default function ReportsPage({ user }) {
   const manage = canManageReports(user.role);
   const [offices, setOffices] = useState([]);
   const [filters, setFilters] = useState(NO_FILTERS);
+  const [monthlyReportDate, setMonthlyReportDate] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [list, setList] = useState({ items: [], total: 0, loading: true, error: '' });
@@ -166,7 +167,11 @@ export default function ReportsPage({ user }) {
     if (filters.periodType === 'custom') { setError('Custom dates are not generated from this filter; choose Half-year, Monthly, Weekly or Annual.'); return; }
     setGenerating(true); setError('');
     try {
-      setReport(await generateReport(buildGenerateBody({ officeId, periodType: filters.periodType })));
+      setReport(await generateReport(buildGenerateBody({
+        officeId,
+        periodType: filters.periodType,
+        date: filters.periodType === 'monthly' ? monthlyReportDate : undefined,
+      })));
     } catch (failure) {
       setError(failureMessage(failure));
     } finally {
@@ -193,8 +198,8 @@ export default function ReportsPage({ user }) {
       <FilterBar
         label="Report filters"
         data-testid="report-filters"
-        dirty={Boolean(filters.officeId || filters.periodType || filters.status)}
-        onClear={() => { setFilters(NO_FILTERS); setPage(1); }}
+        dirty={Boolean(filters.officeId || filters.periodType || filters.status || monthlyReportDate)}
+        onClear={() => { setFilters(NO_FILTERS); setMonthlyReportDate(''); setPage(1); }}
         actions={manage ? (
           <Button className="w-full sm:w-auto" onClick={generate} loading={generating} loadingLabel="Generating…" data-testid="report-generate">
             Generate
@@ -213,6 +218,14 @@ export default function ReportsPage({ user }) {
             <option value="">All periods</option>
             {PERIOD_TYPES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select></div>
+        {manage && filters.periodType === 'monthly' ? (
+          <div className="w-full sm:w-56">
+            <label htmlFor="rf-monthly-date" className="label">Date in report month (optional)</label>
+            <input id="rf-monthly-date" type="date" className="input" value={monthlyReportDate}
+              onChange={(event) => setMonthlyReportDate(event.target.value)} aria-describedby="rf-monthly-date-hint" />
+            <p id="rf-monthly-date-hint" className="mt-1 text-xs text-slate-500">Leave blank to use the current month.</p>
+          </div>
+        ) : null}
         {manage ? (
           <div className="w-full sm:w-40"><label htmlFor="rf-status" className="label">Status</label>
             <select id="rf-status" className="input select-chevron" value={filters.status} onChange={setFilter('status')}>

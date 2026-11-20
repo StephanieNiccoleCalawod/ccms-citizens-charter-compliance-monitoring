@@ -40,8 +40,10 @@ describe('reports calls', () => {
 });
 
 describe('reports rules', () => {
-  it('half-year is the default; dates are only sent for a custom period', () => {
+  it('defaults to half-year and sends the selected date for a monthly draft', () => {
     assert.deepEqual(buildGenerateBody({ officeId: 'o' }), { officeId: 'o', periodType: 'half_year' });
+    assert.deepEqual(buildGenerateBody({ officeId: 'o', periodType: 'monthly', date: '' }), { officeId: 'o', periodType: 'monthly' });
+    assert.deepEqual(buildGenerateBody({ officeId: 'o', periodType: 'monthly', date: '2026-10-01' }), { officeId: 'o', periodType: 'monthly', date: '2026-10-01' });
     assert.deepEqual(buildGenerateBody({ officeId: 'o', periodType: 'custom', from: '2026-01-01', to: '2026-02-01', date: 'x' }), { officeId: 'o', periodType: 'custom', from: '2026-01-01', to: '2026-02-01' });
   });
   it('asks for an office, and for ordered dates on a custom period', () => {
