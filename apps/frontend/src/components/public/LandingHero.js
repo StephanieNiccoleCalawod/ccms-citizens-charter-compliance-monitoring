@@ -39,7 +39,7 @@ export default function LandingHero() {
         {/* The pylon is at 65% across the photo. From the tablet size up the photo is 129% as wide as the screen (the extra is cropped on the right), which puts the pylon about 84% across, clear of the text. */}
         <div className="absolute inset-0 -z-10" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/Background.png" alt="" data-testid="hero-photo" className="h-full w-full object-cover object-[70%_50%] md:w-[129%] md:max-w-none md:object-[65%_25%]" />
+          <img src="/Background.jpg" alt="" data-testid="hero-photo" className="h-full w-full object-cover object-[70%_50%] md:w-[129%] md:max-w-none md:object-[65%_25%]" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#570D12]/85 via-[#570D12]/50 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-b from-[#570D12]/20 via-transparent to-[#570D12]/30" />
         </div>

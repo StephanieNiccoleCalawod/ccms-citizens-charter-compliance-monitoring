@@ -45,7 +45,7 @@ describe('Clerk-only production sign-in', () => {
     assert.ok(read('src/app/login/page.js').includes('AuthBrandPanel'), 'password page uses the shared panel');
     assert.ok(read('src/app/login/page.js').includes("from '../../components/auth/AuthBrandPanel.js'"));
     const panel = read('src/components/auth/AuthBrandPanel.js');
-    assert.match(panel, /src="\/Background\.png"/);
+    assert.match(panel, /src="\/Background\.jpg"/);
     assert.ok(!panel.includes("'use client'"), 'the panel is presentational, no client hooks');
   });
 });

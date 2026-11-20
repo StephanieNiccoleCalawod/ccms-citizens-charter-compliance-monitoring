@@ -22,7 +22,7 @@ export default function AuthBrandPanel() {
         aria-hidden="true"
       >
         <Image
-          src="/Background.png"
+          src="/Background.jpg"
           alt=""
           width={1538}
           height={1022}

@@ -91,8 +91,14 @@ export async function listTransactions(dataSource, user, params) {
 
   const [{ total }] = await dataSource.query(`SELECT count(*)::int AS total FROM transactions t${whereSql}`, values);
   values.push(pageSize, (page - 1) * pageSize);
+  // Page first, then enrich: the counter join and the two per-row lookups run for the page's rows only, not for every
+  // row that matches the filter before it is sorted and cut (same columns, same order, same rows).
+  const order = `t.started_at ${dir}, t.transaction_id ${dir}`;
   const rows = await dataSource.query(
-    `${TRANSACTION_SELECT}${whereSql} ORDER BY t.started_at ${dir}, t.transaction_id ${dir} LIMIT $${values.length - 1} OFFSET $${values.length}`,
+    TRANSACTION_SELECT.replace(
+      'FROM transactions t',
+      `FROM (SELECT t.* FROM transactions t${whereSql} ORDER BY ${order} LIMIT $${values.length - 1} OFFSET $${values.length}) t`,
+    ) + ` ORDER BY ${order}`,
     values,
   );
   return { items: rows.map((row) => transactionDtoFor(user, row, { detail: false })), page, page_size: pageSize, total };

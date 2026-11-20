@@ -223,7 +223,7 @@
   background-color: var(--color-maroon-950);
   background-image:
     linear-gradient(180deg, rgb(64 9 9 / 0.82) 0%, rgb(64 9 9 / 0.9) 100%),
-    url('/Background.png');
+    url('/Background.jpg');
   background-size: cover;
   background-position: center;
 }
