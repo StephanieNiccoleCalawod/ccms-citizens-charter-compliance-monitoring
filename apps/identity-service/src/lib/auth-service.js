@@ -5,6 +5,7 @@ import { toAccountDto } from './accounts.js';
 import { hashToken, newOpaqueToken, signAccessToken } from './tokens.js';
 import { verifyAgainstDummy, verifyPassword } from './passwords.js';
 import { recordLogin } from './me.js';
+import { issueLimitedSession, refreshWithLimits } from './session-limits.js';
 
 const BAD_CREDENTIALS = 'Incorrect email or password';
 
@@ -47,6 +48,7 @@ export async function login(dataSource, { email, password }) {
   const passwordOk = await verifyPassword(password, account.passwordHash);
   if (!passwordOk || !account.isActive) throw fail();
   await recordLogin(dataSource, account.accountId); // CC056: shown as "last sign-in" on My account
+  if (config.sessionPolicyEnabled) return issueLimitedSession(dataSource, account); // S8-33
   return issueSession(dataSource, account);
 }
 
@@ -54,6 +56,7 @@ export async function login(dataSource, { email, password }) {
 export async function refresh(dataSource, refreshToken) {
   const fail = () => Errors.unauthorized('Your session has expired. Please sign in again.', 'INVALID_REFRESH_TOKEN');
   if (!refreshToken) throw fail();
+  if (config.sessionPolicyEnabled) return refreshWithLimits(dataSource, refreshToken); // S8-33
   return dataSource.transaction(async (manager) => {
     const rows = await manager.query(
       `SELECT a.account_id FROM refresh_tokens r JOIN accounts a ON a.account_id = r.account_id
