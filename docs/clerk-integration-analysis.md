@@ -20,6 +20,8 @@
 >
 > With the switches off, CCMS behaves exactly as before.
 >
+> **Latest decision (2026-11-21): Clerk is the ONLY production sign-in.** Read **Section 21** (decision, Phase 0 findings, recovery procedure, phased plan). Sections 18-20 describe how Clerk sign-in was built; Section 21 describes how the old password sign-in is retired.
+>
 > **Configuration checker:** `node scripts/clerk-config-check.mjs <config.json>` (Section 15.2.3).
 
 **Original scope (Sections 1-17):** analysis only. Nothing was changed while they were written.
@@ -1118,3 +1120,130 @@ These came from upstream changes; the application code was right and the tests w
 - 0 lint errors in all workspaces; Identity and frontend build.
 - A mutation of Flow B's verified-email check is caught by its test.
 - **TO VERIFY with a real key:** the Clerk Backend API user-search response fields.
+
+---
+
+## 21. Decision: Clerk is the only production sign-in (2026-11-21)
+
+*Status: **Phase 0 in progress.** Nothing in production has been changed. Nothing in this section has been committed or deployed.*
+
+### 21.1 Decision (final)
+1. **Clerk is the sole production sign-in.** Production uses `NEXT_PUBLIC_AUTH_PROVIDER=clerk`. Nobody should see two sign-in options.
+2. `/login` redirects to `/login/clerk`, and every sign-in link in the app leads to the Clerk flow.
+3. **Kept unchanged:** Identity's Clerk exchange, CCMS JWT signing, JWKS, and all CCMS authorization (roles, office scope, permission switches). Clerk proves who a person is; CCMS still decides what they may do.
+4. **Local development and QA keep `legacy`/`dual`** for now, so existing tests and workflows do not break. Only production is Clerk-only. Tests must prove the Clerk-only behavior.
+5. **No undocumented database-level bypass.** Emergency recovery goes through the authorized Clerk administrators (21.5).
+6. **Password endpoints and columns stay for now** (`/auth/login`, password reset, `password_hash`, refresh tokens). Removing them is Phase 3, after several weeks of stable Clerk-only operation and a separate approval.
+
+### 21.2 What the exchange design means for "removing the old login"
+The Clerk path (18.2) has **no refresh cookie** and Identity still signs the CCMS access token after verifying the Clerk token. So the old login has three separate parts, retired at different times:
+
+| Part | Retired in | Notes |
+|---|---|---|
+| Password form and its links in the browser | Phase 1 (hidden by redirect) and Phase 2 (deleted) | Reversible until Phase 2 is merged |
+| Identity password routes and data (`/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/password-reset/confirm`, `/me/password`, `accounts/{id}/reset-password`, `password_hash`, `refresh_tokens`, `password_reset_tokens`) | Phase 3 only | Irreversible. New migration, never an edit of an old one |
+| Token signing (`tokens.js`), JWKS, the exchange, `account_clerk_links` | **Never** (still required) | The exchange issues the CCMS token |
+
+**Interim risk (Phases 1-2):** the password routes still answer if called directly, even though no page links to them. Rate limiting still applies. This is accepted until Phase 3; it is also what makes the fallback to `dual` possible (21.5).
+
+### 21.3 Phase 0 findings (as of 2026-11-21)
+
+**Verified read-only against production** (loaded the public pages and endpoints; no sign-in attempted, nothing submitted):
+
+| # | Finding | Evidence |
+|---|---|---|
+| F1 | Production frontend is in **`dual`** mode | `/login` shows the password form and the "Sign in with your PUP account" bar; `/login/clerk` shows "Still using your CCMS password?", which the code renders only in `dual` |
+| F2 | Production **Identity has Clerk sign-in on** | `POST /api/identity/auth/clerk/exchange` with no token answers `401 INVALID_CLERK_TOKEN` (it answers 404 while `CLERK_AUTH_ENABLED` is off). JWKS answers 200 |
+| F3 | The Clerk instance is the **production** instance "PUP QC AAIP" | Public environment of `clerk.pupqc.tech`: `instance_environment_type = production` |
+| F4 | **Google sign-in is enabled and shown** | `oauth_google` enabled and authenticatable; the form shows "Continue with Google", then email address or username and password |
+| F5 | Sign-up is `restricted` (invite-only); no second factor required; **single session mode is on** | Same public environment |
+
+These settings belong to the instance owner (R7) and can change without CCMS being told. Re-check before and after any production change.
+
+**Gate results (inventory run 2026-11-21 against `ccms_identity`, read-only). Phase 1 is blocked until each is closed:**
+
+| # | Gate | Result 2026-11-21 | Status |
+|---|---|---|---|
+| G1 | Every **active** account is linked to Clerk; list any `password_only` or `no_sign_in` account | **16 of 19 active accounts are `password_only`.** 13 are on `cccms.test` (seed data), 1 Super Admin on `ccms.local`, 1 executive and 1 office staff on `gmail.com` | **FAIL — triage needed** |
+| G2 | At least **two active Super Admins** are linked | **2** linked (`029b4417`, `f343c4f3`), both `clerk_only` | **PASS** |
+| G2b | Those two Super Admins have **actually signed in through Clerk** (a link is not proof) | Both are `clerk_only` (no password), so their `last_login_at` of 2026-11-20 **can only be a Clerk sign-in**. Strong evidence; owner still to confirm it was really them | **PASS (evidence); confirm identity** |
+| G3 | All links are bound to the production issuer `https://clerk.pupqc.tech` | All **3** links on `https://clerk.pupqc.tech`; none on the dev instance | **PASS** |
+| G4 | Accounts on test or example email domains are reviewed (they cannot be real Clerk users; D8-03) | **13** active accounts on `cccms.test` + 1 Super Admin on `ccms.local`. Clearly seed/demo data living in the production database | **REVIEW — PM decision** |
+| G5 | The Clerk instance owner and an **emergency contact** are confirmed (21.5 table) | Not confirmed; 21.5 table still `TO FILL` | **Open** |
+| G6 | Who holds the Vercel access to flip the setting and redeploy without build cache | Not recorded | **Open** |
+
+**Also seen:** one pending Clerk sign-in awaiting approval and two open invitations — onboarding is in progress. One office head is `clerk_and_password` (linked; already works through Clerk). The third Super Admin `a04cc9a0` is `password_only` on `ccms.local` (seed or break-glass; last sign-in 2026-11-20) and is **not** linked to Clerk.
+
+**Triage before Phase 1 (map each account id to a person in Accounts → the model cannot see emails or names):**
+
+| account_id | role | domain | last sign-in | likely | decision needed |
+|---|---|---|---|---|---|
+| `30a97065-cfb1-41be-be82-505ab924a1fc` | executive | gmail.com | 2026-11-19 | **real, active** | link to Clerk, or confirm disposable — would be locked out |
+| `f2bda7fa-653e-4bb5-8e9d-5eac2b7e13bf` | office staff | gmail.com | never | real? | link, deactivate, or confirm test |
+| `a04cc9a0-a016-478f-91af-2e86f202242c` | super_admin | ccms.local | 2026-11-20 | seed / break-glass | decide: documented break-glass (keep, but it cannot be a Clerk user) or deactivate |
+| 13 accounts on `cccms.test` | office head / staff | cccms.test | mostly never | **seed data** | deactivate in production, or accept they lose sign-in at cutover |
+
+None of these block sign-in today (production is `dual`). They block the switch to `clerk`, because every `password_only` account loses access the moment the password form is gone.
+
+**PM decision (2026-11-21):** the `password_only` accounts are mock/seed data and it is acceptable for them to lose password sign-in at cutover; they are **not** deleted, only left behind by the switch. Real staff are being brought in through the working Clerk invitation flow and linked. The two linked Super Admins are confirmed working in Clerk, and the PM holds the Vercel access to flip the flag (G6). So G1/G4 are **accepted, not blocking**; G5 (owner emergency contact in 21.5) is still to be filled before Phase 3.
+
+**How to run G1-G4 (read-only).** From PowerShell: `C:\Users\villa\ccms-dbcheck\clerk-inventory-readonly.ps1`. It asks for the direct (non-pooled) connection string of `ccms_identity` with hidden input and never prints it. It runs the repository's own `inventoryAccounts()` inside `BEGIN READ ONLY` (the database refuses writes) and rolls back. The output contains no emails and no names. `npm run clerk:inventory` is not used for production because it reads `.env.local` (the local database) and does not force a read-only transaction. `clerk:cutover --apply` is **not** part of Phases 0-2: it kills an account's password and cannot be undone.
+
+### 21.4 Google sign-in must keep working
+- Google is enabled in the owner's Clerk instance (F4). The sign-in page only renders Clerk's `<SignIn/>`, so Google appears automatically.
+- **Rules for the Phase 2 redesign:** do not hide social buttons (no `appearance` that hides `socialButtons`), keep the catch-all route `login/clerk/[[...rest]]` (it also serves Clerk's `sso-callback` step), keep `routing="path"` and the redirect URL `https://cccms.pupqc.tech/login/clerk` registered by the owner (D2), and do not change the sign-in path.
+- A person who signs in with Google is the same Clerk user, so the CCMS binding (issuer + `sub`, R3) is unaffected. Email never grants access.
+- Phase 2 test: before and after, the page must show "Continue with Google" (screenshot kept as evidence).
+- The heading "Sign in to PUP QC AAIP" comes from the shared instance (R7). Changing it needs the owner or a client-side `localization` setting; this is optional and cosmetic.
+
+### 21.5 Emergency recovery and outage procedure
+**Principles.** CCMS holds no Clerk secret key (D1 is undecided) and, by playbook R4 and R7, never creates, resets, bans or edits a Clerk user or changes instance settings. So **only the instance owner's Clerk administrators can restore a Clerk sign-in.** CCMS can bind, unbind or deactivate accounts in its own database through a signed-in Super Admin. No database-level authentication bypass exists or is to be built. If one is ever proposed it needs its own written approval.
+
+**Contacts (to be filled in and confirmed; nothing here is assumed):**
+
+| Role | Name | How to reach | Confirmed on |
+|---|---|---|---|
+| Clerk instance owner team (FMS team, per 18.1) | TO FILL | TO FILL | not confirmed |
+| Clerk administrator on call | TO FILL | TO FILL | not confirmed |
+| CCMS Super Admin 1 | TO FILL | | |
+| CCMS Super Admin 2 | TO FILL | | |
+| Person with Vercel access (frontend) | TO FILL | | |
+| Person with Neon access (`ccms_identity`) | TO FILL | | |
+
+| Situation | What users see | Action |
+|---|---|---|
+| **Clerk is down or unreachable** (Clerk script or Frontend API fails) | Sign-in page does not load. People already signed in keep working until their 15-minute CCMS token ends, then cannot renew (no refresh cookie) | 1. Check Clerk status and ask the owner team. 2. If it will last, **fall back to `dual`** (21.6, rollback): set `NEXT_PUBLIC_AUTH_PROVIDER=dual`, redeploy without build cache. 3. Only accounts that still have a password can use the fallback. An account created with the password left blank has no usable password (`clerk$` marker, section 20). Whether a Super Admin reset link works for such an account has **not been tested**; test it before relying on it, and use the inventory (`clerk_only` accounts) to know who this affects |
+| **Owner rotates the signing key or changes instance settings without notice** | Everyone gets "Your sign-in could not be verified" (exchange answers 401, or 503 if the key set cannot be fetched) | Treat as an outage. Ask the owner what changed (key, issuer, allowed subdomain, redirect URL). Update `CLERK_JWT_KEY` in Vercel (Identity supports several keys for rotation). Use the `dual` fallback meanwhile |
+| **One Super Admin cannot sign in** (lost credentials, Google account problem) | That person only | The other Super Admin confirms the issue. The owner's Clerk administrator resets that person's Clerk credentials. CCMS does not touch Clerk. Google users can use the email-and-password route in Clerk, or the reverse |
+| **A person is signed in to Clerk but sees "No access yet"** | The pending page | Normal approval flow: a Super Admin binds the person under Accounts > Clerk sign-in access |
+| **All Super Admins are locked out** (worst case) | Nobody can approve or bind | 1. The owner's Clerk administrator restores sign-in for one already-linked Super Admin. 2. If that is not possible and passwords still exist (before Phase 3), use the `dual` fallback. 3. **After Phase 3 only step 1 remains**, which is why Phase 3 must not start before two Super Admins are proven and this table is confirmed |
+| **A leaver or a wrong binding** | | Deactivate the CCMS account (never ban in Clerk, R4) or remove the binding |
+
+**Lockout rules.** Never switch production to `clerk` while fewer than two active Super Admins are proven to sign in through Clerk (G2, G2b). Never apply `clerk:cutover` to a Super Admin unless two others remain linked (the tool enforces this).
+
+### 21.6 Phased plan
+
+**Phase 0 (now): read-only verification and documentation.** Close G1-G6. Record the results in 21.3. No production change, no deployment, no commit to `codebase-for-deployment`.
+
+**Phase 1: production switches to Clerk-only.** Start only after G1-G6 are closed and the PM approves in writing.
+
+> **Implemented 2026-11-21 on branch `feat/cccms-clerk-only-login` (not pushed, not deployed, production untouched):**
+> - `next.config.js` `redirects()` sends `/login` → `/login/clerk` with a 307 (never cached), active only when `NEXT_PUBLIC_AUTH_PROVIDER=clerk` and a publishable key is set. The redirect is the single authoritative switch, so every existing `/login` link reaches the Clerk flow without editing each link. In legacy/dual (local, QA) there is no redirect and the password page keeps working.
+> - The Clerk page `/login/clerk` now wears the shared campus-photo sign-in design (new `components/auth/AuthBrandPanel.js`, reused by both pages). Clerk's `<SignIn/>` is rendered at its default appearance, so **"Continue with Google" and every method the owner enables keep showing**; `routing="path"` and the `sso-callback` catch-all are preserved. The dual-mode "Sign in with email and password" escape hatch shows only in local/QA.
+> - The password page source stays (local/QA + rollback). Verified: frontend unit tests 1126/1126, 0 lint errors, and a browser check of `/login/clerk` (desktop and mobile) showing the photo layout and the Google button. Production flip (`NEXT_PUBLIC_AUTH_PROVIDER=clerk` in Vercel, redeploy without build cache) is the PM's to do after the real accounts are linked.
+- *Code (small, behind the flag, so local and QA are unchanged):*
+  1. `next.config.js` gets a `redirects()` entry `/login` to `/login/clerk`, **non-permanent (307)** so a rollback is never cached, active only when `NEXT_PUBLIC_AUTH_PROVIDER=clerk` and a publishable key is set (the same rule as `clerkEnabled()`). Query strings pass through. (Next 16.4.5; checked against the bundled documentation.)
+  2. Every `href="/login"` and `signInPath` literal (landing hero, public header, app shell, reset-password page, `afterSignOutUrl`, sign-out navigation) uses `signInPath()`, which is `/login/clerk` in `clerk` mode and `/login` otherwise.
+  3. In `clerk` mode the password form must not be reachable: a regression test fails if it renders.
+- *Tests:* provider and redirect behavior in `clerk` mode; no hard-coded `/login` link outside the allowed files; `session.js` tries Clerk only; `dual` and `legacy` unchanged. Run the Clerk-mode browser test locally against the **development** Clerk instance (the production origin is the only authorized party on the production instance, so preview deployments cannot complete a production sign-in).
+- *Config (production only, separate approval):* Vercel frontend `NEXT_PUBLIC_AUTH_PROVIDER=clerk`, redeploy **without build cache** (see the 2026-11-17 record). Identity settings unchanged.
+- *Verify after the switch:* `/login` lands on `/login/clerk`; the page shows "Continue with Google"; both Super Admins sign in; exchange still answers; a pending person still sees "No access yet".
+- *Rollback (minutes):* `NEXT_PUBLIC_AUTH_PROVIDER=dual`, redeploy without build cache. Nothing in the database changes in Phase 1, so password sign-in is intact.
+
+**Phase 2: remove the password UI.** Delete the password form, "Forgot your password", the `ClerkSignInOption` bar, the "Still using your CCMS password?" link, the `/reset-password` page and the password parts of Accounts. Move the existing sign-in design (campus photo, headline, maroon palette) onto the Clerk page around the unmodified `<SignIn/>` (21.4). `legacy`/`dual` handling stays only where local and QA need it. Update tests.
+
+**Phase 3: backend and database cleanup. NOT NOW.** Only after several weeks of stable Clerk-only production and a separate approval. Needs: a Neon backup branch; a replacement for the `bootstrap:admin` script (account without a password, linked to Clerk); this recovery table confirmed; a new migration. Never edit old migrations.
+
+### 21.7 Phase 0 evidence and tools
+- Public production checks and screenshots: run on 2026-11-21; nothing was submitted.
+- Read-only database check: `C:\Users\villa\ccms-dbcheck\clerk-inventory-readonly.mjs` and `.ps1` (outside the repository, no secrets inside). Trial run done against the **local** database only (read-only transaction confirmed); its output was local development data and is **not** a production result.

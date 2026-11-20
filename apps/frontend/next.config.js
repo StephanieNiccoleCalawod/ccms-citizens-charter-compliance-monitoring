@@ -22,6 +22,17 @@ const nextConfig = {
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${gatewayUrl}/api/:path*` }];
   },
+  // Clerk-only production: when the build is set to clerk mode (NEXT_PUBLIC_AUTH_PROVIDER=clerk with a publishable key),
+  // the old password page at /login is not shown — every hit on /login is sent to the Clerk sign-in. This is the single
+  // authoritative switch, so every existing link to /login reaches the Clerk flow without each link having to know the mode.
+  // Non-permanent (307) on purpose: a rollback to dual must never be cached. In legacy/dual (local, QA) there is no redirect
+  // and /login keeps working. These are build-time NEXT_PUBLIC_* values, read the same way the client reads them.
+  async redirects() {
+    const provider = String(process.env.NEXT_PUBLIC_AUTH_PROVIDER ?? '').trim().toLowerCase();
+    const hasKey = /^pk_(test|live)_/.test(String(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '').trim());
+    if (provider !== 'clerk' || !hasKey) return [];
+    return [{ source: '/login', destination: '/login/clerk', permanent: false }];
+  },
 };
 
 export default nextConfig;
