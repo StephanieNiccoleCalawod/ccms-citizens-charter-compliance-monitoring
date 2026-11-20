@@ -12,7 +12,7 @@ import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 import RequestForecastChart from './RequestForecastChart.js';
 
-// CC038 — Estimated requests section. Embedded in DashboardAnalytics (or standalone).
+// CC038 — Expected request volume section. Embedded in DashboardAnalytics (or standalone).
 
 const n = (v) => (v == null ? '—' : Number(v).toLocaleString('en-PH'));
 
@@ -54,14 +54,14 @@ function AboutPanel({ run }) {
         About this forecast
       </summary>
       <div className="mt-2 space-y-1 rounded-xl border border-slate-200 bg-transparent p-4 text-xs text-slate-600">
-        <p><span className="font-semibold">Model:</span> {run.model?.name === 'HOLT_WINTERS_ADDITIVE' ? 'Holt-Winters Additive' : 'Seasonal Naive'}</p>
-        <p><span className="font-semibold">Back-test MAE:</span> {run.model?.mae != null ? Number(run.model.mae).toFixed(2) : '—'} requests</p>
-        <p><span className="font-semibold">Seasonal period:</span> 5 working days</p>
-        <p><span className="font-semibold">Back-test horizon:</span> 5 working days</p>
-        <p><span className="font-semibold">Historical working days used:</span> {run.historyWorkingDays ?? '—'}</p>
-        <p><span className="font-semibold">Historical transaction count:</span> {n(run.historicalTransactionCount)}</p>
-        <p><span className="font-semibold">Range calculation:</span> 10th–90th percentile of back-test residuals</p>
-        <p><span className="font-semibold">Last generated:</span> {run.generatedAt ? formatDateTime(run.generatedAt) : '—'}</p>
+        <p><span className="font-semibold">Method:</span> {run.model?.name === 'HOLT_WINTERS_ADDITIVE' ? 'Holt-Winters Additive (trend and weekly pattern)' : 'Seasonal Naive (repeats the recent weekly pattern)'}</p>
+        <p><span className="font-semibold">Average error in past tests:</span> {run.model?.mae != null ? Number(run.model.mae).toFixed(2) : '—'} requests</p>
+        <p><span className="font-semibold">Weekly pattern length:</span> 5 working days</p>
+        <p><span className="font-semibold">Past test window:</span> 5 working days</p>
+        <p><span className="font-semibold">Past working days used:</span> {run.historyWorkingDays ?? '—'}</p>
+        <p><span className="font-semibold">Past transactions counted:</span> {n(run.historicalTransactionCount)}</p>
+        <p><span className="font-semibold">Likely range:</span> 10th–90th percentile of past test errors</p>
+        <p><span className="font-semibold">Last updated:</span> {run.generatedAt ? formatDateTime(run.generatedAt) : '—'}</p>
       </div>
     </details>
   );
@@ -174,9 +174,9 @@ export default function RequestForecastSection({
         const data = await retrainRequestForecast({ officeId, serviceId: serviceId || null });
         if (!usingExternal) setRun(data);
         if (!serviceId) onRunChange?.(data, officeId);
-        notify.success('Forecast retrained successfully.');
+        notify.success('Forecast recalculated.');
       } catch (err) {
-        notify.error(err?.message ?? 'Retrain failed.');
+        notify.error(err?.message ?? 'Could not recalculate the forecast.');
       } finally {
         setRetraining(false);
       }
@@ -205,12 +205,12 @@ export default function RequestForecastSection({
     <div className={embedded ? '' : 'mt-3'} data-testid="forecast-table-view">
       <TableShell>
         <Table
-          label="5-day request volume forecast"
+          label="Expected request volume for the next 5 days"
           head={
             <tr>
               <Th>Date</Th>
-              <Th align="right">Estimated</Th>
-              <Th align="right">Range</Th>
+              <Th align="right">Expected</Th>
+              <Th align="right">Likely range</Th>
             </tr>
           }
         >
@@ -234,14 +234,14 @@ export default function RequestForecastSection({
         <div className="min-w-[14rem] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 id="request-forecast-heading" className={embedded ? 'title-card text-[#202938]' : 'text-base font-semibold text-slate-900'}>
-              Request Volume Forecast
+              Expected Request Volume
             </h3>
             {activeRun?.status === 'SUCCESS' ? (
               <span
                 data-testid="forecast-total-badge"
                 className="inline-flex items-center rounded-md border border-[#F0DDB0] bg-[#FEF3C7] px-2 py-0.5 font-mono text-[11px] font-bold text-[#78350F]"
               >
-                {n(activeRun.weeklyTotal)} est. next 5 days
+                {n(activeRun.weeklyTotal)} expected in next 5 days
               </span>
             ) : null}
           </div>
@@ -289,8 +289,9 @@ export default function RequestForecastSection({
               className="btn-secondary btn-sm"
               onClick={() => setConfirmRetrain(true)}
               disabled={retraining || activeLoading}
+              title="Recalculate the forecast using the latest transaction data"
             >
-              {retraining ? 'Retraining…' : 'Retrain'}
+              {retraining ? 'Recalculating…' : 'Recalculate'}
             </button>
           )}
 
@@ -304,7 +305,7 @@ export default function RequestForecastSection({
       {/* Content */}
       {!officeId && !activeLoading && (
         <div className={boxClass} data-testid="forecast-pick-office">
-          <p className="text-sm text-slate-600">Choose an office above to see its 5-day request volume forecast.</p>
+          <p className="text-sm text-slate-600">Choose an office above to see its expected request volume for the next 5 days.</p>
         </div>
       )}
       {activeLoading && <LoadingSkeleton />}
@@ -343,8 +344,8 @@ export default function RequestForecastSection({
                 <>
                   <ul className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1" aria-label="Forecast legend">
                     <LegendItem color="#800000" label={`Actual${histRange}`} />
-                    <LegendItem color="#a37400" label={`Estimated${fcRange}`} dashed />
-                    <LegendItem color="#FFDF00" label="Confidence band" shape="box" />
+                    <LegendItem color="#a37400" label={`Expected${fcRange}`} dashed />
+                    <LegendItem color="#FFDF00" label="Likely range" shape="box" />
                   </ul>
                   <RequestForecastChart
                     data={chartData}
@@ -357,11 +358,11 @@ export default function RequestForecastSection({
 
               <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3 font-sans text-xs text-[#64748B]">
                 <span>
-                  Sum of 5-day point estimates:{' '}
+                  Total expected in the next 5 days:{' '}
                   <strong className="font-mono font-bold text-[#202938]">{n(activeRun.weeklyTotal)} requests</strong>
                 </span>
                 <span>
-                  {!isOfficeBound ? 'Select an office in the top bar to switch' : 'Scoped to your assigned office'}
+                  {!isOfficeBound ? 'Choose an office above to switch' : 'Showing your assigned office only'}
                 </span>
               </div>
             </div>
@@ -371,16 +372,16 @@ export default function RequestForecastSection({
 
       {!activeLoading && !activeError && officeId && !activeRun && (
         <div className={boxClass} data-testid="forecast-empty">
-          <p className="text-sm text-slate-500">No forecast available yet. The nightly job generates one; Super Admin can also retrain manually.</p>
+          <p className="text-sm text-slate-500">No forecast available yet. One is created automatically every night; a Super Admin can also recalculate it.</p>
         </div>
       )}
 
       {/* Retrain confirm */}
       <ConfirmDialog
         open={confirmRetrain}
-        title="Retrain forecast?"
-        message="This will recompute the forecast for the selected scope using the latest transaction data. Previous runs are kept."
-        confirmLabel="Retrain"
+        title="Recalculate forecast?"
+        message="This will recalculate the forecast for the selected scope using the latest transaction data. Earlier results are kept."
+        confirmLabel="Recalculate"
         onConfirm={handleRetrain}
         onCancel={() => setConfirmRetrain(false)}
       />

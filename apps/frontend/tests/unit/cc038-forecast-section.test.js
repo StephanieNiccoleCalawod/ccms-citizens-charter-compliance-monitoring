@@ -77,7 +77,7 @@ describe('CC038 RequestForecastChart', () => {
   });
 
   it('marks the section heading with aria-label for accessibility', () => {
-    assert.match(chart, /aria-label="Request volume forecast chart/);
+    assert.match(chart, /aria-label="Expected request volume chart/);
   });
 
   it('uses the CCCMS maroon color for the actual line', () => {

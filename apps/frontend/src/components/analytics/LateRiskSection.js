@@ -215,9 +215,9 @@ function RiskScorePill({ row, showProbability }) {
 }
 
 /**
- * Centered modal dialog for Escalate (high-risk / overdue) and Inspect (within-SLA / review) actions.
+ * Centered modal dialog for Escalate (high-risk / overdue) and Inspect (within time limit / review) actions.
  * Uses the shared CCCMS <Modal> component to display Detail Header, Citizen's Charter Service card,
- * SLA Time Consumption card, Processing Milestones timeline, and confirmation-gated Escalate / transaction detail actions.
+ * Time Limit Used card, Processing Milestones timeline, and confirmation-gated Escalate / transaction detail actions.
  */
 export function LateRiskDetailDrawer({
   item,
@@ -337,9 +337,9 @@ export function LateRiskDetailDrawer({
               </div>
             </section>
 
-            {/* 3. SLA Time Consumption Card */}
+            {/* 3. Time Limit Used Card */}
             <section
-              aria-label="SLA time consumption"
+              aria-label="Time limit used"
               data-testid="late-risk-drawer-sla"
               className={`rounded-xl border p-4 ${isOverdueOrHigh
                 ? 'border-[#F3C5C5] bg-[#FDF2F2]/75'
@@ -347,7 +347,7 @@ export function LateRiskDetailDrawer({
                 }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-2 font-sans text-xs">
-                <span className="font-bold text-[#202938]">SLA Time Consumption</span>
+                <span className="font-bold text-[#202938]">Time Limit Used</span>
                 <span
                   data-testid="late-risk-drawer-consumption"
                   className={`font-mono font-bold ${isOverdueOrHigh
@@ -366,7 +366,7 @@ export function LateRiskDetailDrawer({
                 aria-valuenow={m.barFillPct}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label={`SLA time consumption: ${m.consumptionLabel}`}
+                aria-label={`Time limit used: ${m.consumptionLabel}`}
                 className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-[#E2E8F0]"
               >
                 <div
@@ -424,7 +424,7 @@ export function LateRiskDetailDrawer({
                     {minsLeft.toLocaleString('en-PH')} min
                   </span>
                   <span className="mt-0.5 block font-sans text-[10px] text-[#64748B]">
-                    {minsLeft <= 0 ? 'Breached' : 'Within SLA'}
+                    {minsLeft <= 0 ? 'Past deadline' : 'Within time limit'}
                   </span>
                 </div>
               </div>
@@ -577,7 +577,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
                   Overdue
                 </span>
               ) : (
-                <span className="font-sans text-[11px] text-[#64748B]">Within SLA</span>
+                <span className="font-sans text-[11px] text-[#64748B]">Within time limit</span>
               )}
             </div>
             <div
@@ -783,7 +783,7 @@ export default function LateRiskSection({
 
       {/* 1. Top Control Bar */}
       <div
-        aria-label="Late-risk controls"
+        aria-label="Deadline risk controls"
         data-testid="late-risk-toolbar"
         className="card flex flex-col gap-3 p-4 sm:p-5 2xl:flex-row 2xl:items-center 2xl:justify-between"
       >
@@ -862,7 +862,7 @@ export default function LateRiskSection({
 
       {!activeOfficeId ? (
         <EmptyState role="status">
-          {embedded ? 'Choose an office above to see its open transactions ranked by late risk.' : 'Select an office to see its open transactions ranked by risk.'}
+          {embedded ? 'Choose an office above to see its open transactions ranked by deadline risk.' : 'Select an office to see its open transactions ranked by risk.'}
         </EmptyState>
       ) : (
         /* 2. Two-Column Main Content: Ranked Open Transactions (~67%) + Scoring Model (~33%) */
@@ -888,7 +888,7 @@ export default function LateRiskSection({
 
               {data?.as_of ? (
                 <p className="font-sans text-xs text-[#64748B]" data-testid="late-risk-timestamp">
-                  {data.stale ? 'Showing saved scores as of ' : 'Scores as of '}
+                  {data.stale ? 'Showing saved results as of ' : 'Results as of '}
                   <time dateTime={data.as_of}>{formatDateTime(data.as_of)}</time>
                 </p>
               ) : null}

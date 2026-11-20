@@ -3,7 +3,7 @@
 // Operations' per-office forecast (/api/operations/analytics/forecast) and late-risk (/api/operations/analytics/late-risk).
 import { apiFetch } from '../auth/session.js';
 import { applyScope, normalizeHeatmap } from '../ui/analytics.js';
-import { forecastSentence, highRiskSentence, mergeSentences, minutesText, sentenceText } from '../ui/insights.js';
+import { completedKpiLabel, forecastSentence, highRiskSentence, mergeSentences, minutesText, sentenceText } from '../ui/insights.js';
 import { getInsightsOverview, getOfficeForecast, getOfficeLateRisk } from './insights.js';
 
 const DASHBOARD_ANCHOR = Object.freeze({
@@ -19,7 +19,7 @@ const round1 = (value) => Math.round(Number(value) * 10) / 10;
 const RISK_META = Object.freeze([
   { key: 'low', apiKey: 'LOW', label: 'Low', description: "Well inside the Citizen's Charter deadline." },
   { key: 'medium', apiKey: 'MEDIUM', label: 'Medium', description: 'Needs steady progress to finish on time.' },
-  { key: 'high', apiKey: 'HIGH', label: 'High', description: 'Close to the deadline; follow up immediately.' },
+  { key: 'high', apiKey: 'HIGH', label: 'High', description: 'Likely to miss the deadline; follow up first.' },
 ]);
 
 export async function fetchOfficeModels(officeId, fetcher = apiFetch) {
@@ -77,11 +77,11 @@ export function dashboardKpis({ overview, lateRisk }) {
     ? (lateRisk.value?.items ?? []).filter((item) => item.level === 'HIGH').length
     : null;
   const highNote = lateRisk?.state === 'error'
-    ? 'Late-risk unavailable'
+    ? 'Deadline risk unavailable'
     : lateRisk?.state === 'pick'
       ? 'Select an office'
       : highCount === 0
-        ? 'No open high-risk items'
+        ? 'No open high-risk transactions'
         : 'In selected office';
 
   return [
@@ -94,7 +94,7 @@ export function dashboardKpis({ overview, lateRisk }) {
     },
     {
       key: 'completed',
-      label: 'Completed in period',
+      label: completedKpiLabel(overview?.period),
       value: pulse.results ?? 0,
       unit: '',
       previous: pulse.previous_results ?? null,
@@ -112,7 +112,7 @@ export function dashboardKpis({ overview, lateRisk }) {
     },
     {
       key: 'high_risk',
-      label: 'High late risk',
+      label: 'High deadline risk',
       value: highCount,
       unit: '',
       previous: null,
@@ -135,7 +135,7 @@ export function dashboardLateRisk({ lateRisk, officeName = '' } = {}) {
       stale: false,
       asOf: null,
       officeName,
-      message: lateRisk.message || 'Late-risk predictions are unavailable right now.',
+      message: lateRisk.message || 'Deadline risk is unavailable right now.',
     };
   }
   const items = lateRisk.value?.items ?? [];
@@ -185,23 +185,23 @@ export function dashboardKeyInsights({ overview, forecast, lateRisk, names = {},
     const n = sentence.params?.n;
     const defaultHref = DASHBOARD_ANCHOR[sentence.chart] ? `#${DASHBOARD_ANCHOR[sentence.chart]}` : null;
     const eyebrow = t === 6
-      ? 'SLA Breach Warning'
+      ? 'Deadline Risk Warning'
       : t === 1
-        ? 'Forecast Observation'
+        ? 'Expected Volume'
         : sentence.kind === 'positive'
-          ? 'Positive Observation'
+          ? 'Positive Finding'
           : t === 5
-            ? 'Unusual Duration Alert'
+            ? 'Unusual Delay Alert'
             : 'Needs Attention';
 
     const detail = t === 6
       ? (oldestOpen != null
-        ? `Concentrated in ${officeName}. Oldest open queue item has been open for ${minutesText(oldestOpen)}.`
-        : `Concentrated in ${officeName}. Follow up on high-risk open transactions before deadline breach.`)
+        ? `Concentrated in ${officeName}. The longest-open transaction has been open for ${minutesText(oldestOpen)}.`
+        : `Concentrated in ${officeName}. Follow up on high-risk open transactions before they miss their deadline.`)
       : t === 1
         ? (weeklyTotal != null
-          ? `Estimated ${Number(weeklyTotal).toLocaleString('en-PH')} requests over the next 5 working days (projection, not actual volume).`
-          : 'Statistical 5-working-day projection based on recent office volume.')
+          ? `Expected ${Number(weeklyTotal).toLocaleString('en-PH')} requests over the next 5 working days (a projection, not actual volume).`
+          : 'A projection for the next 5 working days based on recent volume.')
         : t === 2
           ? 'Service exceeded the 20% late-rate threshold in the selected period.'
           : t === 3
@@ -211,24 +211,24 @@ export function dashboardKeyInsights({ overview, forecast, lateRisk, names = {},
             : t === 4
               ? '9 in 10 transactions completed in under 25% of the Citizen’s Charter time limit.'
               : t === 5
-                ? 'Completed transactions exceeded Q3 + 3×IQR for their service.'
+                ? 'These transactions took far longer than is normal for their service.'
                 : '';
 
     const primaryAction = t === 6
-      ? { href: '/late-risk', label: `Inspect ${n ?? ''} At-Risk ${n === 1 ? 'Item' : 'Items'}`.trim() }
+      ? { href: '/late-risk', label: `Review ${n ?? ''} High-Risk ${n === 1 ? 'Transaction' : 'Transactions'}`.replace('Review  ', 'Review ').trim() }
       : t === 1
-        ? { href: '#request-forecast-heading', label: 'Review Forecast' }
+        ? { href: '#request-forecast-heading', label: 'Review Expected Volume' }
         : t === 5
-          ? { href: '#unusual', label: 'Inspect Unusual Cases' }
+          ? { href: '#unusual', label: 'Review Unusual Delays' }
           : sentence.chart === 'charter'
-            ? { href: '#charter', label: 'Audit Charter Limits' }
+            ? { href: '#charter', label: 'Check Charter Time Limits' }
             : sentence.chart === 'heatmap'
               ? { href: '#heatmap', label: 'View Office Details' }
               : defaultHref
                 ? { href: defaultHref, label: 'See chart' }
                 : null;
 
-    const secondaryAction = t === 6 ? { href: '#charter', label: 'Audit Charter Limits' } : null;
+    const secondaryAction = t === 6 ? { href: '#charter', label: 'Check Charter Time Limits' } : null;
 
     return {
       id: sentence.id,
@@ -238,7 +238,7 @@ export function dashboardKeyInsights({ overview, forecast, lateRisk, names = {},
       text: sentenceText(sentence, names),
       detail,
       href: defaultHref,
-      linkLabel: sentence.chart === 'charter' ? 'See charter check' : 'See chart',
+      linkLabel: sentence.chart === 'charter' ? 'See charter time limits' : 'See chart',
       primaryAction,
       secondaryAction,
     };

@@ -19,7 +19,7 @@ function ActionControl({ action, primary = false }) {
   );
 }
 
-/** Section 4, right: deterministic compliance, forecast, and SLA anomaly cards with authorized actions. */
+/** Section 4, right: deterministic compliance, expected-volume, and deadline-risk cards with authorized actions. */
 export default function KeyInsightsPanel({ insights = [] }) {
   const warningCount = insights.filter((s) => s.kind !== 'positive').length;
 
@@ -29,7 +29,7 @@ export default function KeyInsightsPanel({ insights = [] }) {
         <div className="min-w-0 flex-1">
           <h3 id="key-insights-title" className="title-card text-[#202938]">Key Insights</h3>
           <p className="mt-1 font-sans text-xs text-[#64748B] sm:text-sm">
-            Automated anomalies &amp; SLA alerts standing out in the figures.
+            Automatically detected findings that need your attention.
           </p>
         </div>
         <span
@@ -46,7 +46,7 @@ export default function KeyInsightsPanel({ insights = [] }) {
 
       {insights.length === 0 ? (
         <EmptyState role="status" data-testid="insights-sentences-empty" className="mt-4 flex-1">
-          No observations to report yet.
+          No findings to report yet.
         </EmptyState>
       ) : (
         <ul className="mt-4 flex-1 space-y-3">
@@ -71,7 +71,7 @@ export default function KeyInsightsPanel({ insights = [] }) {
                     </span>
                     <div className="min-w-0 flex-1">
                       <span className="block font-sans text-[11px] font-bold uppercase tracking-wider text-[#800000]">
-                        {s.eyebrow || 'SLA Breach Warning'}
+                        {s.eyebrow || 'Deadline Risk Warning'}
                       </span>
                       <p className="mt-0.5 font-sans text-sm font-bold text-[#202938]">{s.text}</p>
                       {s.detail ? (
@@ -124,7 +124,7 @@ export default function KeyInsightsPanel({ insights = [] }) {
                         isPositive ? 'text-emerald-700' : 'text-[#78350F]'
                       }`}
                     >
-                      {s.eyebrow || (isPositive ? 'Positive Observation' : 'Needs Attention')}
+                      {s.eyebrow || (isPositive ? 'Positive Finding' : 'Needs Attention')}
                     </span>
                     <p className="mt-0.5 font-sans text-xs font-bold text-[#202938] sm:text-sm">{s.text}</p>
                     {s.detail ? (

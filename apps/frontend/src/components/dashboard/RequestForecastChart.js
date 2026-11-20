@@ -14,8 +14,8 @@ import {
 } from 'recharts';
 
 // CC038 request volume forecast chart.
-// Shows the last 20 working days of actual counts (maroon) and the next 5 estimated days (gold),
-// with a shaded 10th–90th percentile range. The vertical reference line separates history from forecast.
+// Shows the last 20 working days of actual counts (maroon) and the next 5 expected days (gold),
+// with a shaded likely range (10th–90th percentile). The vertical reference line separates history from the forecast.
 // A working-day X-axis means no weekend or holiday dates appear.
 
 const ACTUAL_COLOR    = '#800000'; // CCCMS maroon
@@ -37,8 +37,8 @@ function ForecastTooltip({ active, payload, label }) {
       {actual   != null && <p className="mt-1 text-slate-900"><span className="font-bold">{actual}</span> <span className="text-xs text-slate-500">requests (actual)</span></p>}
       {forecast != null && (
         <>
-          <p className="mt-1 text-slate-900"><span className="font-bold">{forecast}</span> <span className="text-xs text-slate-500">estimated</span></p>
-          {lower != null && upper != null && <p className="text-xs text-slate-500">Range: {lower}–{upper}</p>}
+          <p className="mt-1 text-slate-900"><span className="font-bold">{forecast}</span> <span className="text-xs text-slate-500">expected</span></p>
+          {lower != null && upper != null && <p className="text-xs text-slate-500">Likely range: {lower}–{upper}</p>}
         </>
       )}
     </div>
@@ -56,7 +56,7 @@ export default function RequestForecastChart({ data, firstForecastDate, height =
   if (!data?.length) return <p className="py-10 text-center text-sm text-slate-500">No data to chart.</p>;
 
   return (
-    <div role="img" aria-label="Request volume forecast chart showing historical counts and 5-day estimate" style={{ width: '100%', height }}>
+    <div role="img" aria-label="Expected request volume chart showing past daily counts and the next 5 days" style={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke={GRID_COLOR} />
@@ -101,7 +101,7 @@ export default function RequestForecastChart({ data, firstForecastDate, height =
               x={firstForecastDate}
               stroke={FORECAST_COLOR}
               strokeDasharray="3 3"
-              label={{ value: 'FORECAST', position: 'insideTop', fill: FORECAST_COLOR, fontSize: 10, fontWeight: 700 }}
+              label={{ value: 'EXPECTED', position: 'insideTop', fill: FORECAST_COLOR, fontSize: 10, fontWeight: 700 }}
             />
           )}
 
@@ -119,7 +119,7 @@ export default function RequestForecastChart({ data, firstForecastDate, height =
           {/* Estimated forecast line */}
           <Line
             dataKey="forecast"
-            name="Estimated"
+            name="Expected"
             stroke={FORECAST_COLOR}
             strokeWidth={2.5}
             strokeDasharray="5 4"

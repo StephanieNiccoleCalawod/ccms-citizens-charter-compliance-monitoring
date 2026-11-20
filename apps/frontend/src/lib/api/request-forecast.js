@@ -1,4 +1,4 @@
-// CC038 Request Volume Forecast — data access.
+// CC038 Expected Request Volume (forecast) — data access.
 // All forecast reads go through this file. The endpoint is /api/operations/analytics/forecast
 // on the operations-service, reached through the API gateway's /api/operations route.
 import { apiFetch } from '../auth/session.js';

@@ -15,7 +15,7 @@ export default function DashboardHeader({ scope, scopeLabel = '', lastUpdated, r
           <span className="text-xs text-slate-500">{refreshing ? 'Refreshing…' : 'Refreshes every minute'}</span>
         </p>
         <a href="#charter" className="text-xs font-semibold text-pup-maroon underline" data-testid="dashboard-charter-link">
-          Charter check &amp; cell drilldown
+          Charter time limits by service
         </a>
       </div>
     </div>

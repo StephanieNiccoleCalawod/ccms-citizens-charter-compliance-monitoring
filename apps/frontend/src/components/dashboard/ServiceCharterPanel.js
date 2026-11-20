@@ -26,7 +26,7 @@ const label = (id, map, fallback) => map?.[id] ?? fallback;
 
 function renderCharterFinding(row, minReliable) {
   if (isCharterLowSample(row, minReliable)) {
-    const lowLabel = row.flags?.includes('NOT_ENOUGH_DATA') ? FLAG_LABEL.NOT_ENOUGH_DATA : 'Too few data';
+    const lowLabel = row.flags?.includes('NOT_ENOUGH_DATA') ? FLAG_LABEL.NOT_ENOUGH_DATA : 'Too few to judge';
     return (
       <StatusBadge variant="neutral" className="border border-slate-200" title={FLAG_HELP.NOT_ENOUGH_DATA}>
         {lowLabel}
@@ -69,8 +69,8 @@ function renderCharterFinding(row, minReliable) {
 }
 
 /**
- * Service bottleneck matrix ("Late rate by office and service"), redesigned Charter check table,
- * and permission-gated Unusual cases on the main Dashboard without triggering extra initial fetches.
+ * Service bottleneck matrix ("Late Rate by Office & Service"), the Charter Time Limits by Service table,
+ * and permission-gated Unusual Delays on the main Dashboard without triggering extra initial fetches.
  */
 export default function ServiceCharterPanel({
   overview,
@@ -252,12 +252,12 @@ export default function ServiceCharterPanel({
         scope={scope}
       />
 
-      <Card id="charter" as="section" aria-label="Charter check" padding="md" className="space-y-4 sm:p-6" data-testid="insights-charter">
+      <Card id="charter" as="section" aria-label="Charter time limits by service" padding="md" className="space-y-4 sm:p-6" data-testid="insights-charter">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <h3 className="font-serif text-2xl font-normal leading-tight text-[#202938]">Charter check</h3>
+            <h3 className="font-serif text-2xl font-normal leading-tight text-[#202938]">Charter Time Limits by Service</h3>
             <p className="mt-1 font-sans text-sm text-[#64748B]">
-              Each service against its Citizen&rsquo;s Charter limit. Low-sample rows are shown, but not judged.
+              Compares each service with its Citizen&rsquo;s Charter time limit. Services with too few completed transactions are shown but not judged.
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
@@ -289,7 +289,7 @@ export default function ServiceCharterPanel({
         </div>
 
         <DataTable
-          label="Charter check by service"
+          label="Charter time limits by service"
           columns={charterCols}
           data={servicesList}
           keyExtractor={(r) => `${r.office_id}-${r.service_id}`}

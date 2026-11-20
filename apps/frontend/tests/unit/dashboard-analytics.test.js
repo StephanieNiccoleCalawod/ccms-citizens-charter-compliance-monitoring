@@ -51,7 +51,7 @@ describe('the sections, in order', () => {
   it('renders compact underline dashboard tabs with dynamic badges and right supporting description', () => {
     const tabs = read('src/components/ui/Tabs.js');
     assert.match(container, /variant="analytics"/);
-    assert.match(container, /supportingText="Charter check & cell drilldown enabled"/);
+    assert.match(container, /supportingText="Select a service for details"/);
     assert.match(container, /dashboardAuditCounts\(/);
     assert.match(container, /buildDashboardTabs\(/);
     assert.match(tabs, /border-\[#800000\][\s\S]*?text-\[#800000\]/);
@@ -84,10 +84,11 @@ describe('the sections, in order', () => {
     assert.match(trend, /95% Charter Target/);
     assert.match(trend, /Compare by office/);
     const riskPanel = read('src/components/dashboard/LateRiskPanel.js');
-    assert.match(riskPanel, /Risk Distribution/);
-    assert.match(riskPanel, /SLA timers exclude non-working holidays/);
+    assert.match(riskPanel, /Risk breakdown/);
+    assert.match(riskPanel, /Deadlines count working days only; holidays and weekends are excluded/);
     const keyInsights = read('src/components/dashboard/KeyInsightsPanel.js');
-    assert.match(keyInsights, /Automated anomalies &amp; SLA alerts/);
+    assert.match(keyInsights, /Automatically detected findings that need your attention/);
+    assert.doesNotMatch(keyInsights, /SLA alerts|SLA Breach|anomalies/i);
     assert.match(keyInsights, /key-insights-badge/);
     assert.equal(existsSync(path('src/lib/api/analytics-mock.js')), false, 'analytics-mock.js removed');
     assert.equal(existsSync(path('src/components/dashboard/ComplianceForecastChart.js')), false, 'ComplianceForecastChart.js removed');
@@ -138,7 +139,7 @@ describe('the About panel and the header', () => {
     const about = read('src/components/dashboard/AboutAnalyticsPanel.js');
     assert.match(about, /<details className=/);
     assert.doesNotMatch(about, /<details[^>]*\sopen/);
-    for (const word of ['Compliance:', 'Forecast:', 'Late risk:', 'Heatmap:', 'Data limitations:', 'seededHistoryDisclosure']) assert.ok(about.includes(word), word);
+    for (const word of ['On-time compliance:', 'Expected request volume:', 'Deadline risk:', 'Office performance:', 'Data limitations:', 'seededHistoryDisclosure']) assert.ok(about.includes(word), word);
     assert.doesNotMatch(about, /Sprint 6|illustrative|sample/i);
   });
 

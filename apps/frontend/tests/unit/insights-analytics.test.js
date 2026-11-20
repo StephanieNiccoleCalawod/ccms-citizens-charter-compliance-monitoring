@@ -230,7 +230,23 @@ describe('live Dashboard API adapter boundary (zero mock data)', () => {
     });
     assert.ok(insights.some((i) => i.href === '#charter'));
     assert.ok(insights.some((i) => i.href === '#request-forecast-heading'));
-    assert.ok(insights.some((i) => i.eyebrow === 'SLA Breach Warning' && i.primaryAction?.href === '/late-risk'));
+    assert.ok(insights.some((i) => i.eyebrow === 'Deadline Risk Warning' && i.primaryAction?.href === '/late-risk'));
+  });
+
+  it('labels the completed KPI with the selected period and never calls deadline risk "overdue"', () => {
+    const pulse = { on_time_rate: 90, results: 12, open_now: 3 };
+    const completedLabel = (period) => dashboardKpis({ overview: { pulse, period }, lateRisk: { state: 'pick' } })[1].label;
+    assert.equal(completedLabel('weekly'), 'Completed this week');
+    assert.equal(completedLabel('monthly'), 'Completed this month');
+    assert.equal(completedLabel('half_year'), 'Completed this half-year');
+    assert.equal(completedLabel('annual'), 'Completed this year');
+    assert.equal(completedLabel('custom'), 'Completed in this period');
+    assert.equal(completedLabel(undefined), 'Completed in this period');
+
+    const kpis = dashboardKpis({ overview: { pulse, period: 'monthly' }, lateRisk: { state: 'ok', value: { items: [{ level: 'HIGH' }] } } });
+    assert.equal(kpis[2].label, 'Open transactions');
+    assert.equal(kpis[3].label, 'High deadline risk');
+    assert.doesNotMatch(JSON.stringify(kpis), /overdue|breach/i);
   });
 
   it('propagates overview failure cleanly and isolates individual model failures without mock fallback', async () => {
@@ -508,7 +524,7 @@ describe('library and about panel (AC2)', () => {
 
   it('the about panel explains the indicators, forecast, late risk, heatmap, and live data limitations without mock disclaimers', () => {
     const about = read('src/components/dashboard/AboutAnalyticsPanel.js');
-    for (const word of ['Compliance:', 'Forecast:', 'Late risk:', 'Heatmap:', 'Data limitations:', 'seededHistoryDisclosure']) assert.ok(about.includes(word), word);
+    for (const word of ['On-time compliance:', 'Expected request volume:', 'Deadline risk:', 'Office performance:', 'Data limitations:', 'seededHistoryDisclosure']) assert.ok(about.includes(word), word);
     assert.doesNotMatch(about, /illustrative|Sprint 6/i);
   });
 });

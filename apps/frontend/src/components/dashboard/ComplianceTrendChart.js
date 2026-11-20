@@ -16,7 +16,7 @@ function ChangeBadge({ change }) {
         data-testid="trend-delta-badge"
         className="inline-flex items-center rounded-md border border-[#F3C5C5] bg-[#FDF2F2] px-2 py-0.5 font-mono text-[11px] font-bold text-[#800000]"
       >
-        &darr; {Math.abs(num)} pts vs prev
+        &darr; {Math.abs(num)} points vs previous period
       </span>
     );
   }
@@ -26,7 +26,7 @@ function ChangeBadge({ change }) {
         data-testid="trend-delta-badge"
         className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-700"
       >
-        &uarr; {num} pts vs prev
+        &uarr; {num} points vs previous period
       </span>
     );
   }
@@ -35,7 +35,7 @@ function ChangeBadge({ change }) {
       data-testid="trend-delta-badge"
       className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-[11px] font-bold text-[#64748B]"
     >
-      0 pts vs prev
+      No change vs previous period
     </span>
   );
 }
@@ -47,10 +47,10 @@ export default function ComplianceTrendChart({ pulse }) {
   const missingPeriods = trend.filter((p) => p.value === null);
 
   const baselineNote = missingPeriods.length === 1
-    ? `${missingPeriods[0].label} has no recorded baseline transactions`
+    ? `${missingPeriods[0].label} has no completed transactions on record`
     : missingPeriods.length > 1
-      ? `${missingPeriods.map((p) => p.label).join(', ')} have no recorded baseline transactions`
-      : `All ${trend.length} reporting months have recorded baseline transactions`;
+      ? `${missingPeriods.map((p) => p.label).join(', ')} have no completed transactions on record`
+      : `All ${trend.length} months have completed transactions on record`;
 
   return (
     <ChartCard

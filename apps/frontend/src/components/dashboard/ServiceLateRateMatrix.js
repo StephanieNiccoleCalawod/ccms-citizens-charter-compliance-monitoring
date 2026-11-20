@@ -65,7 +65,7 @@ export default function ServiceLateRateMatrix({
 
   const filterButtons = [
     { value: 'all', label: `All Active (${model.counts.all})` },
-    { value: 'flagged', label: `Flagged High Late Rate (${model.counts.flagged})`, flagged: true },
+    { value: 'flagged', label: `Flagged Services (${model.counts.flagged})`, flagged: true },
     { value: 'too_few', label: `Too Few to Judge (${model.counts.tooFew})` },
   ];
 
@@ -293,7 +293,7 @@ export default function ServiceLateRateMatrix({
                           className="flex items-center justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 font-sans text-xs text-[#202938]"
                         >
                           <span className="truncate font-medium">{s.service_name}</span>
-                          <span className="shrink-0 font-mono text-[11px] text-[#64748B]">0 txns</span>
+                          <span className="shrink-0 font-mono text-[11px] text-[#64748B]">0 transactions</span>
                         </li>
                       ))}
                     </ul>

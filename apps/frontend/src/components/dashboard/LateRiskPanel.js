@@ -48,7 +48,7 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
   const highRiskPct = total > 0 ? Math.round((highCount / total) * 1000) / 10 : 0;
 
   const description = state === 'pick' ? (
-    'Choose an office above to assess open transactions by late risk.'
+    'Choose an office above to see which open transactions are at risk of missing their deadline.'
   ) : (
     <>
       {officeName ? (
@@ -56,19 +56,19 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
           <span className="font-semibold text-[#202938]">{officeName}</span> &mdash;{' '}
         </>
       ) : null}
-      <span className="font-bold text-[#202938]">{n(total)}</span> open transaction{total === 1 ? '' : 's'} grouped by deadline proximity.
+      <span className="font-bold text-[#202938]">{n(total)}</span> open transaction{total === 1 ? '' : 's'} grouped by how close {total === 1 ? 'it is' : 'they are'} to the deadline.
     </>
   );
 
   return (
     <ChartCard
       id="risk"
-      title="Late-Risk Monitoring"
+      title="Deadline Risk Monitoring"
       description={description}
       empty={state === 'ok' && !loading && categories.length === 0}
       emptyMessage="No open transactions to assess."
       table={state === 'ok' && categories.length > 0 ? {
-        caption: 'Open transactions by late-risk category',
+        caption: 'Open transactions by deadline risk',
         columns: [
           { key: 'label', label: 'Risk' },
           { key: 'count', label: 'Open transactions', align: 'right' },
@@ -78,23 +78,23 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
       } : null}
       footer={(
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span>SLA timers exclude non-working holidays &amp; weekends</span>
+          <span>Deadlines count working days only; holidays and weekends are excluded</span>
           {actionHref ? (
             <Link href={actionHref} className="font-semibold text-[#202938] hover:text-[#800000] hover:underline">
-              Open queue table &rarr;
+              See full ranked list &rarr;
             </Link>
           ) : null}
         </div>
       )}
     >
       {loading && state !== 'ok' ? (
-        <div className="space-y-2" role="status" aria-label="Loading late-risk predictions">
+        <div className="space-y-2" role="status" aria-label="Loading deadline risk">
           <div className="h-44 animate-pulse rounded-lg bg-slate-100" />
         </div>
       ) : state === 'error' ? (
-        <StatusBanner variant="error" message={message || 'Late-risk predictions are unavailable right now.'} />
+        <StatusBanner variant="error" message={message || 'Deadline risk is unavailable right now.'} />
       ) : state === 'pick' ? (
-        <p className="text-sm text-slate-600" data-testid="late-risk-pick-office">Select an office above to see live late-risk predictions.</p>
+        <p className="text-sm text-slate-600" data-testid="late-risk-pick-office">Select an office above to see its deadline risk.</p>
       ) : (
         <div data-testid="dashboard-late-risk" className="space-y-4">
           {actionHref ? (
@@ -111,14 +111,14 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
 
           {stale ? (
             <p className="text-xs text-amber-800">
-              Showing saved scores{asOf ? ` as of ${formatDateTime(asOf)}` : ''}.
+              Showing saved results{asOf ? ` as of ${formatDateTime(asOf)}` : ''}.
             </p>
           ) : null}
 
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2 font-sans text-xs">
               <span className="font-medium text-[#64748B]">
-                Risk Distribution ({n(total)} Active Queue Item{total === 1 ? '' : 's'})
+                Risk breakdown ({n(total)} open transaction{total === 1 ? '' : 's'})
               </span>
               <span data-testid="late-risk-high-pct" className="font-mono font-bold text-[#800000]">
                 {highRiskPct}% High Risk
@@ -127,7 +127,7 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
 
             <div
               role="img"
-              aria-label={`Stacked bar of open transactions by late risk: ${categories.map((c) => `${c.label} ${c.count}`).join(', ')}.`}
+              aria-label={`Stacked bar of open transactions by deadline risk:${categories.map((c) => `${c.label} ${c.count}`).join(', ')}.`}
               data-testid="late-risk-stacked-bar"
               className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-[#E2E8F0]"
             >

@@ -6,7 +6,7 @@ import LoadingState from '../ui/LoadingState.js';
 
 /**
  * Shared weekly breakdown and authorized late transactions detail panel for a selected office+service cell.
- * Reused by both ServiceLateRateMatrix and the Charter check table without duplicating drilldown UI.
+ * Reused by both ServiceLateRateMatrix and the Charter Time Limits by Service table without duplicating the detail UI.
  */
 export default function ServiceCellDetail({
   cell,

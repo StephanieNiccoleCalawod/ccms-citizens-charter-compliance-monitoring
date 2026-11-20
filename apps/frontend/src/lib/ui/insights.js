@@ -28,7 +28,7 @@ export function sentenceText(sentence, names = {}) {
     case 2: return `${service} was late ${Math.round(Number(p.late_rate))}% of the time in ${PERIOD_WORDS[p.period] ?? 'the period'}`;
     case 3: return `${office}'s late rate ${p.direction === 'rose' ? 'rose' : 'fell'} from ${pct(p.from_rate)} to ${pct(p.to_rate)}`;
     case 4: return `${service} is usually done in ${Math.round(Number(p.share_of_limit))}% of its time limit`;
-    case 5: return `${plural(p.n, 'unusual case', 'unusual cases')} took more than three times the usual time`;
+    case 5: return `${plural(p.n, 'transaction', 'transactions')} took more than three times the usual time`;
     case 6: return `${plural(p.n, 'open transaction is', 'open transactions are')} at high risk of being late`;
     default: return '';
   }
@@ -327,7 +327,7 @@ export function filterScopedUnusual(unusual = [], scope = { kind: 'campus', offi
 }
 
 /**
- * Computes the empty-state classification and highest single-service volume badge data for Unusual Cases
+ * Computes the empty-state classification and highest single-service volume badge data for Unusual Delays
  * from actual Oversight analytics data without altering the 20-transaction statistical eligibility threshold.
  */
 export function buildUnusualEmptyState({ overview, scope = { kind: 'campus', officeId: null } } = {}) {
@@ -379,7 +379,7 @@ export const LATE_RISK_SORT_OPTIONS = Object.freeze([
   { value: 'share_desc', label: 'Sort: Time Limit Used ↓' },
 ]);
 
-/** Derives time-consumption and SLA metrics purely from actual backend late-risk item fields. */
+/** Derives time-consumption and time-limit metrics purely from actual backend late-risk item fields. */
 export function deriveLateRiskItemMetrics(item) {
   if (!item) {
     return {
@@ -389,7 +389,7 @@ export function deriveLateRiskItemMetrics(item) {
       barFillPct: 0,
       isOverLimit: false,
       isSeverelyOverdue: false,
-      limitText: 'Standard SLA',
+      limitText: 'Standard time limit',
       limitSubtext: "Per Citizen's Charter schedule",
       elapsedText: 'Active clock',
       elapsedSubtext: 'Tracked in working minutes',
@@ -434,10 +434,10 @@ export function deriveLateRiskItemMetrics(item) {
     ? Number(item.elapsed_working_minutes)
     : (limitMinutes && share !== null ? Math.round(limitMinutes * share) : null);
 
-  const limitText = limitMinutes ? minutesText(limitMinutes) : 'Charter SLA';
+  const limitText = limitMinutes ? minutesText(limitMinutes) : 'Charter time limit';
   const limitSubtext = item.service_classification
-    ? `${item.service_classification} Charter SLA`
-    : 'ARTA Standard SLA';
+    ? `${item.service_classification} Charter time limit`
+    : 'ARTA standard time limit';
 
   let elapsedText = 'In progress';
   let elapsedSubtext = minsLeft > 0 ? `${minsLeft.toLocaleString('en-PH')} min remaining` : 'At or past charter limit';
@@ -490,12 +490,12 @@ export function buildLateRiskMilestones(item, { formattedStart = '', formattedAs
 
   const verifiedSub = m.pctUsed !== null
     ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% of Citizen's Charter limit consumed`
-    : (item.reason || 'Working-time SLA clock active');
+    : (item.reason || 'Working-time clock is running');
 
   if (isStalledOrHigh) {
     const stalledReason = minsLeft <= 0
-      ? `Stalled · ${m.elapsedMinutes && m.limitMinutes && m.elapsedMinutes > m.limitMinutes ? `Exceeded SLA by ${minutesText(m.elapsedMinutes - m.limitMinutes)}` : 'Exceeded Citizen’s Charter SLA limit (0 min left)'}`
-      : `At Risk · ${minsLeft.toLocaleString('en-PH')} min remaining (${item.reason || 'High late risk'})`;
+      ? `Stalled · ${m.elapsedMinutes && m.limitMinutes && m.elapsedMinutes > m.limitMinutes ? `Over the time limit by ${minutesText(m.elapsedMinutes - m.limitMinutes)}` : 'Over the Citizen’s Charter time limit (0 min left)'}`
+      : `At Risk · ${minsLeft.toLocaleString('en-PH')} min remaining (${item.reason || 'High deadline risk'})`;
 
     return [
       {
@@ -506,7 +506,7 @@ export function buildLateRiskMilestones(item, { formattedStart = '', formattedAs
       },
       {
         id: 'verified',
-        title: 'Initial Document & SLA Verification',
+        title: 'Initial Document & Deadline Check',
         subtitle: verifiedSub,
         state: 'completed',
       },
@@ -602,16 +602,16 @@ export function buildDashboardTabs({ flaggedCount = 0, unusualCount = 0 } = {}) 
   const u = Math.max(0, Number(unusualCount) || 0);
   return [
     { id: 'overview', label: 'Executive Overview' },
-    { id: 'heatmap', label: 'Office Compliance Heatmap' },
+    { id: 'heatmap', label: 'Office Performance Overview' },
     {
       id: 'charter',
-      label: 'Service & Charter Audit',
+      label: 'Service Charter Compliance',
       badge: `${f} flagged`,
       badgeTone: f > 0 ? 'gold' : 'neutral',
     },
     {
       id: 'unusual',
-      label: 'Unusual Cases',
+      label: 'Unusual Delays',
       badge: String(u),
       badgeTone: u > 0 ? 'gold' : 'neutral',
     },
@@ -619,3 +619,9 @@ export function buildDashboardTabs({ flaggedCount = 0, unusualCount = 0 } = {}) 
 }
 
 export const PERIODS = Object.freeze([['weekly', 'This week'], ['monthly', 'This month'], ['half_year', 'This half-year'], ['annual', 'This year']]);
+
+/** KPI label for completed transactions that follows the selected period ("Completed this month", "Completed this week", ...). */
+export function completedKpiLabel(period) {
+  const found = PERIODS.find(([value]) => value === period);
+  return found ? `Completed ${found[1].toLowerCase()}` : 'Completed in this period';
+}

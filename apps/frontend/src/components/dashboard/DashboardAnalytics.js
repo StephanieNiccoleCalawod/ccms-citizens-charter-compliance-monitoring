@@ -61,8 +61,8 @@ function Loading() {
 
 /**
  * Main Dashboard analytics overview (live backend APIs only).
- * Order: FilterBar + DashboardHeader -> 4 KPI Summary Cards -> Compliance Trend + Request Volume Forecast ->
- * Late-Risk Monitoring + Key Insights -> Compliance Heatmap -> About analytics.
+ * Order: FilterBar + DashboardHeader -> 4 KPI Summary Cards -> Compliance Trend + Expected Request Volume ->
+ * Deadline Risk Monitoring + Key Insights -> Office Performance Overview -> About analytics.
  */
 export default function DashboardAnalytics({ user }) {
   if (!user || !canViewInsights(user.role)) return null;
@@ -312,7 +312,7 @@ function LiveDashboardAnalytics({ user }) {
         tabs={dashboardTabs}
         value={activeTab}
         onChange={setActiveTab}
-        supportingText="Charter check & cell drilldown enabled"
+        supportingText="Select a service for details"
       />
 
       <div {...tabPanelProps('dashboard', 'overview')} hidden={activeTab !== 'overview'} className="space-y-4 focus:outline-none">

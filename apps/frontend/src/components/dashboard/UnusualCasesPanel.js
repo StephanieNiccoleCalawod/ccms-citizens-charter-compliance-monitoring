@@ -31,11 +31,11 @@ function UnusualEmptyContent({ emptyState }) {
       </div>
 
       <h3 className="font-sans text-base font-semibold text-[#202938] sm:text-lg" data-testid="unusual-empty-heading">
-        No Unusual Cases Detected
+        No Unusual Delays Found
       </h3>
 
       <p className="mt-2 font-sans text-xs leading-relaxed text-[#64748B] sm:text-sm" data-testid="unusual-empty-description">
-        Transactions that took significantly longer than normal statistical bounds for their service are flagged here. To ensure statistical reliability, outlier detection is evaluated only for services with at least{' '}
+        Transactions that took far longer than is normal for their service are listed here. To keep the results reliable, this is checked only for services with at least{' '}
         <span className="font-semibold text-[#202938]">{minCompleted} completed transactions</span> in the selected period.
       </p>
 
@@ -63,7 +63,7 @@ function UnusualEmptyContent({ emptyState }) {
   );
 }
 
-/** Unusual transaction findings (elapsed above Q3 + 3 x IQR), preserving RBAC can_open links and rich empty state. */
+/** Unusual Delays: transactions that took far longer than is normal for their service (elapsed above Q3 + 3 x IQR), preserving RBAC can_open links and rich empty state. */
 export default function UnusualCasesPanel({
   overview,
   names = {},
@@ -76,15 +76,15 @@ export default function UnusualCasesPanel({
 
   if (loading && !overview) {
     return (
-      <Card id="unusual" as="section" aria-label="Unusual cases" padding="md" className="sm:p-6" data-testid="insights-unusual">
-        <LoadingState>Loading unusual cases…</LoadingState>
+      <Card id="unusual" as="section" aria-label="Unusual delays" padding="md" className="sm:p-6" data-testid="insights-unusual">
+        <LoadingState>Loading unusual delays…</LoadingState>
       </Card>
     );
   }
 
   if (error) {
     return (
-      <Card id="unusual" as="section" aria-label="Unusual cases" padding="md" className="sm:p-6" data-testid="insights-unusual">
+      <Card id="unusual" as="section" aria-label="Unusual delays" padding="md" className="sm:p-6" data-testid="insights-unusual">
         <StatusBanner variant="error" message={error} />
       </Card>
     );
@@ -110,7 +110,7 @@ export default function UnusualCasesPanel({
 
   const description = (
     <>
-      Transactions that took far longer than is normal for their service. Shown only for services with at least {minCompleted} completed.
+      Transactions that took far longer than is normal for their service. Checked only for services with at least {minCompleted} completed transactions.
     </>
   );
 
@@ -129,7 +129,7 @@ export default function UnusualCasesPanel({
       <Card
         id="unusual"
         as="section"
-        aria-label="Unusual cases"
+        aria-label="Unusual delays"
         padding="lg"
         className="mx-auto max-w-2xl px-6 py-10 sm:px-12 sm:py-12"
         data-testid="insights-unusual"
@@ -141,13 +141,13 @@ export default function UnusualCasesPanel({
 
   const table = (
     <DataTable
-      label="Unusual cases"
+      label="Unusual delays"
       columns={unusualCols}
       data={unusual}
       keyExtractor={(r) => r.transaction_id}
       loading={loading}
       error={error}
-      emptyMessage="No unusual cases."
+      emptyMessage="No unusual delays."
       minWidth="38rem"
     />
   );
@@ -155,7 +155,7 @@ export default function UnusualCasesPanel({
   if (embedded) {
     return (
       <div className="pt-2" data-testid="insights-unusual">
-        <h4 className="title-card">Unusual cases</h4>
+        <h4 className="title-card">Unusual Delays</h4>
         <p className="mt-0.5 text-xs text-[#64748B]">{description}</p>
         <div className="mt-2">{table}</div>
       </div>
@@ -163,9 +163,9 @@ export default function UnusualCasesPanel({
   }
 
   return (
-    <Card id="unusual" as="section" aria-label="Unusual cases" padding="md" className="space-y-4 sm:p-6" data-testid="insights-unusual">
+    <Card id="unusual" as="section" aria-label="Unusual delays" padding="md" className="space-y-4 sm:p-6" data-testid="insights-unusual">
       <div>
-        <h3 className="font-serif text-2xl font-normal leading-tight text-[#202938]">Unusual cases</h3>
+        <h3 className="font-serif text-2xl font-normal leading-tight text-[#202938]">Unusual Delays</h3>
         <p className="mt-1 font-sans text-sm text-[#64748B]">{description}</p>
       </div>
       {table}

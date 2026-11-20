@@ -509,7 +509,7 @@ async function setupContext(browser, role, { forecastState, staleLateRisk = fals
 
       ok('/ (super_admin): no /insights sidebar item and Charter anchor links to #charter', (await page.locator('nav a[href="/insights"]').count()) === 0 && (await page.getByTestId('dashboard-charter-link').getAttribute('href')) === '#charter');
       ok('/ (super_admin): KPI cards, Executive Overview charts, and no Find a service render on initial load', noServiceFinder && kpiText.includes('92%') && kpiText.includes('240') && forecastText.includes('72') && riskText.includes('High: 1') && riskText.includes('50% High Risk') && !/sample data/i.test(statusText));
-      ok('/ (super_admin): Compliance Trend & Forecast show comparison/total badges, 95% benchmark, and Chart/Table toggles', (await page.getByTestId('trend-delta-badge').innerText()).includes('2.5 pts vs prev') && (await page.getByTestId('forecast-total-badge').innerText()).includes('72 est. next 5 days') && (await page.getByTestId('compare-by-office-link').getAttribute('href')) === '#heatmap');
+      ok('/ (super_admin): Compliance Trend & Forecast show comparison/total badges, 95% benchmark, and Chart/Table toggles', (await page.getByTestId('trend-delta-badge').innerText()).includes('2.5 points vs previous period') && (await page.getByTestId('forecast-total-badge').innerText()).includes('72 expected in next 5 days') && (await page.getByTestId('compare-by-office-link').getAttribute('href')) === '#heatmap');
 
       await page.getByTestId('pulse-mode-table').click();
       const pulseTableOk = (await page.getByTestId('pulse-table-view').count()) === 1;
@@ -519,23 +519,23 @@ async function setupContext(browser, role, { forecastState, staleLateRisk = fals
       await page.getByTestId('forecast-mode-chart').click();
       ok('/ (super_admin): Chart/Table segmented toggles switch between chart and table views without API calls', pulseTableOk && forecastTableOk);
 
-      ok('/ (super_admin): horizontal tab bar renders 4 tabs, single desktop row, right supporting note, and dynamic 2 flagged / 2 badges', tabsLayout.singleRow && tabsLayout.noScrollOnDesktop && tabsLayout.supportSameRow && tabsLayout.supportText === 'Charter check & cell drilldown enabled' && tabsLayout.overviewSelected === 'true' && tabsLayout.heatmapHidden && tabsLayout.charterHidden && tabsLayout.unusualHidden && (await page.getByTestId('dashboard-tab-badge-charter').innerText()) === '2 flagged' && (await page.getByTestId('dashboard-tab-badge-unusual').innerText()) === '2');
+      ok('/ (super_admin): horizontal tab bar renders 4 tabs, single desktop row, right supporting note, and dynamic 2 flagged / 2 badges', tabsLayout.singleRow && tabsLayout.noScrollOnDesktop && tabsLayout.supportSameRow && tabsLayout.supportText === 'Select a service for details' && tabsLayout.overviewSelected === 'true' && tabsLayout.heatmapHidden && tabsLayout.charterHidden && tabsLayout.unusualHidden && (await page.getByTestId('dashboard-tab-badge-charter').innerText()) === '2 flagged' && (await page.getByTestId('dashboard-tab-badge-unusual').innerText()) === '2');
       ok('/ (super_admin): loads Oversight once plus first active office forecast & late-risk without duplicate GETs', calls.overviews.length === 1 && calls.forecasts.length === 1 && calls.forecasts[0].officeId === OFFICE_A && calls.lateRisks.length === 1 && calls.lateRisks[0] === OFFICE_A);
-      ok('/ (super_admin): Key insights combines Oversight charter sentence, Forecast rise sentence, SLA breach card, and warning count badge', insightsText.includes('Transcript of Records was late') && insightsText.includes('expected to rise 50% next week') && insightsText.includes('1 open transaction is at high risk') && insightsText.includes('Inspect 1 At-Risk Item') && (await page.getByTestId('key-insights-badge').innerText()) === '3 Warnings');
+      ok('/ (super_admin): Key insights combines Oversight charter sentence, Forecast rise sentence, SLA breach card, and warning count badge', insightsText.includes('Transcript of Records was late') && insightsText.includes('expected to rise 50% next week') && insightsText.includes('1 open transaction is at high risk') && insightsText.includes('Review 1 High-Risk Transaction') && (await page.getByTestId('key-insights-badge').innerText()) === '3 Warnings');
 
       const overviewsBeforeTabs = calls.overviews.length;
       const forecastsBeforeTabs = calls.forecasts.length;
       await page.getByTestId('dashboard-tab-heatmap').click();
       await page.locator('#heatmap').waitFor({ state: 'visible', timeout: 15000 });
       const heatmapText = await page.locator('#heatmap').innerText();
-      ok('/ (super_admin): Office Compliance Heatmap tab switches panels without extra API calls and excludes Archived Office', calls.overviews.length === overviewsBeforeTabs && calls.forecasts.length === forecastsBeforeTabs && (await page.getByTestId('charts-row').isHidden()) && heatmapText.includes('Registrar Office') && heatmapText.includes('Guidance Office') && heatmapText.includes('Cashier Office') && !heatmapText.includes('Archived Office'));
+      ok('/ (super_admin): Office Performance Overview tab switches panels without extra API calls and excludes Archived Office', calls.overviews.length === overviewsBeforeTabs && calls.forecasts.length === forecastsBeforeTabs && (await page.getByTestId('charts-row').isHidden()) && heatmapText.includes('Registrar Office') && heatmapText.includes('Guidance Office') && heatmapText.includes('Cashier Office') && !heatmapText.includes('Archived Office'));
 
       await page.getByTestId('dashboard-tab-charter').click();
       await page.getByTestId('insights-heatmap').waitFor({ state: 'visible', timeout: 15000 });
       const serviceMatrixText = await page.getByTestId('insights-heatmap').innerText();
       const legendText = await page.getByTestId('service-risk-legend').innerText();
       const noActivityChips = await page.getByTestId('no-activity-chip').allInnerTexts();
-      ok('/ (super_admin): Service & Charter Audit tab shows office monitoring cards, dynamic filter counts, status badges, and zero-activity 0 txns rows', (await page.locator('#heatmap').isHidden()) && legendText.includes('High late rate') && legendText.includes('Watch') && legendText.includes('On track') && legendText.includes('Too few to judge') && serviceMatrixText.includes('All Active (4)') && serviceMatrixText.includes('Flagged High Late Rate (2)') && serviceMatrixText.includes('Too Few to Judge (1)') && serviceMatrixText.includes('2 flagged') && serviceMatrixText.includes('On track') && serviceMatrixText.includes('37.5% late') && serviceMatrixText.includes('15% late') && serviceMatrixText.includes('5% late') && serviceMatrixText.includes('Too few') && noActivityChips.length === 1 && noActivityChips[0].includes('Official Receipt Copy') && noActivityChips[0].includes('0 txns'));
+      ok('/ (super_admin): Service Charter Compliance tab shows office monitoring cards, dynamic filter counts, status badges, and zero-activity 0 transactions rows', (await page.locator('#heatmap').isHidden()) && legendText.includes('High late rate') && legendText.includes('Watch') && legendText.includes('On track') && legendText.includes('Too few to judge') && serviceMatrixText.includes('All Active (4)') && serviceMatrixText.includes('Flagged Services (2)') && serviceMatrixText.includes('Too Few to Judge (1)') && serviceMatrixText.includes('2 flagged') && serviceMatrixText.includes('On track') && serviceMatrixText.includes('37.5% late') && serviceMatrixText.includes('15% late') && serviceMatrixText.includes('5% late') && serviceMatrixText.includes('Too few') && noActivityChips.length === 1 && noActivityChips[0].includes('Official Receipt Copy') && noActivityChips[0].includes('0 transactions'));
 
       await page.getByTestId('no-activity-search').fill('nonexistent-service');
       const emptyFilterVisible = (await page.getByTestId('no-activity-filter-empty').count()) === 1;
@@ -584,7 +584,7 @@ async function setupContext(browser, role, { forecastState, staleLateRisk = fals
       await page.getByTestId('dashboard-tab-charter').focus();
       await page.keyboard.press('ArrowRight');
       await page.getByTestId('insights-unusual').waitFor({ state: 'visible', timeout: 15000 });
-      ok('/ (super_admin): ArrowRight switches to Unusual Cases tab and displays clickable unusual transaction links without extra fetches', calls.overviews.length === overviewsBeforeTabs && (await page.locator('[data-testid="insights-unusual"] a[href^="/transactions/"]').count()) === 2);
+      ok('/ (super_admin): ArrowRight switches to Unusual Delays tab and displays clickable unusual transaction links without extra fetches', calls.overviews.length === overviewsBeforeTabs && (await page.locator('[data-testid="insights-unusual"] a[href^="/transactions/"]').count()) === 2);
 
       await page.keyboard.press('Home');
       await page.getByTestId('charts-row').waitFor({ state: 'visible', timeout: 15000 });
@@ -607,7 +607,7 @@ async function setupContext(browser, role, { forecastState, staleLateRisk = fals
       const unusualEmptyText = await page.getByTestId('unusual-empty-state').innerText();
       await page.getByTestId('dashboard-tab-overview').click();
       await page.getByTestId('charts-row').waitFor({ state: 'visible', timeout: 15000 });
-      ok('/ (super_admin): selecting Guidance Office updates forecast, late-risk, zero-count neutral tab badges, and Unusual Cases empty state card', zeroBadgesOk && unusualEmptyText.includes('No Unusual Cases Detected') && unusualEmptyText.includes('20 completed transactions') && unusualEmptyText.includes('Highest single-service volume this period: 20 completed (GUI-GMC)') && (await page.locator('#risk').innerText()).includes('Guidance Office') && calls.forecasts.some((f) => f.officeId === OFFICE_B && !f.serviceId));
+      ok('/ (super_admin): selecting Guidance Office updates forecast, late-risk, zero-count neutral tab badges, and Unusual Delays empty state card', zeroBadgesOk && unusualEmptyText.includes('No Unusual Delays Found') && unusualEmptyText.includes('20 completed transactions') && unusualEmptyText.includes('Highest single-service volume this period: 20 completed (GUI-GMC)') && (await page.locator('#risk').innerText()).includes('Guidance Office') && calls.forecasts.some((f) => f.officeId === OFFICE_B && !f.serviceId));
 
       await page.selectOption('select[aria-label="Select service"]', SVC_B);
       await page.waitForFunction(() => document.querySelector('[data-testid="forecast-success"]')?.innerText.includes('35'), null, { timeout: 15000 });
@@ -617,8 +617,8 @@ async function setupContext(browser, role, { forecastState, staleLateRisk = fals
       const officeBCallsAfter = calls.forecasts.filter((f) => f.officeId === OFFICE_B && !f.serviceId).length;
       ok('/ (super_admin): resetting service filter back to office level reuses externalRun without extra GET', officeBCallsBefore === 1 && officeBCallsAfter === 1);
 
-      await page.getByTestId('insights-forecast').getByRole('button', { name: 'Retrain', exact: true }).click();
-      await page.getByRole('alertdialog', { name: 'Retrain forecast?' }).getByRole('button', { name: 'Retrain', exact: true }).click();
+      await page.getByTestId('insights-forecast').getByRole('button', { name: 'Recalculate', exact: true }).click();
+      await page.getByRole('alertdialog', { name: 'Recalculate forecast?' }).getByRole('button', { name: 'Recalculate', exact: true }).click();
       await page.waitForFunction(() => document.querySelector('[data-testid="forecast-success"]')?.innerText.includes('88'), null, { timeout: 15000 });
       ok('/ (super_admin): embedded Retrain updates forecast and Key insights immediately', calls.forecastRetrains.length === 1 && calls.forecastRetrains[0]?.officeId === OFFICE_B && (await page.getByTestId('insights-sentences').innerText()).includes('83%'));
 
@@ -649,7 +649,7 @@ async function setupContext(browser, role, { forecastState, staleLateRisk = fals
       await page.goto(`${BASE}/`, { waitUntil: 'load', timeout: 60000 });
       await page.getByTestId('forecast-success').waitFor({ timeout: 30000 });
       await page.getByTestId('dashboard-late-risk').waitFor({ timeout: 30000 });
-      const retrainCount = await page.getByRole('button', { name: /Retrain/i }).count();
+      const retrainCount = await page.getByRole('button', { name: /Retrain|Recalculate/i }).count();
       const hasOfficeSelect = await page.locator('#dashboard-office').count();
       await page.getByTestId('dashboard-tab-unusual').click();
       await page.getByTestId('insights-unusual').waitFor({ state: 'visible', timeout: 15000 });
@@ -702,7 +702,7 @@ async function setupContext(browser, role, { forecastState, staleLateRisk = fals
       const adminText = await page.getByTestId('late-risk-section').innerText();
       const noKpiCards = (await page.getByTestId('late-risk-urgency-card').count()) === 0
         && (await page.getByTestId('late-risk-detail-pane').count()) === 0;
-      ok('/late-risk (super_admin): removes 4 KPI containers and renders Top Toolbar, Ranked Open Transactions table, and Scoring Model panel', noKpiCards && /78%/.test(adminText) && /Showing saved scores as of/.test(adminText) && /Ranked Open Transactions/.test(adminText) && /Showing 2 of 2/.test(adminText) && /Model Health Diagnostics/i.test(adminText) && /Risk Score Thresholds/i.test(adminText) && (await page.getByRole('button', { name: 'Retrain' }).count()) === 1);
+      ok('/late-risk (super_admin): removes 4 KPI containers and renders Top Toolbar, Ranked Open Transactions table, and Scoring Model panel', noKpiCards && /78%/.test(adminText) && /Showing saved results as of/.test(adminText) && /Ranked Open Transactions/.test(adminText) && /Showing 2 of 2/.test(adminText) && /Model Health Diagnostics/i.test(adminText) && /Risk Score Thresholds/i.test(adminText) && (await page.getByRole('button', { name: 'Retrain' }).count()) === 1);
 
       await page.getByTestId('late-risk-high').click();
       const highCountText = await page.getByTestId('late-risk-queue-count').innerText();
@@ -721,7 +721,7 @@ async function setupContext(browser, role, { forecastState, staleLateRisk = fals
       const inspectDrawerText = await page.getByTestId('late-risk-detail-drawer').innerText();
       const inspectHasNoEscalateBtn = (await page.getByTestId('late-risk-drawer-escalate-btn').count()) === 0;
       await page.getByTestId('late-risk-drawer-close').click();
-      ok('/late-risk (super_admin): Escalate and Inspect actions open transaction detail drawer with SLA consumption and Processing Milestones', escalateDrawerText.includes('High 78%') && escalateDrawerText.includes('REG-20261118-0001') && /SLA Time Consumption/i.test(escalateDrawerText) && /Processing Milestones/i.test(escalateDrawerText) && inspectDrawerText.includes('Low 12%') && inspectDrawerText.includes('REG-20261118-0002') && inspectDrawerText.includes('5 h 0 min (300 min) buffer remaining') && inspectHasNoEscalateBtn);
+      ok('/late-risk (super_admin): Escalate and Inspect actions open transaction detail drawer with time limit used and Processing Milestones', escalateDrawerText.includes('High 78%') && escalateDrawerText.includes('REG-20261118-0001') && /Time Limit Used/i.test(escalateDrawerText) && /Processing Milestones/i.test(escalateDrawerText) && inspectDrawerText.includes('Low 12%') && inspectDrawerText.includes('REG-20261118-0002') && inspectDrawerText.includes('5 h 0 min (300 min) buffer remaining') && inspectHasNoEscalateBtn);
 
       await page.selectOption('#late-risk-office', OFFICE_B);
       await page.getByText('GUI-20261118-0001').first().waitFor({ timeout: 15000 });

@@ -64,7 +64,8 @@ describe('wording (spec 3.3, six fixed templates)', () => {
     assert.equal(sentenceText({ template: 3, params: { office_id: 'o1', from_rate: 30, to_rate: 12.5, direction: 'fell' } }, names), "Registrar's late rate fell from 30% to 12.5%");
     assert.equal(sentenceText({ template: 3, params: { office_id: 'o1', from_rate: 10, to_rate: 25, direction: 'rose' } }, names), "Registrar's late rate rose from 10% to 25%");
     assert.equal(sentenceText({ template: 4, params: { service_id: 's1', share_of_limit: 18 } }, names), 'TOR Request is usually done in 18% of its time limit');
-    assert.equal(sentenceText({ template: 5, params: { n: 2 } }, names), '2 unusual cases took more than three times the usual time');
+    assert.equal(sentenceText({ template: 5, params: { n: 2 } }, names), '2 transactions took more than three times the usual time');
+    assert.equal(sentenceText({ template: 5, params: { n: 1 } }, names), '1 transaction took more than three times the usual time');
     assert.equal(sentenceText({ template: 6, params: { n: 1 } }, names), '1 open transaction is at high risk of being late');
     assert.equal(sentenceText({ template: 6, params: { n: 3 } }, names), '3 open transactions are at high risk of being late');
     assert.equal(sentenceText({ template: 99 }, names), '');
@@ -247,7 +248,7 @@ describe('table helpers', () => {
     assert.equal(filterScopedUnusual(overview.charter.unusual, { kind: 'office', officeId: 'O2' }).length, 0);
 
     const campusTabs = buildDashboardTabs(campusCounts);
-    assert.deepEqual(campusTabs.map((t) => t.label), ['Executive Overview', 'Office Compliance Heatmap', 'Service & Charter Audit', 'Unusual Cases']);
+    assert.deepEqual(campusTabs.map((t) => t.label), ['Executive Overview', 'Office Performance Overview', 'Service Charter Compliance', 'Unusual Delays']);
     assert.equal(campusTabs[2].badge, '2 flagged');
     assert.equal(campusTabs[2].badgeTone, 'gold');
     assert.equal(campusTabs[3].badge, '2');
@@ -357,7 +358,8 @@ describe('page rules', () => {
     assert.match(lateRisk, /Risk Score Thresholds/);
     assert.match(lateRisk, /LateRiskDetailDrawer/);
     assert.match(lateRisk, /Processing Milestones/);
-    assert.match(lateRisk, /SLA Time Consumption/);
+    assert.match(lateRisk, /Time Limit Used/);
+    assert.doesNotMatch(lateRisk, /SLA/);
     assert.match(dash, /<ServiceCharterPanel/);
     assert.match(dash, /<UnusualCasesPanel/);
     assert.match(charter, /<ServiceLateRateMatrix/);
@@ -370,7 +372,7 @@ describe('page rules', () => {
     assert.match(charter, /data-testid="charter-sort"/);
     assert.match(unusual, /<Card[^>]*id="unusual"[^>]*as="section"/);
     assert.match(unusual, /<DataTable/);
-    assert.match(unusual, /No Unusual Cases Detected/);
+    assert.match(unusual, /No Unusual Delays Found/);
     assert.match(unusual, /Highest single-service volume this period:/);
     assert.match(unusual, /<LoadingState>/);
     assert.match(unusual, /<StatusBanner variant="error"/);
