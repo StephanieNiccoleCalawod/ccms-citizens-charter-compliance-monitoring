@@ -44,10 +44,17 @@ export function manilaParts(value) {
 }
 
 const pad = (n, width = 2) => String(n).padStart(width, '0');
+const FAST_FROM_MS = Date.UTC(2000, 0, 1);
+const FAST_TO_MS = Date.UTC(2100, 0, 1);
 
 /** 'YYYY-MM-DD' calendar date in Manila. */
 export function toManilaDate(value) {
-  const p = manilaParts(value);
+  const date = toDate(value);
+  const ms = date.getTime();
+  // Fast path for current dates: Manila is a fixed UTC+08:00 with no daylight saving, so its calendar date is the UTC date of
+  // the instant shifted by 8 hours. Anything outside 2000-2100 takes the general path below, exactly as before.
+  if (ms >= FAST_FROM_MS && ms < FAST_TO_MS) return new Date(ms + MANILA_OFFSET_HOURS * 3_600_000).toISOString().slice(0, 10);
+  const p = manilaParts(date);
   return `${pad(p.year, 4)}-${pad(p.month)}-${pad(p.day)}`;
 }
 
