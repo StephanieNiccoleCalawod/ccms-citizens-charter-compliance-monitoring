@@ -711,9 +711,15 @@ export default function LateRiskSection({
     const refresh = () => apiFetch(url).then((data) => {
       if (active) { setScores({ officeId, data }); setError(''); }
     }).catch((failure) => { if (active) setError(failure.message); });
-    refresh();
-    const timer = setInterval(refresh, 60_000);
-    return () => { active = false; clearInterval(timer); };
+    // A hidden tab does not poll; coming back refreshes at once when the scores are older than one interval.
+    const visible = () => document.visibilityState !== 'hidden';
+    let lastLoad = Date.now();
+    const run = () => { lastLoad = Date.now(); refresh(); };
+    run();
+    const timer = setInterval(() => { if (visible()) run(); }, 60_000);
+    const onVisible = () => { if (visible() && Date.now() - lastLoad >= 60_000) run(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { active = false; clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, [embedded, officeId, revision]);
 
   async function retrain() {

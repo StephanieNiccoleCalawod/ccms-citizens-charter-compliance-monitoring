@@ -131,6 +131,7 @@ export default function QueuePanel({ user }) {
         message: null,
         offset: Date.parse(data.now) - Date.now(),
       });
+      setNow(Date.now());
     } catch (err) {
       const message = err?.status === 403
         ? 'You do not have access to this office queue.'
@@ -145,13 +146,18 @@ export default function QueuePanel({ user }) {
 
   useEffect(() => {
     if (!officeId) return undefined;
-    const first = setTimeout(load, 0);
-    const refresh = setInterval(load, REFRESH_MS);
-    const tick = setInterval(() => setNow(Date.now()), 1000);
+    // A hidden tab does not poll; coming back refreshes at once when the board is older than one interval.
+    const visible = () => document.visibilityState !== 'hidden';
+    let lastLoad = Date.now();
+    const run = () => { lastLoad = Date.now(); return load(); };
+    const first = setTimeout(run, 0);
+    const refresh = setInterval(() => { if (visible()) run(); }, REFRESH_MS);
+    const onVisible = () => { if (visible() && Date.now() - lastLoad >= REFRESH_MS) run(); };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearTimeout(first);
       clearInterval(refresh);
-      clearInterval(tick);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [officeId, load]);
 
@@ -498,6 +504,14 @@ export default function QueuePanel({ user }) {
   const current = isDemoActive || board.officeId === officeId;
   const data = isDemoActive ? demoEntry.board : (board.officeId === officeId ? board.data : null);
   const serverNow = now + (isDemoActive ? 0 : board.offset);
+
+  // The once-a-second redraw is only needed while a called ticket is counting down to "Skip available".
+  const countdownPending = Boolean(data?.called?.some((t) => t?.skippable_at && Date.parse(t.skippable_at) > serverNow));
+  useEffect(() => {
+    if (!countdownPending) return undefined;
+    const tick = setInterval(() => { if (document.visibilityState !== 'hidden') setNow(Date.now()); }, 1000);
+    return () => clearInterval(tick);
+  }, [countdownPending]);
 
   const officeHistory = useMemo(() => {
     if (!officeId) return [];
