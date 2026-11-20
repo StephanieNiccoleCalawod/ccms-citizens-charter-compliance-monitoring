@@ -1,8 +1,8 @@
-import { fromManila, toManilaDate } from 'ccms-shared';
+import { ROLES, fromManila, toManilaDate } from 'ccms-shared';
 import { computeCompliance, timeLimitMinutes } from '../transaction/compliance.js';
 import {
-  AUGUST_PEAK, CLIENT_MIX, CLIENT_MIX_TOLERANCE_POINTS, DEFAULTS, LATE_COUNT_700, LATE_RATE, MISS_REASONS_BY_TYPE,
-  MONTH_TARGETS, MONTH_TARGET_DAYS, OFFICE_SHARES, OPEN_MAX, OPEN_MIN, OPEN_WORKING_DAYS, PATTERN_CODES, PATTERN_RATES,
+  ASSIGNMENTS, AUGUST_PEAK, CLIENT_MIX, CLIENT_MIX_TOLERANCE_POINTS, EXCLUDED_SERVICE_PREFIXES, FALLBACK_PER_DAY, LATE_COUNT_700,
+  LATE_RATE, LEGACY_VOLUME, MISS_REASONS_BY_TYPE, MONTH_TARGETS, MONTH_TARGET_DAYS, OFFICE_SHARES, OPEN_MAX, OPEN_MIN, OPEN_WORKING_DAYS, PATTERN_CODES, PATTERN_RATES,
   REGISTRY_MISS_SHARE, RISK_LEVELS, RUSH_WEEKS, SEED_SEQUENCE, SHARE_RANGES, TOP_FIFTH_SHARE, UNUSED_SHARE, officeCodeOf,
   patternServiceCode,
 } from './config.js';
@@ -26,18 +26,18 @@ const dateOf = (value) => toManilaDate(value);
 const monthOf = (date) => date.slice(0, 7);
 const inRange = (date, { from, to }) => date >= from && date <= to;
 
-/** Late-count bounds for a volume: the plan's 110-125 for 700, the 15-18% rate otherwise (both always checked). */
+/** Late-count bounds for a volume: the v2 plan's 110-125 for 700, the 15-18% rate otherwise (150-180 for 1,000; both always checked). */
 export function lateBounds(volume) {
   const min = Math.ceil(LATE_RATE.min * volume);
   const max = Math.floor(LATE_RATE.max * volume);
-  if (volume === DEFAULTS.volume) return { min: Math.max(min, LATE_COUNT_700.min), max: Math.min(max, LATE_COUNT_700.max), target: Math.round(LATE_RATE.target * volume) };
+  if (volume === LEGACY_VOLUME) return { min: Math.max(min, LATE_COUNT_700.min), max: Math.min(max, LATE_COUNT_700.max), target: Math.round(LATE_RATE.target * volume) };
   return { min, max, target: Math.round(LATE_RATE.target * volume) };
 }
 
 /** Completed rows per month: the plan's month density (per calendar day), scaled to the period and volume. */
 export function monthTargets({ from, to, volume }) {
   const perDay = new Map(Object.entries(MONTH_TARGETS).map(([month, count]) => [month, count / MONTH_TARGET_DAYS[month]]));
-  const fallback = DEFAULTS.volume / 129;
+  const fallback = FALLBACK_PER_DAY;
   const weights = new Map();
   for (let t = Date.parse(`${from}T00:00:00Z`); t <= Date.parse(`${to}T00:00:00Z`); t += 86_400_000) {
     const month = new Date(t).toISOString().slice(0, 7);
@@ -51,6 +51,19 @@ function standardOn(standardsByService, serviceId, date) {
   let found = null;
   for (const s of list) if (s.effective_from <= date && (!s.effective_to || s.effective_to >= date) && (!found || s.effective_from > found.effective_from)) found = s;
   return found;
+}
+
+const normName = (value) => String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+/** A service code matches an assignment pattern: "ACAD-GRD-*" is a prefix, anything else is an exact code (both without "PUP-"). */
+export const matchesService = (serviceCode, pattern) => (pattern.endsWith('*') ? serviceCode.startsWith(`PUP-${pattern.slice(0, -1)}`) : serviceCode === `PUP-${pattern}`);
+
+/**
+ * The accounts that handle a service (K34): the people the assignment list names for it (the pool is shared when several are
+ * named), or, when none of them is registered or the service is not listed, every account of the office as the fallback.
+ */
+export function accountsFor(office, serviceCode) {
+  const named = office.assignments.filter((a) => a.patterns.some((p) => matchesService(serviceCode, p))).flatMap((a) => a.accounts);
+  return named.length ? { pool: named, fallback: false } : { pool: office.staff, fallback: true };
 }
 
 /** Resolves offices, services, pattern services and accounts; collects every missing prerequisite. */
@@ -73,9 +86,12 @@ export function resolveCatalogue({ catalogue, accounts, options, problems }) {
     const candidates = catalogue.services
       .filter((s) => s.office_id === office.office_id && s.is_active && s.service_code.startsWith(`${code}-`))
       .sort((a, b) => a.service_code.localeCompare(b.service_code));
+    // v3 (K34): services nobody is registered to handle (the dental services) get no rows.
+    const excludedByRule = candidates.filter((s) => EXCLUDED_SERVICE_PREFIXES.some((prefix) => s.service_code.startsWith(prefix))).length;
     const services = [];
     let withoutStandard = 0;
     for (const s of candidates) {
+      if (EXCLUDED_SERVICE_PREFIXES.some((prefix) => s.service_code.startsWith(prefix))) continue;
       if (!standardOn(standardsByService, s.service_id, options.from) || !standardOn(standardsByService, s.service_id, options.asOf)) {
         withoutStandard += 1;
         continue;
@@ -89,7 +105,30 @@ export function resolveCatalogue({ catalogue, accounts, options, problems }) {
     if (!services.length) problems.push(`office ${code}: no active service with a standard in force for the whole period`);
     const staff = accounts.get(office.office_id) ?? [];
     if (!staff.length) problems.push(`office ${code}: no active Office Head or Office Staff account (register the accounts first)`);
-    offices.push({ key, code, share, office, services, staff, withoutStandard });
+    // v3 (K34): who handles which service. Missing people are reported (counts only) and fall back to the whole office.
+    const assignments = [];
+    const missingAssignees = [];
+    for (const entry of ASSIGNMENTS.filter((a) => a.office === key)) {
+      const found = [];
+      for (const name of entry.who) {
+        const exact = staff.filter((account) => normName(account.name) === normName(name));
+        const aliases = (entry.aliases?.[name] ?? []).map(normName);
+        const matches = exact.length ? exact : staff.filter((account) => aliases.includes(normName(account.name)));
+        if (!matches.length) missingAssignees.push(name);
+        found.push(...matches);
+      }
+      if (found.length) assignments.push({ patterns: entry.services, accounts: found });
+    }
+    // Every service family of an assigned person keeps one service in use (the first by code), so that nobody ends up with no
+    // rows, and the plan's "about a third unused" only ever falls on the other services.
+    const anchorIds = new Set();
+    for (const a of assignments) {
+      for (const pattern of a.patterns) {
+        const first = services.find((s) => matchesService(s.service_code, pattern));
+        if (first) anchorIds.add(first.service_id);
+      }
+    }
+    offices.push({ key, code, share, office, services, staff, withoutStandard, excludedByRule, assignments, missingAssignees, anchorIds });
   }
   const patterns = {};
   const resolvePattern = (planCode) => {
@@ -126,6 +165,13 @@ function rankServices(office, patternIds, seed) {
     if (!swap) continue;
     used = used.map((x) => (x === swap ? id : x));
     idle = idle.map((x) => (x === id ? swap : x));
+  }
+  // A protected service (a pattern service, or the anchor service of an assigned person) is never left unused, even when no
+  // other service can take its place (small offices such as LIB).
+  const rescued = idle.filter((id) => patternIds.has(id));
+  if (rescued.length) {
+    used = [...used, ...rescued];
+    idle = idle.filter((id) => !patternIds.has(id));
   }
   const weights = new Map();
   const rest = used.length - top;
@@ -278,13 +324,17 @@ function setShare(row, random) {
   else row.share = row.intent_late ? random.between(...SHARE_RANGES.late) : random.between(...SHARE_RANGES.onTime);
 }
 
+function minuteInstant(date, minute) {
+  return fromManila(date, `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`);
+}
+
 function startInstant(date, windows, random) {
   const usable = windows.filter((w) => w.close - w.open >= 30);
   const pool = usable.length ? usable : windows;
   const window = pool[random.int(pool.length)];
   const latest = Math.max(window.open, window.close - 30);
   const minute = window.open + random.int(latest - window.open + 1);
-  return fromManila(date, `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`);
+  return minuteInstant(date, minute);
 }
 
 /** Canonical business data of a planned or stored row (never IDs, audit timestamps or delivery metadata). */
@@ -337,7 +387,7 @@ export async function buildPlan({ inputs, options, core, concurrency = 6 }) {
   // ---- 2. Days, segments, services, start times ----
   const completed = [];
   offices.forEach((office, oi) => {
-    const ranking = rankServices(office, patternIds, options.seed);
+    const ranking = rankServices(office, new Set([...patternIds, ...office.anchorIds]), options.seed);
     office.ranking = ranking;
     const calendar = inputs.calendar.get(office.office.office_id);
     months.forEach(([month], mi) => {
@@ -376,12 +426,13 @@ export async function buildPlan({ inputs, options, core, concurrency = 6 }) {
   // ---- 3. Clients, registry, staff ----
   const clientCounts = assignClientTypes(completed, completed.length, servicesById, createRandom(options.seed, 'clients'));
   const registryOutcome = assignRegistry(completed, inputs.registry, createRandom(options.seed, 'registry'), problems);
+  // v3 (K34): the person who handles the service starts and completes the row (no separate approver is modelled).
   const staffRandom = createRandom(options.seed, 'staff');
+  const officeByCode = new Map(offices.map((o) => [o.code, o]));
   for (const row of completed) {
-    const staff = offices.find((o) => o.code === row.office_code).staff;
-    const starter = staff[staffRandom.int(staff.length)];
-    const ender = staff.length > 1 && staffRandom.next() < 0.2 ? staff[(staff.indexOf(starter) + 1) % staff.length] : starter;
-    Object.assign(row, { started_by: starter.id, started_by_name: starter.name, started_by_position: starter.position, ended_by: ender.id });
+    const { pool, fallback } = accountsFor(officeByCode.get(row.office_code), row.service_code);
+    const starter = pool[staffRandom.int(pool.length)];
+    Object.assign(row, { started_by: starter.id, started_by_name: starter.name, started_by_position: starter.position, ended_by: starter.id, staff_fallback: fallback });
   }
 
   // ---- 4. Lateness intent (plan 1 and patterns 1, 3, 4, 5, 6) ----
@@ -465,13 +516,37 @@ function precedingWorkingDays(calendar, asOf) {
   return [...calendar.keys()].filter((d) => d < asOf).sort().slice(-OPEN_WORKING_DAYS);
 }
 
+// Short standards may need a start within 30 minutes of closing to produce a low or medium open risk.
+// Count back through the same effective working intervals that the engine uses to evaluate the candidate.
+function startForOpenRisk(day, days, calendar, standard, level) {
+  if (standard.duration_days || level === 'HIGH') return null;
+  const limit = timeLimitMinutes({ hours: standard.duration_hours, minutes: standard.duration_minutes });
+  const minimum = level === 'LOW' ? 1 : Math.ceil(limit * RISK_LEVELS.MEDIUM);
+  const maximum = Math.ceil(limit * (level === 'LOW' ? RISK_LEVELS.MEDIUM : RISK_LEVELS.HIGH)) - 1;
+  if (minimum > maximum) return null;
+  let remaining = Math.floor((minimum + maximum) / 2);
+  for (const workingDay of [...days].reverse()) {
+    if (workingDay < day) break;
+    for (const { open, close } of [...calendar.get(workingDay)].reverse()) {
+      if (remaining <= close - open) return workingDay === day ? minuteInstant(day, close - remaining) : null;
+      remaining -= close - open;
+    }
+  }
+  return null;
+}
+
 async function planOpenRows({ offices, inputs, options, engine, servicesById, standardsByService, asOfStart, problems, concurrency }) {
   const random = createRandom(options.seed, 'open');
-  const available = new Map(offices.map((o) => [o.key, o.staff.filter((a) => !inputs.busyStaff.has(a.id))]));
+  // K32: one account per office stays free for the presenters: the Office Head by default, or exactly the --presenters accounts.
+  const presenters = new Set(options.presenters ?? []);
+  const known = new Set(offices.flatMap((o) => o.staff.map((a) => a.id)));
+  for (const id of presenters) if (!known.has(id)) problems.push('--presenters: an account id is not an active Office Head or Office Staff account of the eight offices');
+  const isReserved = (account) => (presenters.size ? presenters.has(account.id) : account.role === ROLES.OFFICE_HEAD);
+  const available = new Map(offices.map((o) => [o.key, o.staff.filter((a) => !inputs.busyStaff.has(a.id) && !isReserved(a))]));
   const totalAvailable = [...available.values()].reduce((acc, list) => acc + list.length, 0);
   const n = Math.min(options.openTarget, OPEN_MAX, totalAvailable);
   if (n < OPEN_MIN) {
-    problems.push(`open rows: only ${totalAvailable} staff account(s) without a live open transaction; the plan needs ${OPEN_MIN}-${OPEN_MAX} open rows and one open transaction per staff account`);
+    problems.push(`open rows: only ${totalAvailable} staff account(s) without a live open transaction; the plan needs ${OPEN_MIN}-${OPEN_MAX} open rows, one open transaction per staff account, and one account per office kept free for the presenters`);
     return [];
   }
   // Office split by the plan shares, capped by each office's free staff; the rest goes to offices with free staff.
@@ -496,14 +571,16 @@ async function planOpenRows({ offices, inputs, options, engine, servicesById, st
     const calendar = inputs.calendar.get(slot.office.office.office_id);
     const days = precedingWorkingDays(calendar, options.asOf);
     if (!days.length) return null;
-    const services = slotRandom.shuffle(slot.office.ranking.used);
+    // The services this person handles (K34); any used service of the office when none of them is in use (counted as a fallback).
+    const owned = slot.office.ranking.used.filter((id) => accountsFor(slot.office, servicesById.get(id).service_code).pool.some((a) => a.id === slot.account.id));
+    const services = slotRandom.shuffle(owned.length ? owned : slot.office.ranking.used);
     const dayOrder = slot.level === 'LOW' ? [...days].reverse() : slot.level === 'HIGH' ? days : slotRandom.shuffle(days);
     let fallback = null;
     for (let attempt = 0; attempt < 24; attempt += 1) {
       const service = servicesById.get(services[attempt % services.length]);
       const day = dayOrder[Math.floor(attempt / services.length) % dayOrder.length];
       const standard = standardOn(standardsByService, service.service_id, day);
-      const startedAt = startInstant(day, calendar.get(day), slotRandom);
+      const startedAt = startForOpenRisk(day, days, calendar, standard, slot.level) ?? startInstant(day, calendar.get(day), slotRandom);
       const row = {
         office_id: slot.office.office.office_id, office_code: slot.office.code, office_name: slot.office.office.office_name, office_key: slot.office.key,
         service_id: service.service_id, service_code: service.service_code, service_name: service.service_name,
@@ -511,6 +588,7 @@ async function planOpenRows({ offices, inputs, options, engine, servicesById, st
         standard_duration_days: standard.duration_days, standard_duration_hours: standard.duration_hours,
         standard_duration_minutes: standard.duration_minutes, started_at: startedAt.toISOString(), status: 'IN_PROGRESS',
         started_by: slot.account.id, started_by_name: slot.account.name, started_by_position: slot.account.position, ended_by: null,
+        staff_fallback: accountsFor(slot.office, service.service_code).fallback,
       };
       const limit = await limitOf(engine, row);
       const used = await elapsedTo(engine, row, asOfStart);
@@ -571,6 +649,11 @@ export function summarize({ completed, open, offices, patterns, options, bounds,
     open: open.length,
     months: Object.fromEntries(Object.entries(byMonthOffice).map(([m, o]) => [m, Object.values(o).reduce((a, b) => a + b, 0)])),
     month_by_office: byMonthOffice,
+    duplicate_tracking_numbers: completed.length + open.length - new Set([...completed, ...open].map(row => row.tracking_no)).size,
+    active_accounts_by_office: Object.fromEntries(offices.map(o => [o.key, {
+      heads: o.staff.filter(a => a.role === 'office_head').length,
+      staff: o.staff.filter(a => a.role === 'office_staff').length,
+    }])),
     offices: Object.fromEntries(offices.map((o) => [o.key, completed.filter((r) => r.office_key === o.key).length])),
     client_mix: clientCounts,
     client_mix_pct: Object.fromEntries(Object.entries(clientCounts).map(([k, v]) => [k, pct(v, completed.length)])),
@@ -596,12 +679,18 @@ export function summarize({ completed, open, offices, patterns, options, bounds,
     },
     open_risk_coverage: riskCoverage,
     open_by_office: Object.fromEntries(offices.map((o) => [o.key, open.filter((r) => r.office_key === o.key).length])),
+    assignment: {
+      fallback_rows: [...completed, ...open].filter((r) => r.staff_fallback).length,
+      missing_assignees_by_office: Object.fromEntries(offices.filter((o) => o.missingAssignees.length).map((o) => [o.key, o.missingAssignees.length])),
+      services_left_out_by_rule: Object.fromEntries(offices.filter((o) => o.excludedByRule).map((o) => [o.key, o.excludedByRule])),
+    },
     started_outside_working_time: 0,
     contact_data_rows: 0,
   };
 }
 
 function checkTargets(d, bounds, problems) {
+  if (d.duplicate_tracking_numbers) problems.push('planned tracking numbers must be unique');
   if (d.late.count < bounds.min || d.late.count > bounds.max) problems.push(`late: ${d.late.count} computed late rows, outside ${bounds.min}-${bounds.max}`);
   if (d.late.pct < LATE_RATE.min * 100 || d.late.pct > LATE_RATE.max * 100) problems.push(`late: ${d.late.pct}% outside 15-18%`);
   for (const [type, share] of CLIENT_MIX) {

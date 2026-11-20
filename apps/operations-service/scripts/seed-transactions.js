@@ -1,12 +1,13 @@
-// Sprint 6 TT1: seeded history v2 (demo only). See docs/seeded-history-v2.md for the runbook.
+// Sprint 6 TT1: seeded history v3 (demo only). See docs/seeded-history-v3.md for the runbook.
 //
 //   node --env-file=<env> scripts/seed-transactions.js --dry-run [options]       plan and print aggregates; no writes
 //   node --env-file=<env> scripts/seed-transactions.js --operator=<id> --confirm=<db> [options]   import (replaces own rows)
 //   node --env-file=<env> scripts/seed-transactions.js --remove --operator=<id> --confirm=<db>     remove every owned row
 //   node --env-file=<env> scripts/seed-transactions.js --verify [options]        read back the stored rows' business digest
 //
-// Options: --seed=<text> (default "cccms-seed-plan-v2"), --from=YYYY-MM-DD (2026-07-01), --to=YYYY-MM-DD (2026-11-06),
-//          --volume=<n> (700), --as-of=YYYY-MM-DD (Manila run date): the open rows sit in the 5 working days before it.
+// Options: --seed=<text> (default "cccms-seed-plan-v3"), --from=YYYY-MM-DD (2026-01-05), --to=YYYY-MM-DD (2026-11-06),
+//          --volume=<n> (1000), --as-of=YYYY-MM-DD (Manila run date): the open rows sit in the 5 working days before it,
+//          --presenters=<account id>,<account id>... the accounts kept free of any open row (default: every Office Head).
 //
 // Always required: SEED_TARGET=demo. Writes also require: the Operations database and the Oversight URL to be on the
 // allowlists (SEED_DEMO_DATABASES, SEED_DEMO_OVERSIGHT_HOSTS), --confirm=<operations database name>, current
@@ -22,7 +23,7 @@ import { PlanError, buildPlan } from '../src/modules/seed/planner.js';
 import { SeedWriteError, purgeOversight, reservedRangeState, storedDigest, writeRun } from '../src/modules/seed/writer.js';
 
 const FLAGS = new Set(['dry-run', 'remove', 'verify']);
-const VALUES = new Set(['seed', 'from', 'to', 'volume', 'as-of', 'operator', 'confirm']);
+const VALUES = new Set(['seed', 'from', 'to', 'volume', 'as-of', 'operator', 'confirm', 'presenters']);
 const BACKUP_MAX_AGE_MS = 24 * 3_600_000;
 
 export function parseArgs(argv, now = new Date()) {
@@ -49,9 +50,11 @@ export function parseArgs(argv, now = new Date()) {
     volume: flags.volume === undefined ? DEFAULTS.volume : Number(flags.volume),
     asOf: flags['as-of'] ?? toManilaDate(now),
     openTarget: DEFAULTS.openTarget,
+    presenters: flags.presenters === undefined ? [] : String(flags.presenters).split(',').map((id) => id.trim()).filter(Boolean),
     operator: flags.operator ?? null,
     confirm: flags.confirm ?? null,
   };
+  if (options.presenters.some((id) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) throw new Error('--presenters must be a comma list of account ids (UUIDs)');
   if (options.seed.length > 100 || /[\u0000-\u001f]/.test(options.seed)) throw new Error('--seed must be 1-100 printable characters');
   for (const key of ['from', 'to', 'asOf']) if (!isValidManilaDate(options[key])) throw new Error(`--${key === 'asOf' ? 'as-of' : key} must be a date YYYY-MM-DD`);
   if (options.from > options.to) throw new Error('--from must not be after --to');

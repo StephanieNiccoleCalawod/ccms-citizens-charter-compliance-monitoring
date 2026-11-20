@@ -1,4 +1,5 @@
-// Sprint 6 TT1 seeded history v2: deterministic planning, the write path's guarantees and complete removal.
+// Sprint 6 TT1 seeded history v3: deterministic planning, the assignment by position, the write path's guarantees and
+// complete removal.
 // Authored for Codex; not run by the author. The planner runs against an in-memory engine with the fixture W calendar,
 // never against a hosted Core.
 import { strict as assert } from 'node:assert';
@@ -26,10 +27,30 @@ function fixtureCore() {
   };
 }
 
-const SERVICE_COUNTS = { REG: 7, OSAS: 8, ADMREG: 10, ACAD: 10, ADMIN: 12, ACCT: 3, LIB: 2, OSFA: 1 };
-const PATTERN = { REG: ['CRD-005', 'CRD-002'], OSAS: ['ACT-001', 'CRD-007'], ADMIN: ['FAC-001', 'FAC-002'], ADMREG: ['ACC-003'] };
+// The real service families of the catalogue seed files (codes without "PUP-<office>-"), including two dental services.
+const SERVICES = {
+  REG: ['GRD-001', 'CRD-001', 'CRD-002', 'CRD-003', 'CRD-004', 'CRD-005', 'CRD-006'],
+  OSAS: ['ACT-001', 'CNS-001', 'CNS-002', 'CRD-007', 'IDC-001', 'IDC-002', 'REC-001', 'REC-002'],
+  ADMREG: ['ADM-001', 'ADM-002', 'ADM-003', 'ACC-001', 'ACC-002', 'ACC-003', 'GRD-001', 'GRD-002', 'CRD-001', 'VER-001'],
+  ACAD: ['ENR-001', 'ENR-002', 'ENR-003', 'ENR-004', 'ENR-005', 'GRD-001', 'GRD-002', 'SHF-001', 'PET-001', 'PET-002'],
+  ADMIN: ['FAC-001', 'FAC-002', 'CIR-001', 'MED-001', 'MED-002', 'MED-003', 'MED-004', 'CLR-001', 'CLR-002', 'CLR-003', 'DEN-001', 'DEN-002'],
+  ACCT: ['CLR-001', 'FIN-001', 'FIN-002'],
+  LIB: ['CIR-001', 'REF-001'],
+  OSFA: ['DAT-001'],
+};
+// The registered office accounts of 11/12/2026 (8 heads, 8 staff), by office: [name, role, position].
+const ACCOUNTS = {
+  ACAD: [['Mark Aribon', 'office_head', 'Head, Academic Office'], ['Ednalyn Bataller', 'office_staff', 'Academic Aide']],
+  ADMIN: [['John Robert Isip', 'office_head', 'Head, Campus Administrative Office'], ['Ma.Eugenia Halili', 'office_staff', 'Campus Nurse']],
+  OSFA: [['Geronimo Cuadra', 'office_head', 'Head, Scholarship and Financial Assistance']],
+  LIB: [['Klaribel Domingo', 'office_head', 'Librarian'], ['Jean-Paul De Guzman', 'office_staff', 'Librarian Staff'], ['Jann Liongson', 'office_staff', 'Librarian Staff']],
+  ACCT: [['Rosalinda Madelo', 'office_head', 'Collecting and Disbursing Officer'], ['Hernando Liberato', 'office_staff', 'Collecting Officer']],
+  REG: [['Cherryln Esparagoza', 'office_head', 'Campus Registrar'], ['Meryl Gonzalbo', 'office_staff', 'In-Charge, Student Records']],
+  ADMREG: [['Cherryln Esparagoza', 'office_head', 'Campus Registrar'], ['Berna Bulawit', 'office_staff', 'In-charge, Admission']],
+  OSAS: [['Alma C. Fernandez', 'office_head', 'Head, Office of Student Affairs and Services'], ['Melanie Bactasa', 'office_staff', 'Guidance Counselor, In-charge, Career and Placement Office']],
+};
 
-function fixtureInputs({ staffPerOffice = 7, drop = null, eligibility = {} } = {}) {
+function fixtureInputs({ headsOnly = false, drop = null, without = null, eligibility = {} } = {}) {
   const offices = [];
   const services = [];
   const standards = [];
@@ -37,9 +58,7 @@ function fixtureInputs({ staffPerOffice = 7, drop = null, eligibility = {} } = {
   for (const [key] of OFFICE_SHARES) {
     const office = { office_id: uuidFromName(`office|${key}`), office_code: `PUP-${key}`, office_name: `${key} Office`, is_active: true };
     offices.push(office);
-    const codes = [...(PATTERN[key] ?? [])];
-    for (let i = codes.length; i < SERVICE_COUNTS[key]; i += 1) codes.push(`SVC-${String(100 + i)}`);
-    codes.forEach((suffix, index) => {
+    SERVICES[key].forEach((suffix, index) => {
       const code = `PUP-${key}-${suffix}`;
       if (code === drop) return;
       const service = {
@@ -53,9 +72,10 @@ function fixtureInputs({ staffPerOffice = 7, drop = null, eligibility = {} } = {
         duration_days: index % 3 === 0 ? 3 : 0, duration_hours: index % 3 === 0 ? 0 : 2, duration_minutes: index % 3 === 0 ? 0 : 30,
       });
     });
-    accounts.set(office.office_id, Array.from({ length: staffPerOffice }, (_, i) => ({
-      id: uuidFromName(`account|${key}|${i}`), role: i === 0 ? 'office_head' : 'office_staff', name: `Officer ${key} ${i}`, position: 'Administrative Aide',
-    })).sort((a, b) => a.id.localeCompare(b.id)));
+    accounts.set(office.office_id, ACCOUNTS[key]
+      .filter(([name, role]) => name !== without && (!headsOnly || role === 'office_head'))
+      .map(([name, role, position]) => ({ id: uuidFromName(`account|${key}|${name}`), role, name, position }))
+      .sort((a, b) => a.id.localeCompare(b.id)));
   }
   const registry = [];
   for (let i = 0; i < 400; i += 1) registry.push({ student_number: `2024-${String(i).padStart(5, '0')}-QC-0`, status: 'ENROLLED', valid_until: i < 30 ? '2026-06-30' : '2027-06-30' });
@@ -64,7 +84,7 @@ function fixtureInputs({ staffPerOffice = 7, drop = null, eligibility = {} } = {
   const calendar = new Map();
   for (const office of offices) {
     const days = new Map();
-    for (let t = Date.parse('2026-06-20T00:00:00Z'); t < Date.parse('2026-11-12T00:00:00Z'); t += 86_400_000) {
+    for (let t = Date.parse('2026-01-01T00:00:00Z'); t < Date.parse('2026-11-12T00:00:00Z'); t += 86_400_000) {
       const date = new Date(t).toISOString().slice(0, 10);
       const window = W[new Date(`${date}T12:00:00Z`).getUTCDay()];
       if (window) days.set(date, [{ open: window[0], close: window[1] }]);
@@ -76,20 +96,28 @@ function fixtureInputs({ staffPerOffice = 7, drop = null, eligibility = {} } = {
 
 describe('TT1 helpers', () => {
   it('apportions exactly and deterministically', () => {
-    const out = apportion(700, Object.fromEntries(OFFICE_SHARES));
-    assert.deepEqual([...out.values()], [154, 140, 126, 98, 98, 35, 28, 21]);
+    const out = apportion(1000, Object.fromEntries(OFFICE_SHARES));
+    assert.deepEqual([...out.values()], [220, 200, 180, 140, 140, 50, 40, 30]);
     assert.equal(createRandom('a').next(), createRandom('a').next());
     assert.notEqual(createRandom('a').next(), createRandom('b').next());
   });
 
-  it('gives the plan month targets for the default period and the plan late bounds', () => {
-    assert.deepEqual(Object.fromEntries(monthTargets(OPTIONS)), { '2026-07': 100, '2026-08': 170, '2026-09': 130, '2026-10': 250, '2026-11': 50 });
+  it('gives the v3 month targets for the default period and the late bounds', () => {
+    assert.deepEqual(Object.fromEntries(monthTargets(OPTIONS)), {
+      '2026-01': 45, '2026-02': 40, '2026-03': 45, '2026-04': 55, '2026-05': 60, '2026-06': 55,
+      '2026-07': 100, '2026-08': 170, '2026-09': 130, '2026-10': 250, '2026-11': 50,
+    });
+    assert.deepEqual(lateBounds(1000), { min: 150, max: 180, target: 165 });
     assert.deepEqual(lateBounds(700), { min: 110, max: 125, target: 116 });
   });
 
   it('parses flags strictly and refuses a non-demo target, even for a dry run', () => {
     const now = new Date('2026-11-12T02:00:00Z');
     assert.equal(parseArgs(['--dry-run'], now).asOf, '2026-11-12');
+    assert.deepEqual([parseArgs(['--dry-run'], now).from, parseArgs(['--dry-run'], now).volume, parseArgs(['--dry-run'], now).openTarget], ['2026-01-05', 1000, 8]);
+    const presenter = randomUUID();
+    assert.deepEqual(parseArgs(['--dry-run', `--presenters=${presenter}`], now).presenters, [presenter]);
+    assert.throws(() => parseArgs(['--dry-run', '--presenters=not-an-id'], now), /--presenters/);
     assert.equal(parseArgs(['--dry-run', '--seed=abc', '--volume=700'], now).seed, 'abc');
     for (const bad of [['--dry-run', '--remove'], ['--volume=abc'], ['--from=2026-13-01'], ['--as-of=2026-11-01'], ['--nope'], ['--seed']]) {
       assert.throws(() => parseArgs(bad, now), undefined, bad.join(' '));
@@ -125,22 +153,50 @@ describe('TT1 planner', { timeout: 600_000 }, () => {
 
   it('meets the volume, month and office targets exactly', () => {
     const d = plan.diagnostics;
-    assert.equal(d.completed, 700);
-    assert.deepEqual(d.months, { '2026-07': 100, '2026-08': 170, '2026-09': 130, '2026-10': 250, '2026-11': 50 });
-    assert.deepEqual(d.offices, { REG: 154, OSAS: 140, ADMREG: 126, ACAD: 98, ADMIN: 98, ACCT: 35, LIB: 28, OSFA: 21 });
+    assert.equal(d.completed, 1000);
+    assert.deepEqual(d.months, {
+      '2026-01': 45, '2026-02': 40, '2026-03': 45, '2026-04': 55, '2026-05': 60, '2026-06': 55,
+      '2026-07': 100, '2026-08': 170, '2026-09': 130, '2026-10': 250, '2026-11': 50,
+    });
+    assert.deepEqual(d.offices, { REG: 220, OSAS: 200, ADMREG: 180, ACAD: 140, ADMIN: 140, ACCT: 50, LIB: 40, OSFA: 30 });
   });
 
-  it('computes 110-125 late (15-18%) from the engine, with open rows outside the denominator', () => {
+  it('computes 150-180 late (15-18%) from the engine, with open rows outside the denominator', () => {
     const late = plan.completed.filter((r) => r.is_compliant === false).length;
-    assert.ok(late >= 110 && late <= 125, String(late));
+    assert.ok(late >= 150 && late <= 180, String(late));
     assert.ok(plan.open.every((r) => r.status === 'IN_PROGRESS' && r.is_compliant === undefined && !r.ended_at));
     assert.ok(plan.completed.every((r) => Number.isInteger(r.elapsed_working_minutes) && typeof r.is_compliant === 'boolean'));
   });
 
-  it('plans 40-60 open rows, one per staff account, covering Low, Medium and High', () => {
-    assert.ok(plan.open.length >= 40 && plan.open.length <= 60);
+  it('plans 8 open rows (K32): one per staff account, none for an Office Head, covering Low, Medium and High', () => {
+    assert.equal(plan.open.length, 8);
     assert.equal(new Set(plan.open.map((r) => r.started_by)).size, plan.open.length);
+    const heads = new Set(['Mark Aribon', 'John Robert Isip', 'Geronimo Cuadra', 'Klaribel Domingo', 'Rosalinda Madelo', 'Cherryln Esparagoza', 'Alma C. Fernandez']);
+    assert.ok(plan.open.every((r) => !heads.has(r.started_by_name)), 'the heads stay free for the presenters');
+    assert.deepEqual(plan.diagnostics.open_by_office, { REG: 1, OSAS: 1, ADMREG: 1, ACAD: 1, ADMIN: 1, ACCT: 1, LIB: 2, OSFA: 0 });
     for (const level of ['LOW', 'MEDIUM', 'HIGH']) assert.ok(plan.diagnostics.open_risk_coverage[level] >= 1, level);
+  });
+
+  it('gives each row to the person who handles the service (K34) and leaves the dental services unused', () => {
+    const rows = [...plan.completed, ...plan.open];
+    const by = (prefix) => new Set(rows.filter((r) => r.service_code.startsWith(`PUP-${prefix}`)).map((r) => r.started_by_name));
+    assert.deepEqual([...by('ADMIN-MED-')], ['Ma.Eugenia Halili']);
+    assert.deepEqual([...by('ADMIN-CLR-')], ['Ma.Eugenia Halili']);
+    assert.deepEqual([...by('ADMIN-FAC-')], ['John Robert Isip']);
+    assert.deepEqual([...by('OSAS-CNS-')], ['Melanie Bactasa']);
+    assert.deepEqual([...by('OSAS-REC-')], ['Melanie Bactasa']);
+    assert.deepEqual([...by('OSAS-ACT-')], ['Alma C. Fernandez']);
+    assert.deepEqual([...by('REG-')], ['Meryl Gonzalbo']);
+    assert.deepEqual([...by('ADMREG-ADM-')], ['Berna Bulawit']);
+    assert.deepEqual([...by('ADMREG-ACC-')], ['Cherryln Esparagoza']);
+    assert.deepEqual([...by('ACAD-GRD-')], ['Mark Aribon']);
+    assert.deepEqual([...by('ACCT-FIN-')], ['Rosalinda Madelo']);
+    assert.deepEqual([...by('OSFA-')], ['Geronimo Cuadra']);
+    assert.ok([...by('LIB-CIR-')].every((n) => ['Jean-Paul De Guzman', 'Jann Liongson'].includes(n)));
+    assert.ok(plan.completed.every((r) => r.ended_by === r.started_by));
+    assert.equal(rows.filter((r) => r.service_code.startsWith('PUP-ADMIN-DEN-')).length, 0);
+    assert.equal(plan.diagnostics.assignment.fallback_rows, 0);
+    assert.deepEqual(plan.diagnostics.assignment.services_left_out_by_rule, { ADMIN: 2 });
   });
 
   it('uses reserved tracking numbers, no contact data, and the client mix', () => {
@@ -186,8 +242,27 @@ describe('TT1 planner', { timeout: 600_000 }, () => {
   it('fails with aggregate diagnostics when a pattern service or staff accounts are missing', async () => {
     await assert.rejects(buildPlan({ inputs: fixtureInputs({ drop: 'PUP-OSAS-ACT-001' }), options: OPTIONS, core: fixtureCore() }),
       (err) => err instanceof PlanError && err.diagnostics.problems.some((p) => p.includes('PUP-OSAS-ACT-001')));
-    await assert.rejects(buildPlan({ inputs: fixtureInputs({ staffPerOffice: 2 }), options: OPTIONS, core: fixtureCore() }),
+    await assert.rejects(buildPlan({ inputs: fixtureInputs({ headsOnly: true }), options: OPTIONS, core: fixtureCore() }),
       (err) => err instanceof PlanError && err.diagnostics.problems.some((p) => p.startsWith('open rows')));
+  });
+
+  it('falls back to the rest of the office, and reports it, when a listed person is not registered (K34)', async () => {
+    const fallback = await buildPlan({ inputs: fixtureInputs({ without: 'Ma.Eugenia Halili' }), options: OPTIONS, core: fixtureCore() });
+    const medical = fallback.completed.filter((r) => r.service_code.startsWith('PUP-ADMIN-MED-') || r.service_code.startsWith('PUP-ADMIN-CLR-'));
+    assert.ok(medical.length > 0 && medical.every((r) => r.started_by_name === 'John Robert Isip'));
+    assert.deepEqual(fallback.diagnostics.assignment.missing_assignees_by_office, { ADMIN: 1 });
+    assert.ok(fallback.diagnostics.assignment.fallback_rows >= medical.length);
+    assert.equal(fallback.open.length, 7, 'ADMIN has no free account left, so one open row fewer');
+  });
+
+  it('keeps exactly the --presenters accounts free instead of the heads', async () => {
+    const inputs = fixtureInputs();
+    const staffOfAcad = inputs.accounts.get(inputs.catalogue.offices.find((o) => o.office_code === 'PUP-ACAD').office_id);
+    const bataller = staffOfAcad.find((a) => a.name === 'Ednalyn Bataller');
+    const chosen = await buildPlan({ inputs, options: { ...OPTIONS, presenters: [bataller.id] }, core: fixtureCore() });
+    assert.ok(chosen.open.every((r) => r.started_by !== bataller.id));
+    await assert.rejects(buildPlan({ inputs, options: { ...OPTIONS, presenters: [randomUUID()] }, core: fixtureCore() }),
+      (err) => err instanceof PlanError && err.diagnostics.problems.some((p) => p.includes('--presenters')));
   });
 });
 
