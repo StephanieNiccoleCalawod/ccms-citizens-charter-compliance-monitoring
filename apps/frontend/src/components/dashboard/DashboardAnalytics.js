@@ -26,8 +26,8 @@ import ComplianceTrendChart from './ComplianceTrendChart.js';
 import DashboardHeader from './DashboardHeader.js';
 import KeyInsightsPanel from './KeyInsightsPanel.js';
 import LateRiskPanel from './LateRiskPanel.js';
+import OfficePerformanceTab from './OfficePerformanceTab.js';
 import RequestForecastSection from './RequestForecastSection.js';
-import ServiceCharterPanel from './ServiceCharterPanel.js';
 import UnusualCasesPanel from './UnusualCasesPanel.js';
 
 const ANCHOR_TO_TAB = Object.freeze({
@@ -349,18 +349,16 @@ function LiveDashboardAnalytics({ user }) {
       </div>
 
       <div {...tabPanelProps('dashboard', 'charter')} hidden={activeTab !== 'charter'} className="space-y-4 focus:outline-none">
-        <ServiceCharterPanel
+        <OfficePerformanceTab
           key={`${period}:${selectedOfficeId}`}
           overview={overview}
           period={period}
           offices={offices}
           services={services}
-          servicesLoaded={catalogueLoaded}
           names={names}
           scope={effectiveScope}
-          loading={status === 'loading' && !overview}
+          loading={(status === 'loading' && !overview) || !catalogueLoaded}
           error={status === 'error' && !overview ? error : null}
-          showUnusual={false}
         />
       </div>
 

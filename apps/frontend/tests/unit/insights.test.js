@@ -360,7 +360,7 @@ describe('page rules', () => {
     assert.match(lateRisk, /Processing Milestones/);
     assert.match(lateRisk, /Time Limit Used/);
     assert.doesNotMatch(lateRisk, /SLA/);
-    assert.match(dash, /<ServiceCharterPanel/);
+    assert.match(dash, /<OfficePerformanceTab/);
     assert.match(dash, /<UnusualCasesPanel/);
     assert.match(charter, /<ServiceLateRateMatrix/);
     assert.match(charter, /<Card[^>]*id="charter"[^>]*as="section"/);

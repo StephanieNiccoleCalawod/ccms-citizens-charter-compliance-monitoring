@@ -40,7 +40,7 @@ describe('AC1 / AC2: analytics are consolidated in the Dashboard and the service
 });
 
 describe('the sections, in order', () => {
-  const order = ['<DashboardHeader', '<ComplianceKpiGrid', '<Tabs', '<ComplianceTrendChart', '<RequestForecastSection', '<LateRiskPanel', '<KeyInsightsPanel', '<ComplianceHeatmap', '<ServiceCharterPanel', '<UnusualCasesPanel', '<AboutAnalyticsPanel'];
+  const order = ['<DashboardHeader', '<ComplianceKpiGrid', '<Tabs', '<ComplianceTrendChart', '<RequestForecastSection', '<LateRiskPanel', '<KeyInsightsPanel', '<ComplianceHeatmap', '<OfficePerformanceTab', '<UnusualCasesPanel', '<AboutAnalyticsPanel'];
 
   it('header, KPI cards, horizontal analytics tabs, trend and forecast, late risk and key insights, heatmap, charter audit, unusual cases, about', () => {
     const positions = order.map((tag) => container.indexOf(tag));
