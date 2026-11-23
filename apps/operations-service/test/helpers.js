@@ -33,8 +33,9 @@ export async function setupTestEnv() {
   delete process.env.LOGS_SERVICE_URL;
   const core = await startFakeCore({ serviceKey: SERVICE_KEY });
   process.env.CORE_URL = core.url;
-  core.addOffice({ office_id: OFFICE_A, office_code: 'PUP-OSAS', office_name: 'Student Affairs' });
-  core.addOffice({ office_id: OFFICE_B, office_code: 'PUP-ACAD', office_name: 'Academic Affairs' });
+  // Existing transaction scenarios deliberately use enabled offices; S8-53 tests cover default-off denial separately.
+  core.addOffice({ office_id: OFFICE_A, office_code: 'PUP-OSAS', office_name: 'Student Affairs', allow_backdated_transactions: true });
+  core.addOffice({ office_id: OFFICE_B, office_code: 'PUP-ACAD', office_name: 'Academic Affairs', allow_backdated_transactions: true });
   const keys = await createTestKeys();
   setDefaultVerifier(keys.verifier);
   const testDb = await createTestDatabase({ entities, afterSync });
