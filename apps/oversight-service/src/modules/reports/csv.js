@@ -2,6 +2,15 @@
 // plus a total row, dates as MM/DD/YYYY. Text cells that could be read as a formula are prefixed with an apostrophe.
 export const BOM = '﻿';
 
+import { toManilaDate } from 'ccms-shared';
+
+export function reportCsvFilename(report) {
+  const office = String(report.office_name ?? 'Office').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 100) || 'Office';
+  const [year, month, day] = toManilaDate(report.generated_at ?? new Date()).split('-');
+  return `CCCMS_Report_${office}_${month}${day}${year}.csv`;
+}
+
 export const usDate = (isoDate) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDate ?? ''));
   return m ? `${m[2]}/${m[3]}/${m[1]}` : '';
@@ -13,7 +22,7 @@ const STATUS_LABEL = { DRAFT: 'Draft', PUBLISHED: 'Published', SUPERSEDED: 'Supe
 export function cell(value) {
   if (value === null || value === undefined) return '';
   let text = String(value);
-  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  if (typeof value === 'string' && (/^[=+\-@\t\r]/.test(text) || /^[\s\uFEFF]+[=+\-@]/.test(text))) text = `'${text}`;
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
