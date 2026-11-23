@@ -9,7 +9,7 @@ import Modal from '../../components/modals/Modal.js';
 import { DAY_NAMES } from '../../lib/api/calendar.js';
 import { getCampusSchedule, getOfficeSchedule, saveCampusSchedule, saveOfficeSchedule } from '../../lib/api/office-schedule.js';
 import { notify } from '../../lib/ui/notify.js';
-import { CAMPUS_SCOPE, inWeekOrder, sameRows, saveFailure, toDays, toRows, validateRows } from '../../lib/ui/office-schedule.js';
+import { CAMPUS_SCOPE, LUNCH_COPY, inWeekOrder, lunchConfirmation, sameRows, saveFailure, toDays, toRows, validateRows } from '../../lib/ui/office-schedule.js';
 import { saveFailureMessage } from '../../lib/ui/save-feedback.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
 import {
@@ -235,12 +235,13 @@ export default function WorkingHoursModal({ scopes, initialScope, onClose, onSav
                   </div>
                   {!isCampus ? (
                     <div className="space-y-3">
-                      <button type="button" role="switch" aria-checked={lunch.on} aria-label="Closes for lunch" disabled={locked || !anyWorking} onClick={() => edit(toggleSharedLunch(rows))} className="flex items-center gap-3 text-sm font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
+                      <button type="button" role="switch" aria-checked={lunch.on} aria-label="Closes for lunch" aria-describedby="lunch-help" disabled={locked || !anyWorking} onClick={() => edit(toggleSharedLunch(rows))} className="flex items-center gap-3 text-sm font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
                         <span aria-hidden="true" className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${lunch.on ? 'bg-green-700' : 'bg-slate-300'}`}>
                           <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${lunch.on ? 'translate-x-5' : ''}`} />
                         </span>
                         Closes for lunch
                       </button>
+                      <p id="lunch-help" className="text-xs text-slate-500" data-testid="lunch-help"><span className="font-semibold text-slate-700">{LUNCH_COPY.helper}</span> {LUNCH_COPY.noonCoverage}</p>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <TimeField id="lunch-start" label="Lunch start" value={lunch.start} disabled={locked || !lunch.on} onChange={(v) => edit(setLunch(rows, { lunch_start: v }))} error={sharedError(errors, rows, 'lunch_start')} />
                         <TimeField id="lunch-end" label="Lunch end" value={lunch.end} disabled={locked || !lunch.on} onChange={(v) => edit(setLunch(rows, { lunch_end: v }))} error={sharedError(errors, rows, 'lunch_end')} />
@@ -255,6 +256,7 @@ export default function WorkingHoursModal({ scopes, initialScope, onClose, onSav
                   ))}
                 </ul>
               )}
+              {custom && !isCampus ? <p className="text-xs text-slate-500" data-testid="lunch-help-days"><span className="font-semibold text-slate-700">Lunch break: {LUNCH_COPY.helper}</span> {LUNCH_COPY.noonCoverage}</p> : null}
 
               {anyWorking ? (
                 <p className="text-sm">
@@ -279,7 +281,7 @@ export default function WorkingHoursModal({ scopes, initialScope, onClose, onSav
       <ConfirmDialog
         open={confirmOpen}
         title="Save and publish working hours?"
-        message={`This creates a new record for ${isCampus ? 'the campus' : officeName} and publishes it. Results already computed are not affected; only computations made afterwards follow the new schedule. Times are in Asia/Manila.`}
+        message={`This creates a new record for ${isCampus ? 'the campus' : officeName} and publishes it. Results already computed are not affected; only computations made afterwards follow the new schedule. Times are in Asia/Manila.${lunchConfirmation(rows, isCampus) ? ` ${lunchConfirmation(rows, isCampus)}` : ''}`}
         confirmLabel="Save & publish"
         confirmClassName="btn-save"
         busy={saving}

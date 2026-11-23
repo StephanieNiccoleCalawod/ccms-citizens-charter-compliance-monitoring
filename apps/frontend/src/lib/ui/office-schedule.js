@@ -160,6 +160,33 @@ export function saveFailure(error) {
   return { kind: 'error', message: error?.message || 'The schedule could not be saved. Please try again.' };
 }
 
+/**
+ * What the lunch setting means (S8-43). It is "our office stops serving the public at this time", not "our staff eat at this time":
+ * an office that keeps serving at noon, with staff taking turns, leaves it off and its noon minutes count as processing time.
+ * (A staff meal break is not a legal pause of the Charter clock by itself; the approved policy is decision D8-22.)
+ */
+export const LUNCH_COPY = Object.freeze({
+  helper: 'Frontline service stops during this break.',
+  noonCoverage: 'If your office keeps serving the public at noon, even with staff taking turns, leave this off: the noon minutes then count as processing time. A staff meal break alone is not a reason to turn it on.',
+});
+
+/**
+ * The sentence the "Save and publish" confirmation adds about lunch, from the rows being saved: whether the break is left out of
+ * processing time or the noon minutes count. Nothing for the campus (it has no lunch break) or when no day is a working day.
+ */
+export function lunchConfirmation(rows, isCampus) {
+  if (isCampus) return '';
+  const working = (rows ?? []).filter((r) => r.is_working);
+  if (working.length === 0) return '';
+  const withLunch = working.filter((r) => r.closes_for_lunch);
+  if (withLunch.length === 0) return 'No lunch break is set, so the noon hours count as processing time.';
+  const first = withLunch[0];
+  const same = withLunch.every((r) => r.lunch_start === first.lunch_start && r.lunch_end === first.lunch_end);
+  const days = withLunch.length === working.length ? '' : ' on the days it is set';
+  if (!same) return 'The lunch breaks set above are not counted as processing time, because the office does not serve the public during them.';
+  return `The lunch break (${time12(first.lunch_start) || first.lunch_start} to ${time12(first.lunch_end) || first.lunch_end})${days} is not counted as processing time, because the office does not serve the public during it.`;
+}
+
 /** "8:00 AM to 5:00 PM", and "Lunch 12:00 PM to 1:00 PM" when the day has one; "Closed" for a non-working day. */
 export function describeDay(item) {
   if (!item?.is_working) return { hours: 'Closed', lunch: null };
