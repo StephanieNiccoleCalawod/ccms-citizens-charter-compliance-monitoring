@@ -60,3 +60,5 @@ Things we did not finish, could not check, or left on purpose. The PM questions 
 - Not run: `next build` and `npm audit` (see the record), the CI run, hosted smoke. The f0b936e failing test is still unnamed.
 - Not done: freeze record, backup demo video, rollback note, final RTM and test plan. The user manual and limitations list are drafts.
 - The browser e2e script is stale after the redesign and needs a rewrite of its Charter-tab steps.
+
+- Everything open is also compiled in one file: `open-items-all.md` (errors, PM questions, QA and BE asks).

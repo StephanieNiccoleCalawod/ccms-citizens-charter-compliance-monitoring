@@ -20,20 +20,20 @@ The release SHA is not frozen (S8-28), so this is a run on the current head, not
 | Safety | `npm run test:safety` | 50 of 50 pass |
 | Integration | `npm run test:integration` | 10 pass, 1 skipped, 0 fail |
 | Whole `npm test` | one command | exit 0, 4 min 8 s |
-| Frontend e2e | `node tests/e2e/analytics-dashboards.cjs` against the dev server | **Does not pass** (see below) |
-| Build | `npm run build` | **Not run** (see below) |
-| Dependency audit | `npm audit --omit=dev` | Not run |
+| Frontend e2e | `node tests/e2e/analytics-dashboards.cjs` against a production build (`next start`, port 3100) | Blocks other than the stale one: **39 pass, 0 fail**. The first block passes its first 8 checks (including "no duplicate requests") then stops at the stale Charter-tab steps (see below). |
+| Build | `next build --webpack` in a clean copy of the commit | **Pass** (32 s, all routes built) |
+| Dependency audit | `npm audit --omit=dev` | **0 vulnerabilities** |
 
 ## The front-end e2e (owner: FE, decision needed)
 - Run as a whole it stops at its 8th check: 7 pass, 1 fails, then the script aborts on a missing element.
 - **Stale after the redesign (FE owner):** the Service Charter Compliance steps expect the old service-card layout (`insights-heatmap`, filters, cell detail). That tab now shows the office performance view, so the script must be rewritten for it. This is a test that was not updated, not a user-facing bug.
-- **Call counts fail only on the development server:** with the first block skipped, the other blocks give 37 pass, 2 fail. In both, every real condition is true and only a request count is 2 instead of 1 (office forecast and permission switches); the dashboard overview request is also sent twice, 3 ms apart. React's strict mode runs effects twice in development, which does this. A production build should not. **Not proven**, because the build below was not run.
-- **Decision:** rewrite the Charter-tab steps (FE), and run the script against a production build (`next build` and `next start`) to settle the counts.
+- **Call counts failed only on the development server (now proven):** on the production build the duplicate-request check passes. Earlier on the dev server: with the first block skipped, the other blocks give 37 pass, 2 fail. In both, every real condition is true and only a request count is 2 instead of 1 (office forecast and permission switches); the dashboard overview request is also sent twice, 3 ms apart. React's strict mode runs effects twice in development, which does this. The production build confirms it.
+- **Decision:** rewrite the Charter-tab steps (FE). The script should be run against a production build, not the dev server.
 
-## Why the build was not run
-`next build` writes to the same `.next` folder as the running dev server. A build in a clean copy of the commit failed to find `next` (the copy shares `node_modules` through a link, which the bundler does not follow), and the QA dist-folder switch needs a QA target set id that is not set here. Build on a clean checkout with its own `npm ci`, as CI does.
+## How the build was done
+`next build` writes to the same `.next` folder as the running dev server, so it was run in a clean copy of the commit (a git worktree). The default bundler (Turbopack) could not follow the shared `node_modules` link there, so `next build --webpack` was used; that is not exactly the CI command (`npm run build` uses the default bundler). Run the plain `npm run build` on a clean checkout with its own `npm ci`, as CI does, to settle it.
 
 ## Blocked, not passed (AC3)
 - Hosted smoke and the four chains on the hosted release (S8-22): no approved demo accounts or PM approval (D8-11).
 - Anything on the QA stack (S8-18) and the release deployment.
-- `npm audit`, build, and the CI run itself.
+- The CI run itself, and the plain `npm run build` on a clean `npm ci`.
