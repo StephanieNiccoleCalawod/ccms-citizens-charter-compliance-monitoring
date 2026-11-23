@@ -206,16 +206,25 @@ export async function trainLateRisk(db, { now = new Date(), timing } = {}) {
   });
 }
 
+// Keep these entries aligned with features(): time share, service indicators, pace, load, hold, weekday indicators.
+const MAIN_REASON_CODES = ['TIME_SHARE', 'SERVICE_SIMPLE', 'SERVICE_COMPLEX', 'SERVICE_HIGHLY_TECHNICAL',
+  'SERVICE_OFFICE_PACE', 'OFFICE_WORKLOAD', 'ON_HOLD', ...Array(7).fill('WORKING_WEEKDAY')];
+const RULE_REASON_CODES = { HIGH: 'TIME_SHARE_HIGH', MEDIUM: 'TIME_SHARE_MEDIUM', LOW: 'TIME_SHARE_LOW' };
+
 function score(row, times, context, model) {
   const input = modelInput(context, row, times);
   const shareReason = `${Math.round(input.share * 100)}% of the time limit used`;
   const reasons = [shareReason, 'Simple service', 'Complex service', 'Highly technical service',
     'Usual service or office pace', 'Office busier than usual', 'On hold', ...Array(7).fill('Working weekday')];
   const prediction = model ? predict(model, features(input)) : null;
+  // Only positive standardized contributions increase late risk. Ties keep the first feature.
   const strongest = prediction?.contributions.reduce((best, value, index, values) => value > (values[best] ?? 0) ? index : best, -1) ?? -1;
+  const level = classify(prediction?.probability ?? input.share, prediction ? MODEL_THRESHOLDS : RULE_THRESHOLDS);
   return { transaction_id: row.transaction_id, tracking_no: row.tracking_no, service_name: row.service_name, started_by: row.started_by,
-    level: classify(prediction?.probability ?? input.share, prediction ? MODEL_THRESHOLDS : RULE_THRESHOLDS),
-    probability: prediction?.probability ?? null, reason: strongest === -1 ? shareReason : reasons[strongest],
+    level,
+    main_reason_code: !prediction ? RULE_REASON_CODES[level] : strongest === -1 ? 'MODEL_BASELINE' : MAIN_REASON_CODES[strongest],
+    probability: prediction?.probability ?? null,
+    reason: !prediction ? shareReason : strongest === -1 ? 'Model baseline; no individual factor increases the score' : reasons[strongest],
     working_minutes_left: Math.max(0, times.limit - times.used), share_used: Math.round(input.share * 1000) / 1000, rule_based: !prediction };
 }
 
@@ -232,10 +241,13 @@ export async function readLateRisk(db, officeId, user, { now = new Date(), timin
       method: payload.model.method === 'trained' ? 'logistic regression' : 'allowed-time-share rule', at,
     }) },
     items: payload.items.map(({ started_by, probability, ...item }) => ({ ...item,
+      // Old trained caches did not save contributions, so do not invent a winning factor during an outage.
+      main_reason_code: item.main_reason_code ?? (item.rule_based ? RULE_REASON_CODES[item.level] : null) ?? 'MAIN_REASON_UNAVAILABLE',
       can_open: canReadTransaction(user, { office_id: officeId, started_by }),
       ...(user.role === ROLES.SUPER_ADMIN ? { probability } : {}),
     })) });
-  if (cache?.payload.calculations && cache.run_id === runId && cache.payload.model.method === status.method && now.getTime() - instant(cache.scored_at) < CACHE_TTL) {
+  if (cache?.payload.calculations && cache.payload.items.every((item) => item.main_reason_code) &&
+      cache.run_id === runId && cache.payload.model.method === status.method && now.getTime() - instant(cache.scored_at) < CACHE_TTL) {
     return present(cache.payload, cache.scored_at, false);
   }
   const rows = await historyForScores(db, officeId, now);
