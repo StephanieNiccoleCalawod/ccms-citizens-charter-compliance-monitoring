@@ -55,10 +55,10 @@ export default function ReceiptPanel({ transactionId }) {
       if (fileInput.current) fileInput.current.value = '';
       notify.success('Receipt attached.');
     } catch (err) {
-      const { fields, message } = receiptFailure(err);
+      const { fields, message, recheck } = receiptFailure(err);
       setErrors(fields);
       if (message) notify.error(message);
-      if (err?.code === 'RECEIPT_EXISTS') load();
+      if (err?.code === 'RECEIPT_EXISTS' || recheck) load();
     } finally {
       setBusy(null);
     }

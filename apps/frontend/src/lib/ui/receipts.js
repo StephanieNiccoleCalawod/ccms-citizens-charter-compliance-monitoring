@@ -32,11 +32,19 @@ export function formatAmount(amount) {
 }
 
 /** Field errors from a failed upload (400/413 details), keyed like the form. */
+export const RECEIPT_MESSAGES = {
+  // TT3 (S8-07): storage is down or not set up. Nothing was stored, so the screen must not say or imply it was.
+  storageDown: 'Receipt photos cannot be stored right now, so the receipt was not saved. Please try again later.',
+  // No answer in time: it may have been stored. The panel reads the receipt again so the screen shows what is really there.
+  unconfirmed: 'We could not confirm the receipt was saved. The receipt shown below is what is on file; upload again only if it is not listed.',
+};
+
 export function receiptFailure(error) {
   const fields = {};
   for (const key of ['file', 'or_number', 'amount', 'receipt_date']) if (typeof error?.details?.[key] === 'string') fields[key] = error.details[key];
   if (Object.keys(fields).length) return { fields, message: null };
-  if (error?.status === 503) return { fields, message: error.message || 'Receipt photos cannot be stored right now. Please try again later.' };
+  if (error?.status === 503) return { fields, message: RECEIPT_MESSAGES.storageDown };
+  if (error?.status === 502 || error?.status === 504 || error?.code === 'NETWORK_ERROR') return { fields, message: RECEIPT_MESSAGES.unconfirmed, recheck: true };
   if (error?.status === 409) return { fields, message: error.message };
   if (error?.status === 403) return { fields, message: 'You do not have permission to manage receipts for this transaction.' };
   return { fields, message: error?.message || 'Something went wrong. Please try again.' };

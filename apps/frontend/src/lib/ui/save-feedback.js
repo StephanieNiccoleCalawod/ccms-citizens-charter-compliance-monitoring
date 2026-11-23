@@ -8,6 +8,10 @@ export const MESSAGES = {
   unauthorized: 'You are not authorized to perform this action.',
   network: 'Unable to connect to the server. Please try again.',
   server: 'Something went wrong while saving. Please try again.',
+  // TT3 (S8-07): the gateway gave up waiting, so the service may or may not have finished. Say so, and never retry for the person.
+  gateway: 'The server did not answer in time, so we cannot confirm your change was saved. Please check the record before trying again.',
+  // The service refused before saving anything (it fails closed rather than write something wrong).
+  unavailable: 'This service is temporarily unavailable, so your change was not saved. Please try again in a moment.',
   unknown: 'Failed to save changes. Please try again.',
 };
 
@@ -44,7 +48,8 @@ const isSafeText = (text) => typeof text === 'string' && text.trim() !== '' && t
 
 /**
  * The one sentence for a failed save (an ApiError: status, code, message, details).
- *  - 401 / 403 -> not authorized;  no connection -> unable to connect;  5xx -> something went wrong while saving
+ *  - 401 / 403 -> not authorized;  no connection -> unable to connect;  502 / 504 -> cannot confirm it was saved;
+ *    503 -> not saved, try again;  other 5xx -> something went wrong while saving
  *  - 409 -> the server's own sentence (it says what already exists), else "This record already exists."
  *  - 400 / 422 with field errors -> the prompt to check the highlighted fields (the details are under the fields)
  *  - otherwise the page's own sentence (`specific`), then the server's, when safe; else "Failed to save changes."
@@ -53,6 +58,8 @@ export function saveFailureMessage(err, specific = null) {
   const status = err?.status;
   if (status === 401 || status === 403) return MESSAGES.unauthorized;
   if (err?.code === 'NETWORK_ERROR' || status === 0) return MESSAGES.network;
+  if (status === 502 || status === 504) return MESSAGES.gateway;
+  if (status === 503) return MESSAGES.unavailable;
   if (typeof status === 'number' && status >= 500) return MESSAGES.server;
   if (status === 409) return isSafeText(err?.message) ? err.message : MESSAGES.duplicate;
   const hasFields = err?.details && typeof err.details === 'object' && Object.keys(err.details).length > 0;

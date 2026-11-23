@@ -110,6 +110,10 @@ export const MESSAGES = {
   sessionEnded: 'Your session has ended. Please sign in again.',
   catalogueDown: 'The service catalogue cannot be reached right now. Please try again in a moment.',
   serverError: 'The transaction could not be started right now. Please try again in a few minutes.',
+  // TT1 (S8-05): Operations fails closed when Core is down, so nothing was created. Said plainly, with no success message.
+  // TT3 (S8-07): the gateway gave up, so the start may or may not have been recorded. Check before starting again.
+  gatewayTimeout: 'The server did not answer in time, so we cannot confirm the transaction was started. Please check the Transactions list before trying again, so it is not recorded twice.',
+  calendarDown: 'The calendar is temporarily unavailable, so the transaction was not started. Nothing was saved and no tracking number was issued. Please try again in a moment.',
 };
 
 // ---- Documents ----
@@ -192,7 +196,7 @@ export function buildStartBody({ form, countersEnabled }) {
 
 const FIELD_OF = { service_id: 'service', client_type: 'client_type', client_reference: 'client_reference', client_email: 'client_email', requirements_confirmed: 'requirements', counter_id: 'counter', started_at: 'started_at', ended_at: 'ended_at', backdate_reason: 'backdate_reason', registry: 'registry', registry_miss_reason: 'registry_miss_reason', registry_miss_note: 'registry_miss_note', queue_ticket_id: 'queue_ticket' };
 
-/** A failed start as { kind, fieldErrors, message }. kind: validation, open, counter_busy, inactive, standard, unavailable, forbidden, auth, notfound, network, server. */
+/** A failed start as { kind, fieldErrors, message }. kind: validation, open, counter_busy, inactive, standard, calendar_unavailable, gateway_timeout, unavailable, forbidden, auth, notfound, network, server. */
 export function startErrorResult(err) {
   const status = err?.status;
   const code = err?.code;
@@ -219,6 +223,8 @@ export function startErrorResult(err) {
   if (status === 409 && code === 'COUNTER_BUSY') return result('counter_busy', 'This counter already has an open transaction.');
   if (status === 409 && code === 'SERVICE_INACTIVE') return result('inactive', 'This service is inactive and cannot be started.');
   if (status === 409 && code === 'STANDARD_NOT_IN_FORCE') return result('standard', 'No standard is in force for this service today, so a transaction cannot be started for it.');
+  if (status === 503 && code === 'CALENDAR_UNAVAILABLE') return result('calendar_unavailable', MESSAGES.calendarDown);
+  if ((status === 502 || status === 504) && code !== 'CATALOGUE_UNAVAILABLE') return result('gateway_timeout', MESSAGES.gatewayTimeout);
   if (status === 503 || status === 502 || status === 504) return result('unavailable', MESSAGES.catalogueDown);
   if (code === 'NETWORK_ERROR') return result('network', err.message);
   if (status >= 500) return result('server', MESSAGES.serverError);

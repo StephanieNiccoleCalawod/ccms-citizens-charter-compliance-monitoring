@@ -34,7 +34,8 @@ describe('the one sentence for a failed save', () => {
   it('no connection says it could not connect; a server error says something went wrong and hides the detail', () => {
     assert.equal(saveFailureMessage(apiError(undefined, 'NETWORK_ERROR', 'Cannot reach the server.')), 'Unable to connect to the server. Please try again.');
     assert.equal(saveFailureMessage(apiError(500, 'INTERNAL_ERROR', 'pg: relation "offices" does not exist')), 'Something went wrong while saving. Please try again.');
-    assert.equal(saveFailureMessage(apiError(503, 'X', 'boom')), MESSAGES.server);
+    assert.equal(saveFailureMessage(apiError(503, 'X', 'boom')), MESSAGES.unavailable);
+    assert.equal(saveFailureMessage(apiError(500, 'X', 'boom')), MESSAGES.server);
   });
   it('a duplicate keeps the server\'s own sentence when it is clear, else the generic one', () => {
     assert.equal(saveFailureMessage(apiError(409, 'OFFICE_CODE_EXISTS', 'Office code already exists')), 'Office code already exists');

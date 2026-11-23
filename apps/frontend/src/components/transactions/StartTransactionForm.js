@@ -334,8 +334,9 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
       const conflict = kind === 'open' || kind === 'counter_busy' ? await explainConflict(kind) : null;
       // One notification says it failed. The banner stays only where it adds guidance: the open transaction that is in the way, or a
       // write whose outcome is unknown (check before trying again).
-      notify.error(saveFailureMessage(err, message));
-      setBanner(message && (conflict || isAmbiguousWrite(err)) ? { kind, message, conflict } : null);
+      // Calendar down: the generic "something went wrong" line would hide the cause, so the specific sentence is the notification and the banner.
+      notify.error(kind === 'calendar_unavailable' ? message : saveFailureMessage(err, message));
+      setBanner(message && (conflict || isAmbiguousWrite(err) || kind === 'calendar_unavailable') ? { kind, message, conflict } : null);
       if (Object.keys(fields).length) focusFirst(fields);
     } finally {
       submittingRef.current = false;
