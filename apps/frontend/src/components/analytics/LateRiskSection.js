@@ -17,6 +17,7 @@ import StatusBadge from '../ui/StatusBadge.js';
 import { OFFICES_API } from '../../lib/api/catalogue.js';
 import { apiFetch } from '../../lib/auth/session.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
+import { ruleBasedNote, showModelMetrics } from '../../lib/ui/model-status.js';
 import {
   buildLateRiskMilestones,
   deriveLateRiskItemMetrics,
@@ -40,7 +41,7 @@ export function LateRiskModelSummary({ model }) {
 
   const medPct = model.thresholds ? Math.round(Number(model.thresholds.medium) * 100) : null;
   const highPct = model.thresholds ? Math.round(Number(model.thresholds.high) * 100) : null;
-  const lowRecall = model.metrics && Number(model.metrics.recall) < 0.5;
+  const lowRecall = showModelMetrics(model) && Number(model.metrics.recall) < 0.5;
 
   return (
     <div className="space-y-4 text-xs text-[#202938]" data-testid="late-risk-model-summary">
@@ -51,7 +52,7 @@ export function LateRiskModelSummary({ model }) {
             <span className="font-sans text-[#64748B]">Last trained</span>
             <span className="font-mono font-semibold text-[#202938]">
               <span className="sr-only">Training time </span>
-              <time dateTime={model.trained_at}>{formatDateTime(model.trained_at)}</time>
+              <time dateTime={model.trained_at}>{formatDateTime(model.trained_at)}</time> <span className="font-sans font-normal text-[#64748B]">(Asia/Manila)</span>
             </span>
           </div>
         ) : null}
@@ -63,16 +64,16 @@ export function LateRiskModelSummary({ model }) {
             </span>
           </div>
         ) : null}
-        {!model.trained_at && !model.rows ? (
-          <p className="font-sans text-[#64748B]">
-            Using rule-based Citizen&rsquo;s Charter time-limit thresholds.
+        {ruleBasedNote(model) ? (
+          <p className="font-sans text-[#64748B]" data-testid="late-risk-rule-based">
+            {ruleBasedNote(model)}
           </p>
         ) : null}
       </div>
 
       {/* C. Model Health Diagnostics */}
-      {model.metrics ? (
-        <div className="space-y-3">
+      {showModelMetrics(model) ? (
+        <div className="space-y-3" data-testid="late-risk-metrics">
           <div className="flex items-center justify-between gap-2">
             <span className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#64748B]">
               Model Health Diagnostics
@@ -165,9 +166,6 @@ export function LateRiskModelSummary({ model }) {
         </div>
       ) : null}
 
-      {model.status === 'INSUFFICIENT_DATA' ? <p className="text-[#64748B]">Training needs at least 60 late cases in its training set.</p> : null}
-      {model.status === 'FAILED' ? <p className="text-rose-700">The last training attempt failed.</p> : null}
-      {model.status === 'STALE' ? <p className="text-amber-800">The last successful training run is more than seven days old.</p> : null}
     </div>
   );
 }

@@ -61,7 +61,7 @@ function AboutPanel({ run }) {
         <p><span className="font-semibold">Past working days used:</span> {run.historyWorkingDays ?? '—'}</p>
         <p><span className="font-semibold">Past transactions counted:</span> {n(run.historicalTransactionCount)}</p>
         <p><span className="font-semibold">Likely range:</span> 10th–90th percentile of past test errors</p>
-        <p><span className="font-semibold">Last updated:</span> {run.generatedAt ? formatDateTime(run.generatedAt) : '—'}</p>
+        <p><span className="font-semibold">Last updated:</span> {run.generatedAt ? `${formatDateTime(run.generatedAt)} (Asia/Manila)` : '—'}</p>
       </div>
     </details>
   );
