@@ -261,7 +261,10 @@ describe('TT3 through the route (real database, runtime role)', () => {
     assert.equal(text.includes(S1) || text.includes(S2), false);
   });
 
-  it('singular alias GET /api/analytics/kpi matches /api/analytics/kpis and enforces the same RBAC', async () => {
+  it('singular alias GET /api/analytics/kpi matches /api/analytics/kpis and enforces the same RBAC', async (t) => {
+    // Both requests must use the same instant: calculation provenance and
+    // pending ages are part of the response and depend on the request clock.
+    t.mock.timers.enable({ apis: ['Date'], now: NOW.getTime() });
     for (const r of FIXTURE) await insert(r);
     const qs = new URLSearchParams({ ...OCT, officeId: OFFICE_A });
     const singular = await call(singularKpiRoute, req('GET', `/analytics/kpi?${qs}`, { token: tokens.superAdmin }));

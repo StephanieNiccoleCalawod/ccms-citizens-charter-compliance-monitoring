@@ -18,22 +18,25 @@ import { OFFICE_A, OFFICE_B, SERVICE_KEY, USERS, call, req, roleUrl, setupTestEn
 const SVC = '11111111-1111-4111-8111-111111111111';
 let env;
 let writer;
-before(async () => {
-  env = await setupTestEnv();
-  writer = createDataSource({ url: roleUrl(env.url, 'ccms_logs_writer'), entities, synchronize: false });
-  await writer.initialize();
-  setNamesProvider(async () => ({ officeName: 'Office A', services: new Map([[SVC, 'Transcript']]) }));
-});
-after(async () => {
-  setNamesProvider(null);
-  await writer?.destroy();
-  await env?.teardown();
-});
-beforeEach(async () => {
-  await env.ds.query('DELETE FROM reports');
-  await env.ds.query('DELETE FROM analytics_transactions');
-  setDataSource(writer); // the routes run as the runtime role
-});
+// Keep pure KPI assertions runnable without a PostgreSQL connection.
+function databaseTests() {
+  before(async () => {
+    env = await setupTestEnv();
+    writer = createDataSource({ url: roleUrl(env.url, 'ccms_logs_writer'), entities, synchronize: false });
+    await writer.initialize();
+    setNamesProvider(async () => ({ officeName: 'Office A', services: new Map([[SVC, 'Transcript']]) }));
+  });
+  after(async () => {
+    setNamesProvider(null);
+    await writer?.destroy();
+    await env?.teardown();
+  });
+  beforeEach(async () => {
+    await env.ds.query('DELETE FROM reports');
+    await env.ds.query('DELETE FROM analytics_transactions');
+    setDataSource(writer); // the routes run as the runtime role
+  });
+}
 
 function snapshot(over = {}) {
   return {
@@ -49,6 +52,7 @@ const post = (snaps) => call(ingestRoute, req('POST', '/analytics-events', { key
 const waitOf = async (id) => (await env.ds.query('SELECT queue_wait_minutes FROM analytics_transactions WHERE transaction_id = $1', [id]))[0].queue_wait_minutes;
 
 describe('CC040 contract and store', () => {
+  databaseTests();
   it('a snapshot with a wait is stored; an older snapshot without the field, or with null, stores null', async () => {
     const measured = snapshot({ queue_wait_minutes: 14 });
     const zero = snapshot({ queue_wait_minutes: 0 });
@@ -81,18 +85,18 @@ describe('CC040 contract and store', () => {
   });
 });
 
-describe('CC040 KPI figure', () => {
-  const row = (over) => ({ ...snapshot(over), queue_wait_minutes: over.queue_wait_minutes ?? null });
-  const ROWS = [
-    row({ queue_wait_minutes: 10 }),
-    row({ queue_wait_minutes: 0 }), // a measured zero counts
-    row({ queue_wait_minutes: 5, started_at: '2026-10-16T02:00:00.000Z', ended_at: '2026-10-16T02:30:00.000Z' }),
-    row({}), // no ticket: left out
-    row({ queue_wait_minutes: 100, office_id: OFFICE_B }), // another office
-    row({ queue_wait_minutes: 60, started_at: '2026-09-30T02:00:00.000Z', ended_at: '2026-10-02T02:00:00.000Z' }), // started before the period
-  ];
-  const OCT = { from: '2026-10-01', to: '2026-10-31', now: new Date('2026-11-09T00:00:00Z') };
+const row = (over) => ({ ...snapshot(over), queue_wait_minutes: over.queue_wait_minutes ?? null });
+const ROWS = [
+  row({ queue_wait_minutes: 10 }),
+  row({ queue_wait_minutes: 0 }), // a measured zero counts
+  row({ queue_wait_minutes: 5, started_at: '2026-10-16T02:00:00.000Z', ended_at: '2026-10-16T02:30:00.000Z' }),
+  row({}), // no ticket: left out
+  row({ queue_wait_minutes: 100, office_id: OFFICE_B }), // another office
+  row({ queue_wait_minutes: 60, started_at: '2026-09-30T02:00:00.000Z', ended_at: '2026-10-02T02:00:00.000Z' }), // started before the period
+];
+const OCT = { from: '2026-10-01', to: '2026-10-31', now: new Date('2026-11-09T00:00:00Z') };
 
+describe('CC040 KPI figure', () => {
   it('average minutes and the measured count, under the office and date scope', () => {
     const office = computeKpis(ROWS, { ...OCT, officeId: OFFICE_A }).totals;
     assert.deepEqual(office.queue_wait, { measured: 3, average_minutes: 5 });
@@ -110,11 +114,18 @@ describe('CC040 KPI figure', () => {
     const strip = (rows) => rows.map(({ queue_wait_minutes: _drop, ...rest }) => rest);
     const withWait = computeKpis(ROWS, { ...OCT, officeId: OFFICE_A, groupBy: 'service' });
     const without = computeKpis(strip(ROWS), { ...OCT, officeId: OFFICE_A, groupBy: 'service' });
-    const omitWait = ({ queue_wait: _q, ...rest }) => rest;
+    // S8-46 also explains each metric. Only the queue-wait population changes;
+    // every compliance figure and its calculation metadata must stay identical.
+    const omitWait = ({ queue_wait: _q, calculations: { queue_wait: _c, ...calculations }, ...rest }) => ({ ...rest, calculations });
+    assert.equal(withWait.totals.calculations.queue_wait.data_used.record_count, 3);
+    assert.equal(without.totals.calculations.queue_wait.data_used.record_count, 0);
     assert.deepEqual(omitWait(withWait.totals), omitWait(without.totals));
     assert.deepEqual(withWait.groups.map(omitWait), without.groups.map(omitWait));
   });
+});
 
+describe('CC040 KPI route', () => {
+  databaseTests();
   it('through the KPI route on the database, with the office filter', async () => {
     assert.equal((await post(ROWS.map(({ queue_wait_minutes: q, ...s }) => (q === null ? s : { ...s, queue_wait_minutes: q })))).status, 200);
     const r = await call(kpiRoute, req('GET', `/analytics/kpis?office_id=${OFFICE_A}&period=custom&from=2026-10-01&to=2026-10-31`, { token: tokens.officeHeadA }));
@@ -124,6 +135,7 @@ describe('CC040 KPI figure', () => {
 });
 
 describe('CC040 reports', () => {
+  databaseTests();
   it('a new report carries the queue wait figure and its CSV columns; an older report without it still loads and exports', async () => {
     await post([snapshot({ queue_wait_minutes: 8 }), snapshot({ queue_wait_minutes: 2 }), snapshot()]);
     const made = await call(generateRoute, req('POST', '/reports', { token: tokens.officeHeadA, body: { officeId: OFFICE_A, periodType: 'custom', from: '2026-10-01', to: '2026-10-31' } }));
