@@ -110,30 +110,30 @@ export function normalizeTime(text) {
 export const SYNC_LABELS = { PENDING: 'Pending', SENT: 'Sent', ACKNOWLEDGED: 'Acknowledged', FAILED: 'Failed' };
 
 /**
- * The notice the Calendar page shows about the Syllabus Management System (SMS), from GET /sync/status (sms_issue).
+ * The notice the Calendar page shows about the Syllabus Management System (SCMS), from GET /sync/status (sms_issue).
  * KEY_REJECTED: SMS refused CCCMS's key; sending stops until the key is fixed. FAILED: the last push failed and is retried.
  * Returns null when there is nothing to report. The text is fixed here; nothing from the service is printed.
  */
 export function smsSyncNotice(status) {
   const state = status?.sms_issue?.state;
   if (state === 'KEY_REJECTED') {
-    return { state, text: 'The Syllabus Management System (SMS) refused the key CCCMS uses to send the calendar. Nothing is sent to SMS until the key is fixed. Your changes are saved. Ask the system administrator to update the key.' };
+    return { state, text: 'The Syllabus Management System (SCMS) refused the key CCCMS uses to send the calendar. Nothing is sent to SMS until the key is fixed. Your changes are saved. Ask the system administrator to update the key.' };
   }
   if (state === 'FAILED') {
-    return { state, text: 'The last data sent to the Syllabus Management System (SMS) failed. It will be retried automatically; your changes are saved.' };
+    return { state, text: 'The last data sent to the Syllabus Management System (SCMS) failed. It will be retried automatically; your changes are saved.' };
   }
   return null;
 }
 
 /**
  * The Academic terms tab. While Core reports enabled (SMS_TERMS_ENABLED), the terms come from the Syllabus Management System
- * (SMS) and the tab is read-only. state: OK, NOT_CONFIGURED, KEY_REJECTED, UNAVAILABLE. The text is fixed here.
+ * (SCMS) and the tab is read-only. state: OK, NOT_CONFIGURED, KEY_REJECTED, UNAVAILABLE. The text is fixed here.
  */
 export function smsTermsNotice(smsTerms) {
   if (!smsTerms?.enabled) return null;
-  if (smsTerms.state === 'KEY_REJECTED') return 'The Syllabus Management System (SMS) refused the key CCCMS uses to read the terms. Ask the system administrator to update the key.';
-  if (smsTerms.state === 'NOT_CONFIGURED') return 'The connection to the Syllabus Management System (SMS) is not set up yet, so its terms cannot be shown.';
-  if (smsTerms.state === 'UNAVAILABLE') return 'The terms could not be read from the Syllabus Management System (SMS) right now. Try again later.';
+  if (smsTerms.state === 'KEY_REJECTED') return 'The Syllabus Management System (SCMS) refused the key CCCMS uses to read the terms. Ask the system administrator to update the key.';
+  if (smsTerms.state === 'NOT_CONFIGURED') return 'The connection to the Syllabus Management System (SCMS) is not set up yet, so its terms cannot be shown.';
+  if (smsTerms.state === 'UNAVAILABLE') return 'The terms could not be read from the Syllabus Management System (SCMS) right now. Try again later.';
   return null;
 }
 

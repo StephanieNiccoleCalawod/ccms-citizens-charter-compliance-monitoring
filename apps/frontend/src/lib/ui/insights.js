@@ -393,6 +393,8 @@ export function deriveLateRiskItemMetrics(item) {
       limitSubtext: "Per Citizen's Charter schedule",
       elapsedText: 'Active clock',
       elapsedSubtext: 'Tracked in working minutes',
+      overdueMinutes: null,
+      overdueText: null,
     };
   }
 
@@ -455,6 +457,28 @@ export function deriveLateRiskItemMetrics(item) {
     elapsedText = 'Limit reached';
   }
 
+  // S8-25: an item past its limit is described by how long it is overdue (working time), never by a huge percentage of the limit.
+  // The service sends overdue_working_minutes when it knows it (or limit_minutes with elapsed_working_minutes); without either, the
+  // item is called overdue and past the Charter limit, with no invented figure.
+  let overdueMinutes = null;
+  if (isOverLimit) {
+    const given = Number(item.overdue_working_minutes);
+    if (Number.isFinite(given) && given > 0) overdueMinutes = Math.round(given);
+    else if (limitMinutes && elapsedMinutes !== null && elapsedMinutes > limitMinutes) overdueMinutes = Math.round(elapsedMinutes - limitMinutes);
+  }
+  const overdueText = isOverLimit
+    ? (overdueMinutes ? `Overdue by ${minutesText(overdueMinutes)} (working time)` : 'Overdue (past the Charter time limit)')
+    : null;
+  if (isOverLimit) {
+    pctUsed = null;
+    barFillPct = 100;
+    consumptionLabel = overdueText;
+    if (elapsedMinutes === null) {
+      elapsedText = 'Past the limit';
+      elapsedSubtext = 'Overdue';
+    }
+  }
+
   return {
     share,
     pctUsed,
@@ -468,6 +492,8 @@ export function deriveLateRiskItemMetrics(item) {
     limitSubtext,
     elapsedText,
     elapsedSubtext,
+    overdueMinutes,
+    overdueText,
   };
 }
 
@@ -488,9 +514,12 @@ export function buildLateRiskMilestones(item, { formattedStart = '', formattedAs
   const submittedSub = formattedStart
     || (formattedAsOf ? `Active in queue as of ${formattedAsOf}` : 'Logged in operations queue');
 
-  const verifiedSub = m.pctUsed !== null
-    ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% of Citizen's Charter limit consumed`
-    : (item.reason || 'Working-time clock is running');
+  // An overdue item is described by its overdue time (or just as overdue), never by the service's "12741% of the time limit used" text.
+  const verifiedSub = m.isOverLimit
+    ? m.overdueText
+    : m.pctUsed !== null
+      ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% of Citizen's Charter limit consumed`
+      : (item.reason || 'Working-time clock is running');
 
   if (isStalledOrHigh) {
     const stalledReason = minsLeft <= 0

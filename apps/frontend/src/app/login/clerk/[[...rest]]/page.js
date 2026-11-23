@@ -12,6 +12,7 @@ import { BRAND } from '../../../../lib/constants/brand.js';
 import { CLERK_SIGN_IN_PATH, PASSWORD_SIGN_IN_PATH, authProvider, clerkEnabled } from '../../../../lib/auth/provider.js';
 import { completeClerkSignIn, redirectToLogin, sessionRejection } from '../../../../lib/auth/session.js';
 import { clerkSessionState, pendingTaskLabel } from '../../../../lib/ui/clerk-access.js';
+import { plainFailure } from '../../../../lib/ui/save-feedback.js';
 
 // Clerk sign-in (Landas 1), and the sole sign-in in production (NEXT_PUBLIC_AUTH_PROVIDER=clerk). Clerk proves who the person
 // is — including "Continue with Google" when the owner's instance has it on — and Identity then decides whether they have CCMS
@@ -40,7 +41,7 @@ function ClerkSignInPanel() {
         else if (sessionRejection()) redirectToLogin(); // goes to the "No access yet" page with the reason
         else setError('Your sign-in could not be completed. Sign out and sign in again.');
       })
-      .catch((err) => setError(err?.message ?? 'Sign-in is not available right now. Please try again in a few minutes.'));
+      .catch((err) => setError(plainFailure(err, { fallback: 'Sign-in is not available right now. Please try again in a few minutes.' })));
   }, [state, router]);
 
   if (state === 'loading') return <p className="text-sm text-[#5F5950]">Loading sign-in…</p>;

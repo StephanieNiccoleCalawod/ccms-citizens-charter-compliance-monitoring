@@ -6,7 +6,7 @@ export const BRAND = {
 
 // The other systems CCCMS connects to. Use the full name first; the short name only after it. "Audit" is only ever the Audit Logs of CCCMS.
 export const EXTERNAL_SYSTEMS = {
-  SMS: { short: 'SMS', fullName: 'Syllabus Management System', label: 'Syllabus Management System (SMS)' },
+  SMS: { short: 'SCMS', fullName: 'Syllabus Management System', label: 'Syllabus Management System (SCMS)' },
   FMS: { short: 'FMS', fullName: 'Faculty Management System', label: 'Faculty Management System (FMS)' },
 };
 

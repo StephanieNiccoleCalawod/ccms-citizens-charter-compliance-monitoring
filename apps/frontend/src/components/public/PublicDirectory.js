@@ -39,7 +39,7 @@ function ServiceRow({ number, item, onView }) {
           type="button"
           onClick={() => onView(item)}
           aria-haspopup="dialog"
-          className="rounded text-sm font-semibold text-[#800000] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] focus-visible:ring-offset-2"
+          className="inline-flex min-h-6 items-center rounded text-sm font-semibold text-[#800000] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] focus-visible:ring-offset-2"
         >
           View requirements<span className="sr-only"> for {item.service_name}</span> &rarr;
         </button>
@@ -117,7 +117,7 @@ export default function PublicDirectory({ catalogue }) {
   return (
     <div className="min-h-screen" style={{ backgroundColor: CREAM, color: DARK }}>
       <main className="mx-auto min-w-0 max-w-6xl px-5 py-8 md:px-8 lg:px-12 lg:py-10">
-        <Link href="/" className="inline-flex items-center gap-2 rounded text-sm font-semibold text-[#800000] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] focus-visible:ring-offset-2">
+        <Link href="/" className="inline-flex min-h-6 items-center gap-2 rounded text-sm font-semibold text-[#800000] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] focus-visible:ring-offset-2">
           <span aria-hidden="true">&larr;</span> Back
         </Link>
 

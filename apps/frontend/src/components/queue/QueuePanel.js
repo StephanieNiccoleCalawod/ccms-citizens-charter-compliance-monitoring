@@ -922,7 +922,7 @@ export default function QueuePanel({ user }) {
                     <span
                       className={`inline-flex items-center rounded-md border px-2 py-0.5 font-sans text-xs font-semibold ${
                         data.queue_empty
-                          ? 'border-[#E2E8F0] bg-[#F4F5F8] text-[#64748B]'
+                          ? 'border-[#E2E8F0] bg-[#F4F5F8] text-[#475569]'
                           : 'border-emerald-200 bg-emerald-50 text-emerald-700'
                       }`}
                     >
@@ -955,7 +955,7 @@ export default function QueuePanel({ user }) {
                   loadingLabel="Calling…"
                   className={
                     data.queue_empty
-                      ? 'border border-[#E2E8F0] bg-[#F4F5F8] text-[#64748B] hover:bg-[#E2E8F0]/60'
+                      ? 'border border-[#E2E8F0] bg-[#F4F5F8] text-[#475569] hover:bg-[#E2E8F0]/60'
                       : ''
                   }
                 >
@@ -1227,7 +1227,7 @@ export default function QueuePanel({ user }) {
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-[#F4F5F8] px-1.5 font-sans text-xs font-bold tabular-nums text-[#64748B]">
+                            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-[#F4F5F8] px-1.5 font-sans text-xs font-bold tabular-nums text-[#475569]">
                               {i + 1}
                             </span>
                             <span className="font-sans text-sm font-bold tabular-nums text-[#202938]">
@@ -1287,7 +1287,7 @@ export default function QueuePanel({ user }) {
                 <span className="font-sans text-xs font-bold text-[#202938]">
                   Recently Served &amp; Skipped No-Show Log
                 </span>
-                <span className="inline-flex items-center rounded-full border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-sans text-[11px] font-bold tabular-nums text-[#64748B]">
+                <span className="inline-flex items-center rounded-full border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-sans text-[11px] font-bold tabular-nums text-[#475569]">
                   {officeHistory.length}
                 </span>
               </div>

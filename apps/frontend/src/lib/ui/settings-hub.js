@@ -35,7 +35,7 @@ export const SETTINGS_GROUPS = Object.freeze([
     items: [
       { id: 'working-hours', label: 'Working hours', description: 'The weekly schedule of the campus and of any office that has its own, with its lunch break.', href: '/calendar', roles: EVERYONE, editRoles: SUPER_ADMIN },
       { id: 'holidays', label: 'Holidays and suspensions', description: 'Holidays and suspensions on the campus calendar.', href: '/calendar?tab=holidays', roles: EVERYONE, editRoles: SUPER_ADMIN },
-      { id: 'terms', label: 'Academic terms', description: 'Managed in the Syllabus Management System (SMS); shown here for reference.', href: '/calendar?tab=terms', roles: EVERYONE },
+      { id: 'terms', label: 'Academic terms', description: 'Managed in the Syllabus Management System (SCMS); shown here for reference.', href: '/calendar?tab=terms', roles: EVERYONE },
     ],
   },
   {

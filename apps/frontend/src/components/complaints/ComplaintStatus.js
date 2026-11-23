@@ -40,11 +40,11 @@ export default function ComplaintStatus({ initialRef = '' }) {
           <div>
             <label htmlFor="s-ref" className="label">Reference number</label>
             <input id="s-ref" className="input" value={ref} onChange={(event) => setRef(event.target.value)} placeholder="CMP-YYYYMMDD-XXXXXX" autoComplete="off" aria-invalid={Boolean(problem)} aria-describedby={problem ? 's-ref-error' : undefined} />
-            {problem ? <p id="s-ref-error" className="mt-1 text-xs text-red-700">{problem}</p> : null}
+            {problem ? <p id="s-ref-error" role="alert" className="mt-1 text-xs text-red-700">{problem}</p> : null}
           </div>
           <button type="submit" className="btn-primary" disabled={state.kind === 'loading'} aria-busy={state.kind === 'loading' || undefined}>{state.kind === 'loading' ? 'Checking…' : 'Check status'}</button>
           {state.kind === 'found' ? (
-            <p className="text-sm" role="status" data-testid="complaint-status-result">Complaint <strong>{state.reference}</strong>: <strong>{statusLabel(state.status)}</strong></p>
+            <p className="break-words text-sm" role="status" data-testid="complaint-status-result">Complaint <strong className="break-all">{state.reference}</strong>: <strong>{statusLabel(state.status)}</strong></p>
           ) : null}
           {state.kind === 'missing' ? <p className="text-sm text-red-700" role="status" data-testid="complaint-status-missing">We could not find a complaint with that reference number. Check the number and try again.</p> : null}
           {state.kind === 'error' ? <ErrorBanner message={state.message} /> : null}

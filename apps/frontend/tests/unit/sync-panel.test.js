@@ -9,10 +9,10 @@ import { ACCENTS, TONES, eventCount, fmsCard, smsCard, systemCards } from '../..
 const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8');
 const panel = read('src/app/calendar/SyncPanel.js');
 
-describe('the Syllabus Management System (SMS) card', () => {
+describe('the Syllabus Management System (SCMS) card', () => {
   it('"Not synced yet" (amber) with the plain sentence when it has never received data', () => {
     const card = smsCard({ sms_last_received: null, audit_last_synced: null, fms_last_push: null });
-    assert.deepEqual([card.title, card.short, card.badge, card.tone], ['Syllabus Management System', 'SMS', 'Not synced yet', 'waiting']);
+    assert.deepEqual([card.title, card.short, card.badge, card.tone], ['Syllabus Management System', 'SCMS', 'Not synced yet', 'waiting']);
     assert.equal(card.text, 'Hasn\'t received any data yet. It will get the calendar on the next send.');
   });
 
@@ -65,7 +65,7 @@ describe('the Faculty Management System (FMS) card', () => {
 });
 
 describe('the panel', () => {
-  it('shows both cards, SMS first, with a heading, the sentence under it, and Refresh', () => {
+  it('shows both cards, SCMS first, with a heading, the sentence under it, and Refresh', () => {
     assert.deepEqual(systemCards({}).map((c) => c.id), ['sms', 'fms']);
     assert.match(panel, /Connected systems/);
     assert.match(panel, /These are separate systems\. CCCMS sends them the campus calendar\./);

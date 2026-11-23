@@ -6,7 +6,7 @@ function ActionControl({ action, primary = false }) {
   const isInternalPage = typeof action.href === 'string' && action.href.startsWith('/');
   const cls = primary
     ? 'inline-flex items-center rounded-lg bg-[#800000] px-3 py-1.5 font-sans text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-[#4A0808]'
-    : 'font-sans text-xs font-semibold text-[#800000] hover:underline';
+    : 'inline-flex min-h-6 items-center font-sans text-xs font-semibold text-[#800000] hover:underline';
 
   return isInternalPage ? (
     <Link href={action.href} className={cls}>
@@ -37,7 +37,7 @@ export default function KeyInsightsPanel({ insights = [] }) {
           className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 font-sans text-xs font-bold tabular-nums ${
             warningCount > 0
               ? 'border border-[#F0DDB0] bg-[#FEF3C7] text-[#78350F]'
-              : 'border border-[#E2E8F0] bg-[#F4F5F8] text-[#64748B]'
+              : 'border border-[#E2E8F0] bg-[#F4F5F8] text-[#475569]'
           }`}
         >
           {warningCount} {warningCount === 1 ? 'Warning' : 'Warnings'}
@@ -75,7 +75,7 @@ export default function KeyInsightsPanel({ insights = [] }) {
                       </span>
                       <p className="mt-0.5 font-sans text-sm font-bold text-[#202938]">{s.text}</p>
                       {s.detail ? (
-                        <p className="mt-1 font-sans text-xs leading-relaxed text-[#64748B]">{s.detail}</p>
+                        <p className="mt-1 font-sans text-xs leading-relaxed text-[#475569]">{s.detail}</p>
                       ) : null}
                       {primaryAction || s.secondaryAction ? (
                         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -128,7 +128,7 @@ export default function KeyInsightsPanel({ insights = [] }) {
                     </span>
                     <p className="mt-0.5 font-sans text-xs font-bold text-[#202938] sm:text-sm">{s.text}</p>
                     {s.detail ? (
-                      <p className="mt-0.5 font-sans text-xs leading-relaxed text-[#64748B]">{s.detail}</p>
+                      <p className="mt-0.5 font-sans text-xs leading-relaxed text-[#475569]">{s.detail}</p>
                     ) : null}
                     {primaryAction ? (
                       <div className="mt-2">

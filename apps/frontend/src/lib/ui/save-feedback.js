@@ -44,7 +44,23 @@ const UNSAFE = new RegExp(
   ].join('|'),
   'i',
 );
-const isSafeText = (text) => typeof text === 'string' && text.trim() !== '' && text.length <= 300 && !UNSAFE.test(text);
+export const isSafeText = (text) => typeof text === 'string' && text.trim() !== '' && text.length <= 300 && !UNSAFE.test(text);
+
+/**
+ * The one sentence for a failed request that is not a form save (a load, a link, a recalculation, a delete): what happened, whether
+ * anything changed, and one next step (S8-35). A server sentence is kept only for a 4xx and only when it reads like plain text
+ * (isSafeText); a 5xx, a timeout or anything that looks like internals gets the screen's own `fallback` instead, so a raw error
+ * never reaches the screen.  writes: true  the action would have changed something, so the sentence says nothing was changed.
+ */
+export function plainFailure(err, { fallback, writes = false } = {}) {
+  const status = err?.status;
+  if (err?.code === 'NETWORK_ERROR' || status === 0) return `Unable to connect to the server.${writes ? ' Nothing was changed.' : ''} Please check your connection and try again.`;
+  if (status === 401 || status === 403) return writes ? `${MESSAGES.unauthorized} Nothing was changed.` : 'You do not have access to this.';
+  if (status === 502 || status === 504) return writes ? MESSAGES.gateway : 'The server did not answer in time. Please try again in a moment.';
+  if (status === 503) return writes ? MESSAGES.unavailable : 'This service is temporarily unavailable. Please try again in a moment.';
+  if (typeof status === 'number' && status >= 500) return fallback;
+  return isSafeText(err?.message) ? err.message : fallback;
+}
 
 /**
  * The one sentence for a failed save (an ApiError: status, code, message, details).

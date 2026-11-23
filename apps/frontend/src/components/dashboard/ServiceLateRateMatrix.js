@@ -10,6 +10,7 @@ import {
   filterNoActivityServices,
 } from '../../lib/ui/insights.js';
 import { notify } from '../../lib/ui/notify.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 import SearchInput from '../forms/SearchInput.js';
 import EmptyState from '../ui/EmptyState.js';
 import ServiceCellDetail from './ServiceCellDetail.js';
@@ -79,7 +80,7 @@ export default function ServiceLateRateMatrix({
     } catch (failure) {
       if (seq === reqSeqRef.current) {
         setCellData(null);
-        notify.error(failure?.message || 'Detail could not be loaded.');
+        notify.error(plainFailure(failure, { fallback: 'The service details could not be loaded. Please try again.' }));
       }
     }
   }
@@ -119,7 +120,7 @@ export default function ServiceLateRateMatrix({
               const selected = filter === opt.value;
               const unselectedStyle = opt.flagged && model.counts.flagged > 0
                 ? 'border-[#F3C5C5] bg-[#FDF2F2] text-[#800000] hover:border-[#800000] hover:bg-[#F8EEEE]'
-                : 'border-[#E2E8F0] bg-[#F4F5F8] text-[#64748B] hover:border-slate-300 hover:bg-white hover:text-[#202938]';
+                : 'border-[#E2E8F0] bg-[#F4F5F8] text-[#475569] hover:border-slate-300 hover:bg-white hover:text-[#202938]';
               return (
                 <button
                   key={opt.value}
@@ -174,7 +175,7 @@ export default function ServiceLateRateMatrix({
                     ) : row.low_volume ? (
                       <span
                         data-testid="office-status-badge"
-                        className="inline-flex shrink-0 items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-sans text-[11px] font-semibold text-[#64748B]"
+                        className="inline-flex shrink-0 items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-sans text-[11px] font-semibold text-[#475569]"
                       >
                         Low volume
                       </span>

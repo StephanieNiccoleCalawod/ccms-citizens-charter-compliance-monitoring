@@ -33,7 +33,7 @@ function ChangeBadge({ change }) {
   return (
     <span
       data-testid="trend-delta-badge"
-      className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-[11px] font-bold text-[#64748B]"
+      className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-[11px] font-bold text-[#475569]"
     >
       No change vs previous period
     </span>
@@ -88,7 +88,7 @@ export default function ComplianceTrendChart({ pulse }) {
           <a
             href="#heatmap"
             data-testid="compare-by-office-link"
-            className="font-semibold text-[#800000] hover:underline"
+            className="inline-flex min-h-6 items-center font-semibold text-[#800000] hover:underline"
           >
             Compare by office &rarr;
           </a>

@@ -216,7 +216,7 @@ export default function RolesMatrix({
               <span>All</span>
               <span
                 className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
-                  category === 'ALL' ? 'bg-white/20 text-white' : 'bg-[#F4F5F8] text-[#64748B]'
+                  category === 'ALL' ? 'bg-white/20 text-white' : 'bg-[#F4F5F8] text-[#475569]'
                 }`}
               >
                 {total}
@@ -243,7 +243,7 @@ export default function RolesMatrix({
                   <span>{cat.name}</span>
                   <span
                     className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
-                      active ? 'bg-white/20 text-white' : 'bg-[#F4F5F8] text-[#64748B]'
+                      active ? 'bg-white/20 text-white' : 'bg-[#F4F5F8] text-[#475569]'
                     }`}
                   >
                     {cat.count}

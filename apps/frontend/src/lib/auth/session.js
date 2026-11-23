@@ -12,6 +12,7 @@ import { whenClerk } from './clerk-bridge.js';
 import { ROLE_NOT_RECOGNIZED, ROLE_NOT_RECOGNIZED_MESSAGE, userFromClaims } from './guards.js';
 import { ACCESS_PENDING_PATH, authProvider, clerkEnabled, signInPath } from './provider.js';
 import { performSignOut } from './sign-out-flow.js';
+import { singleFlight, writeKey } from './single-flight.js';
 const REFRESH_MARGIN_MS = 30_000;
 
 // Clerk sign-in (Landas 1): the browser trades a Clerk session token for the usual CCMS access token at Identity. There is
@@ -411,7 +412,17 @@ export function signOut() {
 }
 
 /** Calls an API through the gateway with the bearer token; refreshes once on 401. */
-export async function apiFetch(path, { method = 'GET', body, headers } = {}, retried = false) {
+// S8-37: the same write (same method, address and body) made while the first is still on its way is not sent again: it gets the first
+// one's answer. A read and an upload are always sent. After a 401 the one re-send (retried) goes straight through.
+const writesInFlight = new Map();
+
+export function apiFetch(path, options = {}, retried = false) {
+  if (retried) return sendRequest(path, options, true);
+  const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  return singleFlight(writesInFlight, writeKey(options.method, path, options.body, { isForm }), () => sendRequest(path, options, false));
+}
+
+async function sendRequest(path, { method = 'GET', body, headers } = {}, retried = false) {
   const token = await getAccessToken();
   if (!token) {
     redirectToLogin();

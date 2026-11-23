@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ROLES } from 'ccms-shared/roles';
-import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import Modal from '../modals/Modal.js';
@@ -24,6 +23,7 @@ import {
   minutesText,
 } from '../../lib/ui/insights.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 
 const API = '/api/operations/analytics/late-risk';
 const percent = (value) => `${Math.round(Number(value) * 100)}%`;
@@ -213,9 +213,10 @@ function RiskScorePill({ row, showProbability }) {
 }
 
 /**
- * Centered modal dialog for Escalate (high-risk / overdue) and Inspect (within time limit / review) actions.
+ * Centered modal dialog for the Review (high-risk / overdue) and Inspect (within time limit) actions.
  * Uses the shared CCCMS <Modal> component to display Detail Header, Citizen's Charter Service card,
- * Time Limit Used card, Processing Milestones timeline, and confirmation-gated Escalate / transaction detail actions.
+ * Time Limit Used card, Processing Milestones timeline, and the one real action: open the transaction record.
+ * Nothing here claims an action that was not stored: there is no escalation endpoint, so there is no Escalate button (F8-01).
  */
 export function LateRiskDetailDrawer({
   item,
@@ -225,17 +226,15 @@ export function LateRiskDetailDrawer({
   showProbability = false,
   isExecutive = false,
   onClose,
-  onEscalateConfirmed,
 }) {
   const router = useRouter();
-  const [confirmEscalate, setConfirmEscalate] = useState(false);
 
   if (!item) return null;
 
   const m = deriveLateRiskItemMetrics(item);
   const lvl = String(item.level ?? '').toUpperCase();
   const isOverdueOrHigh = m.isOverLimit || lvl === 'HIGH';
-  const isEscalateMode = mode === 'escalate' || isOverdueOrHigh;
+  const emphasised = mode === 'review' || isOverdueOrHigh;
   const probText = showProbability && item.probability != null ? ` ${percent(item.probability)}` : '';
 
   const badgeTone = lvl === 'HIGH'
@@ -269,7 +268,7 @@ export function LateRiskDetailDrawer({
       >
         <div
           data-testid="late-risk-detail-drawer"
-          data-mode={isEscalateMode ? 'escalate' : 'inspect'}
+          data-mode={emphasised ? 'review' : 'inspect'}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
           {/* 1. Detail Header */}
@@ -419,10 +418,10 @@ export function LateRiskDetailDrawer({
                     className={`mt-1 block font-mono text-xs font-bold sm:text-sm ${minsLeft <= 0 || isOverdueOrHigh ? 'text-rose-700' : 'text-emerald-700'
                       }`}
                   >
-                    {minsLeft.toLocaleString('en-PH')} min
+                    {m.isOverLimit ? 'Overdue' : minutesText(minsLeft)}
                   </span>
                   <span className="mt-0.5 block font-sans text-[10px] text-[#64748B]">
-                    {minsLeft <= 0 ? 'Past deadline' : 'Within time limit'}
+                    {m.isOverLimit ? (m.overdueMinutes ? `by ${minutesText(m.overdueMinutes)}` : 'Past the time limit') : minsLeft <= 0 ? 'Past deadline' : 'Within time limit'}
                   </span>
                 </div>
               </div>
@@ -484,39 +483,18 @@ export function LateRiskDetailDrawer({
           {item.can_open ? (
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#E2E8F0] bg-[#F8FAFC] px-5 py-3.5">
               <Button
-                variant={isEscalateMode ? 'secondary' : 'primary'}
+                variant="primary"
                 size="sm"
                 data-testid="late-risk-drawer-open-record"
                 onClick={() => router.push(`/transactions/${encodeURIComponent(item.transaction_id)}`)}
               >
                 Open Transaction Record
               </Button>
-              {isEscalateMode && !isExecutive ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  data-testid="late-risk-drawer-escalate-btn"
-                  onClick={() => setConfirmEscalate(true)}
-                >
-                  Confirm Escalation
-                </Button>
-              ) : null}
             </div>
           ) : null}
         </div>
       </Modal>
 
-      <ConfirmDialog
-        open={confirmEscalate}
-        title="Escalate high-risk transaction?"
-        message={`Flag ${item.tracking_no} (${item.service_name}) for immediate supervisory follow-up and open its transaction record?`}
-        confirmLabel="Confirm Escalation"
-        onConfirm={() => {
-          setConfirmEscalate(false);
-          onEscalateConfirmed?.(item);
-        }}
-        onCancel={() => setConfirmEscalate(false)}
-      />
     </>
   );
 }
@@ -568,7 +546,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
           <div className="space-y-1.5 whitespace-normal">
             <div className="flex flex-wrap items-center justify-between gap-1.5 font-sans text-xs">
               <span className="font-mono font-semibold text-[#202938]">
-                {m.pctUsed !== null ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% used` : row.reason}
+                {m.isOverLimit ? m.overdueText : m.pctUsed !== null ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% used` : row.reason}
               </span>
               {m.isOverLimit ? (
                 <span className="rounded bg-[#FDF2F2] px-1.5 py-0.2 font-sans text-[10px] font-bold uppercase text-[#800000]">
@@ -600,14 +578,15 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
       sortable: true,
       render: (row) => {
         const mins = Number(row.working_minutes_left ?? 0);
-        const breached = mins <= 0;
+        const m = deriveLateRiskItemMetrics(row);
+        const breached = m.isOverLimit || mins <= 0;
         return (
           <div className="space-y-0.5 text-right">
             <span className={`block font-mono text-xs font-bold tabular-nums ${breached ? 'text-[#800000]' : 'text-[#202938]'}`}>
-              {mins.toLocaleString('en-PH')} min
+              {breached ? 'Overdue' : minutesText(mins)}
             </span>
             <span className={`block font-sans text-[11px] ${breached ? 'font-semibold text-rose-700' : 'text-[#64748B]'}`}>
-              {breached ? 'Breached' : `${minutesText(mins)} buffer`}
+              {breached ? (m.overdueMinutes ? `by ${minutesText(m.overdueMinutes)}` : 'Past the time limit') : 'left'}
             </span>
           </div>
         );
@@ -623,7 +602,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
           return <span className="font-sans text-[11px] text-[#64748B]">View only</span>;
         }
         const isHigh = row.level === 'HIGH';
-        const actionMode = isHigh ? 'escalate' : 'inspect';
+        const actionMode = isHigh ? 'review' : 'inspect';
         return (
           <button
             type="button"
@@ -634,7 +613,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
               : 'border-[#E2E8F0] bg-white text-[#202938] hover:bg-[#F8FAFC]'
               }`}
           >
-            <span>{isHigh ? 'Escalate' : 'Inspect'}</span>
+            <span>{isHigh ? 'Review' : 'Inspect'}</span>
             <span aria-hidden="true">&rsaquo;</span>
           </button>
         );
@@ -688,7 +667,7 @@ export default function LateRiskSection({
 
   const [riskFilter, setRiskFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [detailTarget, setDetailTarget] = useState(null); // { item, mode: 'escalate' | 'inspect' }
+  const [detailTarget, setDetailTarget] = useState(null); // { item, mode: 'review' | 'inspect' }
 
   useEffect(() => {
     if (embedded || !campus) return undefined;
@@ -698,7 +677,7 @@ export default function LateRiskSection({
       const available = (items ?? []).filter((office) => office.is_active !== false);
       setOffices(available);
       setOfficeId((current) => current || available[0]?.office_id || '');
-    }).catch((failure) => { if (active) setError(failure.message); });
+    }).catch((failure) => { if (active) setError(plainFailure(failure, { fallback: 'The office list could not be loaded. Please try again in a moment.' })); });
     return () => { active = false; };
   }, [embedded, campus]);
 
@@ -708,7 +687,7 @@ export default function LateRiskSection({
     const url = `${API}?officeId=${encodeURIComponent(officeId)}`;
     const refresh = () => apiFetch(url).then((data) => {
       if (active) { setScores({ officeId, data }); setError(''); }
-    }).catch((failure) => { if (active) setError(failure.message); });
+    }).catch((failure) => { if (active) setError(plainFailure(failure, { fallback: 'The late-risk scores could not be loaded. Please try again in a moment.' })); });
     // A hidden tab does not poll; coming back refreshes at once when the scores are older than one interval.
     const visible = () => document.visibilityState !== 'hidden';
     let lastLoad = Date.now();
@@ -730,7 +709,7 @@ export default function LateRiskSection({
         setNotice(result.running ? 'Training is already running.' : result.model.method === 'trained' ? 'Training completed.' : 'Training finished with rule-based scoring.');
         setRevision((current) => current + 1);
       } catch (failure) {
-        setError(failure.message);
+        setError(plainFailure(failure, { fallback: 'Training did not start, so the current scores are unchanged. Please try again.' }));
       } finally {
         setTraining(false);
       }
@@ -884,7 +863,7 @@ export default function LateRiskSection({
                 </h2>
                 <span
                   data-testid="late-risk-queue-count"
-                  className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-xs font-semibold text-[#64748B]"
+                  className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-xs font-semibold text-[#475569]"
                 >
                   Showing {filteredItems.length} of {counts.total}
                 </span>
@@ -908,7 +887,7 @@ export default function LateRiskSection({
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3 font-sans text-xs text-[#64748B]">
               <span>Working-time calculations automatically pause outside official campus hours &amp; holidays.</span>
-              <span>Click Escalate or Inspect to view milestones</span>
+              <span>Click Review or Inspect to view milestones</span>
             </div>
           </section>
 
@@ -937,7 +916,7 @@ export default function LateRiskSection({
         </div>
       )}
 
-      {/* 3. Escalate / Inspect Slide-Over Transaction Detail Drawer */}
+      {/* 3. Review / Inspect transaction detail dialog */}
       <LateRiskDetailDrawer
         item={detailTarget?.item ?? null}
         mode={detailTarget?.mode ?? 'inspect'}
@@ -946,10 +925,6 @@ export default function LateRiskSection({
         showProbability={isAdmin}
         isExecutive={isExecutive}
         onClose={() => setDetailTarget(null)}
-        onEscalateConfirmed={(item) => {
-          setNotice(`Escalation logged for ${item.tracking_no}. Follow-up notification queued.`);
-          setDetailTarget(null);
-        }}
       />
     </div>
   );

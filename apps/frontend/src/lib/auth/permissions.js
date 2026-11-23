@@ -1,6 +1,6 @@
 // What a role may see and where it lands after sign-in. The role table lives in ccms-shared so the
 // screens and the services agree; the services still enforce every rule on the server.
-import { navForRole } from 'ccms-shared/nav';
+import { landingForRole, navForRole } from 'ccms-shared/nav';
 import { ROLES } from 'ccms-shared/roles';
 import { queueNav } from '../ui/queue.js';
 import { clerkEnabled } from './provider.js';
@@ -84,6 +84,23 @@ export function activeNavHref(items, pathname) {
 export function appNavForRole(role, access = {}) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
+  return homeFirst(role, buildMenu(role, shared, access));
+}
+
+/**
+ * S8-36: the page a person lands on after signing in comes first in the menu, so the first thing they see in the menu is the place they
+ * are already in (Office Home for Office Head and Office Staff, Campus Home for the Executive). The Dashboard follows it. A Super Admin
+ * lands on Accounts, which is an administration item, so their menu keeps the Dashboard first and the Administration group where it is.
+ * Only an item of the Main group is moved, so the groups keep their order and nothing is added or removed.
+ */
+function homeFirst(role, items) {
+  const landing = landingForRole(role);
+  const index = items.findIndex((item) => item.href === landing && item.section === 'Main');
+  if (index <= 0) return items;
+  return [items[index], ...items.slice(0, index), ...items.slice(index + 1)];
+}
+
+function buildMenu(role, shared, access) {
   const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
   return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, registryNav(role), rolesNav(role), logsNav(role), settingsNav(role)].filter(Boolean);
 }

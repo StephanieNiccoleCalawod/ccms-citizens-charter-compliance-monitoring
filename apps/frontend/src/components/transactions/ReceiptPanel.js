@@ -8,6 +8,7 @@ import { todayManila } from '../../lib/api/calendar.js';
 import { deleteReceipt, fetchReceiptImage, getReceipt, uploadReceipt } from '../../lib/api/receipts.js';
 import { formatDate, formatDateTime } from '../../lib/ui/date-format.js';
 import { EMPTY_RECEIPT_FORM, RECEIPT_ACCEPT, formatAmount, receiptFailure, receiptFormErrors } from '../../lib/ui/receipts.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 
 const LABEL = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 
@@ -72,7 +73,7 @@ export default function ReceiptPanel({ transactionId }) {
       forget();
       setImageUrl(URL.createObjectURL(blob));
     } catch (err) {
-      notify.error(err?.message || 'The receipt photo could not be loaded.');
+      notify.error(plainFailure(err, { fallback: 'The receipt photo could not be loaded. Please try again.' }));
       if (err?.status === 404) load();
     } finally {
       setBusy(null);
@@ -87,7 +88,7 @@ export default function ReceiptPanel({ transactionId }) {
       setState({ loading: false, receipt: null, message: null });
       notify.success('Receipt deleted.');
     } catch (err) {
-      notify.error(err?.message || 'The receipt could not be deleted.');
+      notify.error(plainFailure(err, { fallback: 'The receipt could not be deleted, so it is still on file. Please try again.', writes: true }));
       load();
     } finally {
       setBusy(null);

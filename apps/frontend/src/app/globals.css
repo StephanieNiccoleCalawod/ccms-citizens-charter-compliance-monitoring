@@ -18,7 +18,8 @@
   --color-pup-gray: #e5e5e5;
   --color-table-divider: #E2E8F0;
   /* Content area and tables */
-  --color-page: #F4F5F8;
+  /* The approved Background (#F8FAFC). The muted text colour is 4.55:1 on it; on the old #F4F5F8 it was 4.36:1, under the 4.5:1 minimum (S8-38). */
+  --color-page: #F8FAFC;
   --color-line: #E2E8F0;
   --color-table-head: #800000;
   --color-table-hover: rgba(128, 0, 0, 0.04);
@@ -122,7 +123,7 @@
   @apply btn bg-red-700 text-white hover:bg-red-600 focus-visible:ring-red-500;
 }
 @utility btn-link {
-  @apply cursor-pointer text-sm font-semibold text-pup-maroon hover:underline disabled:opacity-50;
+  @apply inline-flex min-h-6 cursor-pointer items-center text-sm font-semibold text-pup-maroon hover:underline disabled:opacity-50;
 }
 /* A ghost icon button for toolbars and headers (hamburger, bell, modal close, month arrows): 36px square, the same hover and focus ring.
    icon-button-outline adds the hairline border. In React use <IconButton> (components/ui/IconButton.js). */
@@ -133,7 +134,7 @@
   @apply icon-button border border-line bg-surface;
 }
 @utility label {
-  @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted;
+  @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600;
 }
 @utility input {
   @apply block w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink shadow-2xs transition-colors placeholder:text-ink-muted hover:border-slate-300 focus:border-pup-maroon focus:outline-none focus:ring-1 focus:ring-pup-maroon disabled:bg-surface-muted aria-invalid:border-red-600 aria-invalid:focus:border-red-700 aria-invalid:focus:ring-red-700;
@@ -310,4 +311,12 @@
   .report-print-area tr {
     break-inside: avoid;
   }
+}
+
+/* S8-38: a tab panel can take the keyboard focus (tabindex 0), so it shows where the focus is. !important only because the screens that
+   hold a panel also say focus:outline-none, which would hide it. */
+[role="tabpanel"]:focus-visible {
+  outline: 2px solid var(--color-pup-maroon) !important;
+  outline-offset: 2px;
+  border-radius: 8px;
 }

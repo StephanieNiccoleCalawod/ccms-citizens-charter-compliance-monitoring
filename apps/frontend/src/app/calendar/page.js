@@ -13,7 +13,7 @@ import WorkingHoursScope from './WorkingHoursScope.js';
 const TABS = [
   { id: 'hours', label: 'Working hours', subtitle: 'The weekly schedule of the campus, and of any office that has its own. CCCMS uses it to compute deadlines (Asia/Manila).' },
   { id: 'holidays', label: 'Holidays & suspensions', subtitle: 'Holidays and suspensions on the campus calendar (Asia/Manila).' },
-  { id: 'terms', label: 'Academic terms', subtitle: 'Academic terms are managed in the Syllabus Management System (SMS) and cannot be changed here. They do not change how CCCMS computes deadlines.' },
+  { id: 'terms', label: 'Academic terms', subtitle: 'Academic terms are managed in the Syllabus Management System (SCMS) and cannot be changed here. They do not change how CCCMS computes deadlines.' },
 ];
 
 function CalendarManager({ user, tab, setTab }) {

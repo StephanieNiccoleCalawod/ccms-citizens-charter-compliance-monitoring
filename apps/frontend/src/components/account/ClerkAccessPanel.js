@@ -33,6 +33,7 @@ import {
   directoryResultText,
   filterClerkAccessRows,
 } from '../../lib/ui/clerk-access.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 
 // Clerk sign-in access (Landas 1, Shared Clerk Access Playbook): who may sign in to CCMS with their PUP account. The Accounts
 // page's "Clerk Sign-in Access" tab (/settings/clerk-access only redirects here). One table, four states (none of them stored):
@@ -76,7 +77,7 @@ export default function ClerkAccessPanel({ active = true }) {
           setLoading(false);
         },
         (err) => {
-          setError(err.message);
+          setError(plainFailure(err, { fallback: 'The Clerk sign-in requests could not be loaded. Please try again in a moment.' }));
           setLoading(false);
         },
       ),
@@ -118,7 +119,7 @@ export default function ClerkAccessPanel({ active = true }) {
       setNotice(`${nameOf(accountId)} can now sign in with Clerk.`);
       await load();
     } catch (err) {
-      setError(err.message);
+      setError(plainFailure(err, { fallback: 'The account was not linked. Nothing was changed. Please try again.', writes: true }));
     } finally {
       setBusy(null);
     }
@@ -162,7 +163,7 @@ export default function ClerkAccessPanel({ active = true }) {
       setConfirm(null);
       await load();
     } catch (err) {
-      setError(err.message);
+      setError(plainFailure(err, { fallback: 'That change was not made. Nothing was changed. Please try again.', writes: true }));
       setConfirm(null);
     } finally {
       setBusy(null);

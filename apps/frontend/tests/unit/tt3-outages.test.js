@@ -42,7 +42,7 @@ describe('gateway 502 / 504 on a write (item 5, AC4)', () => {
 
   it('nothing in the browser layer retries a write on its own (only one re-send after a 401, before the server processed it)', () => {
     const session = read('src/lib/auth/session.js');
-    const body = session.slice(session.indexOf('export async function apiFetch'));
+    const body = session.slice(session.indexOf('async function sendRequest'));
     assert.match(body, /response\.status === 401 && !retried/);
     assert.doesNotMatch(body, /502|504|setTimeout|setInterval|for \(let attempt|while \(/, 'no retry loop or backoff');
     assert.doesNotMatch(read('src/components/transactions/StartTransactionForm.js'), /setTimeout|setInterval/);

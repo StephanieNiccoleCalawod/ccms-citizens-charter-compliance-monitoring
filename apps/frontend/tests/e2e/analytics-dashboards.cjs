@@ -712,16 +712,16 @@ async function setupContext(browser, role, { forecastState, staleLateRisk = fals
       await page.getByTestId('late-risk-search').fill('');
       ok('/late-risk (super_admin): toolbar risk filters and search filter the Ranked Open Transactions table without extra API calls', highCountText.includes('Showing 1 of 2') && searchCountText.includes('Showing 1 of 2') && calls.lateRisks.length === 1);
 
-      await page.getByTestId('late-risk-action-escalate').first().click();
+      await page.getByTestId('late-risk-action-review').first().click();
       await page.getByTestId('late-risk-detail-drawer').waitFor({ state: 'visible', timeout: 15000 });
       const escalateDrawerText = await page.getByTestId('late-risk-detail-drawer').innerText();
       await page.getByTestId('late-risk-drawer-close').click();
       await page.getByTestId('late-risk-action-inspect').first().click();
       await page.getByTestId('late-risk-detail-drawer').waitFor({ state: 'visible', timeout: 15000 });
       const inspectDrawerText = await page.getByTestId('late-risk-detail-drawer').innerText();
-      const inspectHasNoEscalateBtn = (await page.getByTestId('late-risk-drawer-escalate-btn').count()) === 0;
+      const inspectHasNoEscalateBtn = (await page.getByRole('button', { name: /Escalat/i }).count()) === 0; // F8-01: there is no escalation, in any dialog
       await page.getByTestId('late-risk-drawer-close').click();
-      ok('/late-risk (super_admin): Escalate and Inspect actions open transaction detail drawer with time limit used and Processing Milestones', escalateDrawerText.includes('High 78%') && escalateDrawerText.includes('REG-20261118-0001') && /Time Limit Used/i.test(escalateDrawerText) && /Processing Milestones/i.test(escalateDrawerText) && inspectDrawerText.includes('Low 12%') && inspectDrawerText.includes('REG-20261118-0002') && inspectDrawerText.includes('5 h 0 min (300 min) buffer remaining') && inspectHasNoEscalateBtn);
+      ok('/late-risk (super_admin): Review and Inspect actions open transaction detail drawer with time limit used and Processing Milestones', escalateDrawerText.includes('High 78%') && escalateDrawerText.includes('REG-20261118-0001') && /Time Limit Used/i.test(escalateDrawerText) && /Processing Milestones/i.test(escalateDrawerText) && inspectDrawerText.includes('Low 12%') && inspectDrawerText.includes('REG-20261118-0002') && inspectDrawerText.includes('5 h 0 min (300 min) buffer remaining') && inspectHasNoEscalateBtn);
 
       await page.selectOption('#late-risk-office', OFFICE_B);
       await page.getByText('GUI-20261118-0001').first().waitFor({ timeout: 15000 });

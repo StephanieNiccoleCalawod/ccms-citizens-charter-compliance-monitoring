@@ -11,6 +11,7 @@ import { notify } from '../../lib/ui/notify.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 import RequestForecastChart from './RequestForecastChart.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 
 // CC038 — Expected request volume section. Embedded in DashboardAnalytics (or standalone).
 
@@ -133,7 +134,7 @@ export default function RequestForecastSection({
       setRun(data);
     } catch (err) {
       if (seq !== requestSeqRef.current) return;
-      setError(err?.message ?? 'Could not load the forecast.');
+      setError(plainFailure(err, { fallback: 'The forecast could not be loaded. Please try again in a moment.' }));
       setRun(null);
     } finally {
       if (seq === requestSeqRef.current) setLoading(false);
@@ -176,7 +177,7 @@ export default function RequestForecastSection({
         if (!serviceId) onRunChange?.(data, officeId);
         notify.success('Forecast recalculated.');
       } catch (err) {
-        notify.error(err?.message ?? 'Could not recalculate the forecast.');
+        notify.error(plainFailure(err, { fallback: 'The forecast was not recalculated, so the earlier one is still shown. Please try again.' }));
       } finally {
         setRetraining(false);
       }

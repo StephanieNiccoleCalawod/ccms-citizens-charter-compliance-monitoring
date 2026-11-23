@@ -15,6 +15,7 @@ import {
   sortCharterRows,
 } from '../../lib/ui/insights.js';
 import { notify } from '../../lib/ui/notify.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 import Card from '../ui/Card.js';
 import DataTable from '../ui/DataTable.js';
 import StatusBadge from '../ui/StatusBadge.js';
@@ -122,7 +123,7 @@ export default function ServiceCharterPanel({
     } catch (failure) {
       if (seq === cellSeqRef.current) {
         setCharterCellData(null);
-        notify.error(failure?.message || 'Detail could not be loaded.');
+        notify.error(plainFailure(failure, { fallback: 'The service details could not be loaded. Please try again.' }));
       }
     }
   }

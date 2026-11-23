@@ -12,6 +12,7 @@ import {
   filterOfficeServices,
 } from '../../lib/ui/office-performance.js';
 import { notify } from '../../lib/ui/notify.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import SearchInput from '../forms/SearchInput.js';
 import Modal from '../modals/Modal.js';
@@ -363,7 +364,7 @@ export default function OfficePerformanceTab({ overview, period, offices = [], s
     } catch (failure) {
       if (seq === seqRef.current) {
         setDetail(null);
-        notify.error(failure?.message || 'Detail could not be loaded.');
+        notify.error(plainFailure(failure, { fallback: 'The service details could not be loaded. Please try again.' }));
       }
     }
   }

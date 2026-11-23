@@ -113,7 +113,7 @@ export default function LoginPage() {
       <main className="relative flex flex-1 flex-col items-center justify-center px-5 pb-10 pt-16 sm:px-8 lg:w-1/2 lg:px-12 [@media(max-height:760px)]:pb-5 [@media(max-height:760px)]:pt-14">
         <Link
           href="/"
-          className="absolute left-5 top-5 inline-flex items-center gap-2 text-sm font-medium xl:top-6 xl:text-base text-[#3A352F] transition-colors hover:text-[#520909] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E5B52B] focus-visible:ring-offset-2 sm:left-8 sm:top-8"
+          className="absolute left-5 top-5 inline-flex min-h-6 items-center gap-2 text-sm font-medium xl:top-6 xl:text-base text-[#3A352F] transition-colors hover:text-[#520909] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E5B52B] focus-visible:ring-offset-2 sm:left-8 sm:top-8"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m0 0 7 7m-7-7 7-7" />

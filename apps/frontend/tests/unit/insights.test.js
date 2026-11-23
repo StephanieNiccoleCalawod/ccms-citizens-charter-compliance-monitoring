@@ -293,7 +293,10 @@ describe('table helpers', () => {
     assert.equal(overdueMetrics.isOverLimit, true);
     assert.equal(overdueMetrics.isSeverelyOverdue, true);
     assert.equal(overdueMetrics.barFillPct, 100);
-    assert.match(overdueMetrics.consumptionLabel, /127\.4× limit/);
+    // S8-25: an overdue item is described as overdue, not by a huge multiple or percentage of its limit.
+    assert.equal(overdueMetrics.consumptionLabel, 'Overdue (past the Charter time limit)');
+    assert.equal(overdueMetrics.pctUsed, null);
+    assert.doesNotMatch(overdueMetrics.consumptionLabel, /×|%/);
 
     const normalMetrics = deriveLateRiskItemMetrics({
       level: 'LOW',

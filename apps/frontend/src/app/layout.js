@@ -2,6 +2,7 @@ import { DM_Sans, DM_Serif_Display } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 import ClerkRegistrar from '../components/auth/ClerkRegistrar.js';
+import FormSafety from '../components/forms/FormSafety.js';
 import { BRAND } from '../lib/constants/brand.js';
 import { CLERK_SIGN_IN_PATH, PASSWORD_SIGN_IN_PATH, clerkEnabled, clerkPublishableKey } from '../lib/auth/provider.js';
 
@@ -33,7 +34,11 @@ export default function RootLayout({ children }) {
   );
   return (
     <html lang="en" className={`${dmSerifDisplay.variable} ${dmSans.variable}`}>
-      <body>{content}</body>
+      <body>
+        {content}
+        {/* S8-37: focus on the first field to fix after a submit, and a warning before leaving with unsaved work. Renders nothing. */}
+        <FormSafety />
+      </body>
     </html>
   );
 }

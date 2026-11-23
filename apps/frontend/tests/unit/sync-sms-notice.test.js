@@ -6,7 +6,7 @@ import { smsSyncNotice } from '../../src/lib/api/calendar.js';
 
 const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8');
 
-describe('Calendar page notice about the Syllabus Management System (SMS)', () => {
+describe('Calendar page notice about the Syllabus Management System (SCMS)', () => {
   it('says nothing when there is no issue', () => {
     assert.equal(smsSyncNotice(null), null);
     assert.equal(smsSyncNotice({ sms_issue: null }), null);
@@ -16,7 +16,7 @@ describe('Calendar page notice about the Syllabus Management System (SMS)', () =
   it('a refused key is its own state and says sending stops until the key is fixed', () => {
     const notice = smsSyncNotice({ sms_issue: { state: 'KEY_REJECTED', at: '2026-11-06T10:00:00.000Z' } });
     assert.equal(notice.state, 'KEY_REJECTED');
-    assert.match(notice.text, /Syllabus Management System \(SMS\) refused the key/);
+    assert.match(notice.text, /Syllabus Management System \(SCMS\) refused the key/);
     assert.match(notice.text, /until the key is fixed/);
   });
 

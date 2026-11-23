@@ -8,6 +8,7 @@ import StatusBanner from '../feedback/StatusBanner.js';
 import { changeMyPassword } from '../../lib/api/account.js';
 import { passwordFormErrors, passwordServerErrors } from '../../lib/ui/account.js';
 import { notify } from '../../lib/ui/notify.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 
 /** My account > Change password. Nothing is shown as saved until the server says so; the passwords are cleared afterwards. */
 export default function ChangePasswordForm({ save = changeMyPassword }) {
@@ -32,7 +33,7 @@ export default function ChangePasswordForm({ save = changeMyPassword }) {
     } catch (err) {
       const fields = passwordServerErrors(err.details);
       if (Object.keys(fields).length) setErrors(fields);
-      else setBanner(err.message || 'Something went wrong. Please try again.');
+      else setBanner(plainFailure(err, { fallback: 'Your password was not changed. Please try again.', writes: true }));
     } finally {
       setBusy(false);
     }

@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button.js';
 import { BRAND } from '../../lib/constants/brand.js';
 import { accessPendingCopy } from '../../lib/ui/clerk-access.js';
 import { completeClerkSignIn, sessionRejection, signOut } from '../../lib/auth/session.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 
 // "No access yet" (Shared Clerk Access Playbook, flow B): the person signed in with Clerk, but a CCMS Super Admin has not
 // approved them, or their CCMS access is turned off. Nothing here grants access; "Check again" only asks Identity again.
@@ -41,7 +42,7 @@ export default function AccessPendingPage() {
       if (code && code !== reason) setReason(code);
       else if (!code) setError('You are signed out. Please sign in again.');
     } catch (err) {
-      setError(err?.message ?? 'Please try again in a few minutes.');
+      setError(plainFailure(err, { fallback: 'We could not check your access just now. Please try again in a few minutes.' }));
     } finally {
       setBusy(false);
     }

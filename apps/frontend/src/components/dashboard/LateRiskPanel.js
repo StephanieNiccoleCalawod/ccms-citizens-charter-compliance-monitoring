@@ -80,7 +80,7 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>Deadlines count working days only; holidays and weekends are excluded</span>
           {actionHref ? (
-            <Link href={actionHref} className="font-semibold text-[#202938] hover:text-[#800000] hover:underline">
+            <Link href={actionHref} className="inline-flex min-h-6 items-center font-semibold text-[#202938] hover:text-[#800000] hover:underline">
               See full ranked list &rarr;
             </Link>
           ) : null}
@@ -167,7 +167,7 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
                     <span className="sr-only">{c.label}: {n(c.count)}</span>
                   </div>
                   {c.description ? (
-                    <p className="mt-2 font-sans text-xs leading-relaxed text-[#64748B]">
+                    <p className="mt-2 font-sans text-xs leading-relaxed text-[#475569]">
                       {c.description}
                     </p>
                   ) : null}

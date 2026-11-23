@@ -24,7 +24,8 @@ const TABLE_PAGES = {
 
 describe('the shared design tokens', () => {
   it('define the shared palette once: page, line, table header and row hover', () => {
-    assert.match(css, /--color-page:\s*#F4F5F8;/i);
+    // S8-38: the approved Background (#F8FAFC). The muted text (#64748B) is 4.55:1 on it, and was 4.36:1 on the old #F4F5F8 (under the 4.5:1 minimum).
+    assert.match(css, /--color-page:\s*#F8FAFC;/i);
     assert.match(css, /--color-line:\s*#E2E8F0;/i);
     assert.match(css, /--color-table-head:\s*#800000;/i);
     assert.match(css, /--color-table-hover:\s*rgba\(128, 0, 0, 0\.04\);/i);

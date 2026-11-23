@@ -50,7 +50,8 @@ describe('who gets the Logs page', () => {
   it('existing navigation is unchanged: Home first, the shared pages and Transaction Settings still there', () => {
     for (const role of ROLE_LIST) {
       const nav = appNavForRole(role);
-      assert.equal(nav[0].href, '/', role);
+      assert.equal(nav[0].href, role === ROLES.SUPER_ADMIN ? '/' : (role === ROLES.EXECUTIVE ? '/campus' : '/office'), role); // S8-36: the role's own home is first (a Super Admin lands on Accounts, so keeps the Dashboard first); the Dashboard ('/') is in every menu
+      assert.ok(nav.some((i) => i.href === '/'), `${role}: the Dashboard is still in the menu`);
       // Transaction Settings is the icon on the Transactions page for the three roles that have it; only Executive keeps the menu item.
       assert.ok(nav.some((item) => item.href === '/settings'), `${role}: the Settings hub is in every menu (S8-13)`);
       assert.ok(!nav.some((item) => item.href === '/settings/transactions'), `${role}: Transaction Settings is reached from the hub or the Transactions header icon`);

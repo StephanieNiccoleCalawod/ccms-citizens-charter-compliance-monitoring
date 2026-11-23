@@ -47,7 +47,7 @@ export function ChartTableToggle({ mode, onChange, testIdPrefix = 'chart' }) {
             className={`cursor-pointer rounded-md px-2.5 py-1 font-sans text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] ${
               active
                 ? 'bg-white text-[#202938] shadow-2xs'
-                : 'text-[#64748B] hover:text-[#202938]'
+                : 'text-[#475569] hover:text-[#202938]'
             }`}
           >
             {label}

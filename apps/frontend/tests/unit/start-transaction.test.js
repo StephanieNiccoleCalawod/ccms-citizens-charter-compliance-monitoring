@@ -52,7 +52,8 @@ describe('who can start a transaction', () => {
     assert.match((read('src/app/transactions/new/page.js') + read('src/components/transactions/StartTransactionForm.js')), /allowedRoles=\{\[ROLES\.SUPER_ADMIN, ROLES\.OFFICE_HEAD, ROLES\.OFFICE_STAFF\]\}/);
     for (const role of ROLE_LIST) {
       const nav = appNavForRole(role);
-      assert.equal(nav[0].href, '/', role);
+      assert.equal(nav[0].href, role === ROLES.SUPER_ADMIN ? '/' : (role === ROLES.EXECUTIVE ? '/campus' : '/office'), role); // S8-36: the role's own home is first (a Super Admin lands on Accounts, so keeps the Dashboard first); the Dashboard ('/') is in every menu
+      assert.ok(nav.some((i) => i.href === '/'), `${role}: the Dashboard is still in the menu`);
       assert.ok(nav.some((i) => i.href === '/services'), role);
       assert.ok(nav.some((i) => i.href === '/settings'), role); // S8-13: the Settings hub is in every menu; Transaction Settings is the header icon on Transactions and an item in the hub
     }

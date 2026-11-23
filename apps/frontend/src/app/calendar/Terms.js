@@ -11,7 +11,7 @@ import { smsTermsNotice } from '../../lib/api/calendar.js';
 const TERMS_API = '/api/calendar/terms';
 const SMS_TERMS_API = '/api/calendar/terms/sms';
 
-// The Syllabus Management System (SMS) owns the academic terms (PM decision, 11/06/2026): this tab only shows them.
+// The Syllabus Management System (SCMS) owns the academic terms (PM decision, 11/06/2026): this tab only shows them.
 // There is no Add and no Edit. While SMS_TERMS_ENABLED is on (Core answers enabled) the list comes from SMS; until then it
 // shows the terms already stored in CCMS, also read-only.
 export default function Terms() {
@@ -50,8 +50,8 @@ export default function Terms() {
           </svg>
           <span>
             {fromSms
-              ? 'Academic terms come from the Syllabus Management System (SMS) and cannot be changed here. They do not change how CCCMS computes deadlines.'
-              : 'Academic terms are managed in the Syllabus Management System (SMS) and cannot be changed here. They do not change how CCCMS computes deadlines.'}
+              ? 'Academic terms come from the Syllabus Management System (SCMS) and cannot be changed here. They do not change how CCCMS computes deadlines.'
+              : 'Academic terms are managed in the Syllabus Management System (SCMS) and cannot be changed here. They do not change how CCCMS computes deadlines.'}
           </span>
         </p>
       </div>
@@ -82,7 +82,7 @@ export default function Terms() {
                 </svg>
                 <p className="mt-3 font-bold text-maroon-950">No academic terms yet</p>
                 <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                  The Syllabus Management System (SMS) has not provided any academic terms yet.
+                  The Syllabus Management System (SCMS) has not provided any academic terms yet.
                 </p>
               </td>
             </tr>

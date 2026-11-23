@@ -8,6 +8,7 @@ import StatusBanner from '../feedback/StatusBanner.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 import { switchChanges, switchValues } from '../../lib/ui/account.js';
 import { notify } from '../../lib/ui/notify.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 
 /**
  * The four staff permission switches, as the "Manage Staff Permissions" modal opened from the Roles and permissions page.
@@ -35,7 +36,7 @@ export default function PermissionSwitches({ open, onClose, view, onSaved, save 
       onSaved(next);
       notify.success('Permission switches saved.');
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      setError(plainFailure(err, { fallback: 'The permission switches were not saved. Nothing was changed. Please try again.', writes: true }));
     } finally {
       setBusy(false);
     }

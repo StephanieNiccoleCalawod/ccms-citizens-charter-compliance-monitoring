@@ -9,6 +9,7 @@ import ChangePasswordForm from '../../components/account/ChangePasswordForm.js';
 import WhatICanDo from '../../components/account/WhatICanDo.js';
 import LoadingState from '../../components/ui/LoadingState.js';
 import { getMe, getOfficeName } from '../../lib/api/account.js';
+import { plainFailure } from '../../lib/ui/save-feedback.js';
 
 function MyAccount() {
   const [me, setMe] = useState(null);
@@ -26,7 +27,7 @@ function MyAccount() {
           if (!cancelled) setOfficeName(name || 'Your office');
         }
       })
-      .catch((err) => !cancelled && setError(err.message));
+      .catch((err) => !cancelled && setError(plainFailure(err, { fallback: 'Your account details could not be loaded. Please try again in a moment.' })));
     return () => {
       cancelled = true;
     };

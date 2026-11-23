@@ -14,7 +14,7 @@ export function tabPanelProps(idPrefix, value) {
 
 function badgeClass(tone) {
   if (tone === 'gold') return 'border border-[#F0DDB0] bg-[#FEF3C7] text-[#800000]';
-  return 'border border-[#E2E8F0] bg-[#F4F5F8] text-[#64748B]';
+  return 'border border-[#E2E8F0] bg-[#F4F5F8] text-[#475569]';
 }
 
 export default function Tabs({

@@ -4,6 +4,7 @@ import { isSelectable, recordOption } from '../../lib/ui/record-status.js';
 import RecordOption from '../forms/RecordOption.js';
 import SubmitButton from '../../components/ui/SubmitButton.js';
 import { notify } from '../../lib/ui/notify.js';
+import { register as registerDirty } from '../../lib/ui/dirty-registry.js';
 import { saveFailureMessage, savedMessage } from '../../lib/ui/save-feedback.js';
 import { RequiredMark } from '../forms/Field.js';
 import SearchableSelect from '../forms/SearchableSelect.js';
@@ -267,6 +268,13 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+  // On its own page (not in the modal, whose frame already reports it) the form registers itself, so closing the tab or signing out asks first.
+  const dirtyNow = useRef(false);
+  dirtyNow.current = dirty;
+  useEffect(() => {
+    if (embedded) return undefined;
+    return registerDirty('start-transaction-page', () => dirtyNow.current);
+  }, [embedded]);
   useEffect(() => {
     onBusyChange?.(submitting);
   }, [submitting, onBusyChange]);

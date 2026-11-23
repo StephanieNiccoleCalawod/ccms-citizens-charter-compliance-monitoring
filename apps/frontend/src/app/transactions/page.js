@@ -301,7 +301,7 @@ function TransactionList({ user }) {
                       onClick={() => setSelectedId(t.transaction_id)}
                       aria-label={`View details of ${t.tracking_no}`}
                       aria-haspopup="dialog"
-                      className="rounded text-xs font-semibold text-maroon-800 hover:text-maroon-950 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-1"
+                      className="inline-flex min-h-6 items-center rounded px-1 text-xs font-semibold text-maroon-800 hover:text-maroon-950 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-1"
                     >
                       View Details
                     </button>

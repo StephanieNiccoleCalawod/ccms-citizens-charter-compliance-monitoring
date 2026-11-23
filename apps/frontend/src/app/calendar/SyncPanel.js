@@ -108,7 +108,7 @@ export default function SyncPanel({ refreshKey }) {
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <h3 id="sync-activity" className="text-sm font-bold text-slate-900">Sync activity</h3>
               <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600" data-testid="event-count">{eventCount(data.recent)}</span>
-              <button type="button" className="text-sm font-semibold text-red-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700" aria-expanded={open} aria-controls="sync-activity-list" onClick={() => setOpen((v) => !v)}>
+              <button type="button" className="inline-flex min-h-6 items-center text-sm font-semibold text-red-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700" aria-expanded={open} aria-controls="sync-activity-list" onClick={() => setOpen((v) => !v)}>
                 {open ? 'Hide' : 'Show'}
               </button>
             </div>

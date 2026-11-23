@@ -319,14 +319,12 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
           <div className="flex items-center gap-2">
           {hasBell(user.role) ? <NotificationBell /> : null}
           <RowActionMenu
-            label={`Account menu for ${user.fullName}`}
+            label={`Account menu for ${user.fullName} ${ROLE_LABELS[user.role]}${user.role === ROLES.SUPER_ADMIN ? ' · All Offices' : ''}`}
             buttonRef={signOutButtonRef}
             triggerClassName="flex items-center gap-3 rounded-lg px-1 py-1 text-left hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700"
             trigger={
               <>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-maroon-950 text-sm font-bold text-white" aria-hidden="true">
-                  {initials(user.fullName)}
-                </span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-maroon-950 text-sm font-bold text-white before:content-[attr(data-initials)]" data-initials={initials(user.fullName)} aria-hidden="true" />
                 <span className="hidden min-w-0 sm:block">
                   <span className="block truncate text-sm font-bold text-slate-900">{user.fullName}</span>
                   <span className="block truncate text-xs text-slate-500">
