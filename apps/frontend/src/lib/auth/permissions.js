@@ -9,14 +9,15 @@ export { landingForRole, navForRole } from 'ccms-shared/nav';
 export { ROLE_LABELS } from 'ccms-shared/roles';
 
 /**
- * Transaction Settings is a settings icon in the header of the Transactions page, so Super Admin, Office Head and Office Staff
- * get no sidebar item for it. Executive keeps the item with the reference pages: their Transactions page is read-only (CC027 / K14)
- * and they reach the settings, read-only, from the sidebar as before. Every role can open /settings (read-only unless Super Admin;
- * the Operations service enforces that).
+ * The Settings hub (S8-13) is in every role's menu: it lists the settings that role can reach and links to the screen that holds
+ * each one (Transaction settings, Working hours and calendar, Offices, Roles and permissions, ...). A Super Admin finds it with the
+ * other administration items; every other role finds it with the reference pages. Transaction Settings itself is still the
+ * settings icon in the header of the Transactions page, and the hub links to it too. What a role may change is decided by each
+ * screen and by the services (they answer 403), not by this menu item.
  */
-export function transactionSettingsNav(role) {
-  if (role === ROLES.SUPER_ADMIN || role === ROLES.OFFICE_HEAD || role === ROLES.OFFICE_STAFF) return null;
-  return { section: 'Reference', label: 'Transaction Settings', href: '/settings' };
+export function settingsNav(role) {
+  if (navForRole(role).length === 0) return null;
+  return { section: role === ROLES.SUPER_ADMIN ? 'Administration' : 'Reference', label: 'Settings', href: '/settings' };
 }
 
 /** The audit log is for Super Admin only: nobody else gets the menu item (the Logs service also answers 403 to Office Staff and Executive). */
@@ -84,5 +85,5 @@ export function appNavForRole(role, access = {}) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
   const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
-  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
+  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, registryNav(role), rolesNav(role), logsNav(role), settingsNav(role)].filter(Boolean);
 }

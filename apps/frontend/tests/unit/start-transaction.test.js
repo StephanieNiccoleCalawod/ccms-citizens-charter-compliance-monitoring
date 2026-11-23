@@ -54,7 +54,7 @@ describe('who can start a transaction', () => {
       const nav = appNavForRole(role);
       assert.equal(nav[0].href, '/', role);
       assert.ok(nav.some((i) => i.href === '/services'), role);
-      assert.equal(nav.some((i) => i.href === '/settings'), role === ROLES.EXECUTIVE, role); // Transaction Settings: header icon on Transactions, menu item only for Executive
+      assert.ok(nav.some((i) => i.href === '/settings'), role); // S8-13: the Settings hub is in every menu; Transaction Settings is the header icon on Transactions and an item in the hub
     }
     assert.equal(appNavForRole(ROLES.SUPER_ADMIN).some((i) => i.href === '/logs'), true);
     assert.equal(appNavForRole(ROLES.OFFICE_STAFF).some((i) => i.href === '/logs'), false);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
 import Tabs, { tabPanelProps } from '../../components/ui/Tabs.js';
@@ -36,6 +36,12 @@ function CalendarManager({ user, tab, setTab }) {
 
 export default function CalendarPage() {
   const [tab, setTab] = useState('hours');
+  // The Settings hub links straight to a tab (?tab=holidays or ?tab=terms); anything else leaves the Working hours tab.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('tab');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser-only: the address is read once after hydration
+    if (TABS.some((t) => t.id === wanted)) setTab(wanted);
+  }, []);
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
   return (
     <AppShell

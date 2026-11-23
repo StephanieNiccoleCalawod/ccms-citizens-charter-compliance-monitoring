@@ -19,7 +19,7 @@ describe('navigation and page roles', () => {
     assert.ok(nav.some((i) => i.href === '/transactions'));
     assert.ok(!nav.some((i) => i.href === '/transactions/new'));
     assert.ok(nav.some((i) => i.href === '/campus'), 'Campus Home is still there');
-    assert.ok(nav.some((i) => i.href === '/settings'), 'Transaction Settings stays a read-only reference item for the Executive');
+    assert.ok(nav.some((i) => i.href === '/settings'), 'the Executive reaches Transaction Settings, read-only, through the Settings hub');
     assert.equal(new Set(nav.map((i) => i.href)).size, nav.length, 'no duplicated entries');
   });
 
@@ -27,7 +27,8 @@ describe('navigation and page roles', () => {
     for (const role of OPERATORS) {
       const nav = appNavForRole(role);
       assert.ok(nav.some((i) => i.href === '/transactions'), role);
-      assert.ok(!nav.some((i) => i.href === '/settings'), `${role}: settings stays the header icon`);
+      assert.ok(nav.some((i) => i.href === '/settings'), `${role}: the Settings hub is in the menu (S8-13)`);
+      assert.ok(!nav.some((i) => i.href === '/settings/transactions'), `${role}: Transaction Settings stays the header icon, not a menu item`);
       assert.equal(isTransactionReadOnly(role), false, role);
     }
     assert.equal(isTransactionReadOnly(ROLES.EXECUTIVE), true);

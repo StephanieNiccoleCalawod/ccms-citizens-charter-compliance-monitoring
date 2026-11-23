@@ -196,10 +196,10 @@ describe('the path in the top bar', () => {
   const strip2 = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   it('the Add Transaction and Transaction Settings pages pass their path to the app shell, which shows it in the top bar instead of the maroon title', () => {
     const start = strip2((read('src/app/transactions/new/page.js') + read('src/components/transactions/StartTransactionForm.js')));
-    const settings = strip2(read('src/app/settings/page.js'));
+    const settings = strip2(read('src/app/settings/transactions/page.js'));
     const shell = strip2(read('src/components/layout/AppShell.js'));
     assert.ok(start.includes("breadcrumb={[{ label: 'Transactions', href: '/transactions' }, { label: 'Add Transaction' }]}"));
-    assert.ok(settings.includes("breadcrumb={[{ label: 'Transactions', href: '/transactions' }, { label: 'Transaction Settings' }]}"));
+    assert.ok(settings.includes("breadcrumb={[{ label: 'Settings', href: '/settings' }, { label: 'Transaction Settings' }]}"));
     assert.ok(/breadcrumb \? <Breadcrumb items=\{breadcrumb\}/.test(shell));
     assert.ok(!/eyebrow=\{<Breadcrumb/.test(start + settings), 'not repeated above the heading');
   });
