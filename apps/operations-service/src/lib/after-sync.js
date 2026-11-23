@@ -6,6 +6,7 @@ import { QUEUE_CONSTRAINTS, QUEUE_INDEXES } from '../../migrations/1794900000000
 import { QUEUE_LINK_CONSTRAINTS, QUEUE_LINK_INDEX } from '../../migrations/1794900100000-Cc040QueueTicketLink.js';
 import { RECEIPT_CONSTRAINTS, RECEIPT_INDEXES } from '../../migrations/1794900200000-Cc045TransactionReceipts.js';
 import { RATING_CONSTRAINTS, RATING_INDEXES } from '../../migrations/1795000100000-Cc057ServiceRatings.js';
+import { FORECAST_EXCLUSION_SQL } from '../../migrations/1795478400000-S850TrainingExclusions.js';
 // Runs after TypeORM has created the tables. Everything here is idempotent.
 // TypeORM cannot declare expression indexes, partial unique indexes, foreign keys with our names or CHECK
 // constraints, so the Transaction data rules live here as well as in the service code.
@@ -25,6 +26,8 @@ export async function afterSync(dataSource) {
   await migrateSprint4Operations(dataSource);
   await migrateSprint5Operations(dataSource);
   await migrateSprint6Operations(dataSource);
+  const [exclusionColumn] = await dataSource.query("SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='forecast_runs' AND column_name='excluded_transaction_count'");
+  if (!exclusionColumn) await dataSource.query(FORECAST_EXCLUSION_SQL);
   await settingsRules(dataSource);
   await counterRules(dataSource);
   await transactionRules(dataSource);

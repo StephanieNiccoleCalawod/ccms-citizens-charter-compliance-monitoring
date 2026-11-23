@@ -15,6 +15,7 @@ function forecastCalculation({ count, from, to, model, at, tooFew = false }) {
     shows: 'Expected requests for the next five working days, with an estimated range.',
     steps: model === 'NONE' ? ['Check that the office has at least 20 working days of history; a service also needs at least 40 all-time transactions.',
       'No forecast was fitted for this run; the status explains why. The record count is the available history, or the all-time count when service eligibility failed.'] : ['Count received requests by Manila working date; include zero-request working days and exclude today.',
+      'Exclude completed slow cases above the office/service Q3 + 3 x IQR fence, with at least 20 usable completions; retain zero-request working days.',
       'Compare additive Holt-Winters with a five-working-day season against seasonal naive on the last five working days; choose the lower mean absolute error (Holt-Winters wins ties).',
       'Refit the winner on all selected history and forecast the next five working days.',
       'Add the 10th and 90th percentiles of back-test errors to each prediction; clamp the lower bound to zero and the upper bound to at least the prediction.'],
@@ -58,6 +59,7 @@ export async function computeForecast(dataSource, calendarClient, { officeId, se
         mae: null,
         historyWorkingDays: 0,
         historicalTransactionCount: total,
+        excludedTransactionCount: 0,
         historyStartDate: null,
         historyEndDate: null,
         generatedAt: now.toISOString(),
@@ -66,7 +68,7 @@ export async function computeForecast(dataSource, calendarClient, { officeId, se
   }
 
   // Build working-day history
-  const { dates, counts, totalTransactions } = await buildHistorySeries(dataSource, calendarClient, {
+  const { dates, counts, totalTransactions, excludedTransactionCount } = await buildHistorySeries(dataSource, calendarClient, {
     officeId: normOffice,
     serviceId: normService,
     maxWorkingDays,
@@ -87,6 +89,7 @@ export async function computeForecast(dataSource, calendarClient, { officeId, se
       mae: null,
       historyWorkingDays: dates.length,
       historicalTransactionCount: totalTransactions,
+      excludedTransactionCount,
       historyStartDate: dates[0] ?? null,
       historyEndDate: dates.at(-1) ?? null,
       generatedAt: now.toISOString(),
@@ -121,6 +124,7 @@ export async function computeForecast(dataSource, calendarClient, { officeId, se
     mae: engineResult.mae,
     historyWorkingDays: engineResult.historyWorkingDays,
     historicalTransactionCount: totalTransactions,
+    excludedTransactionCount,
     historyStartDate: dates[0],
     historyEndDate: dates.at(-1),
     generatedAt: now.toISOString(),
@@ -135,8 +139,8 @@ export async function saveForecastRun(dataSource, result) {
     `INSERT INTO forecast_runs (
        office_id, service_id, selected_model, mae,
        history_start_date, history_end_date, history_working_days, historical_transaction_count,
-       forecast_payload, weekly_total, status, error_code, error_message, generated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       forecast_payload, weekly_total, status, error_code, error_message, generated_at, excluded_transaction_count
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      RETURNING id`,
     [
       result.officeId,
@@ -153,6 +157,7 @@ export async function saveForecastRun(dataSource, result) {
       result.errorCode ?? null,
       result.errorMessage ?? null,
       result.generatedAt,
+      result.excludedTransactionCount ?? 0,
     ],
   );
   return rows[0]?.id ?? null;
@@ -195,6 +200,7 @@ export function formatStoredRun(row, { stale = false } = {}) {
     model: { name: row.selected_model, mae: row.mae != null ? Number(row.mae) : null },
     historyWorkingDays: row.history_working_days ?? 0,
     historicalTransactionCount: row.historical_transaction_count ?? 0,
+    excludedTransactionCount: row.excluded_transaction_count ?? null,
     historyStartDate: row.history_start_date ?? null,
     historyEndDate: row.history_end_date ?? null,
     errorCode: row.error_code ?? null,
@@ -217,6 +223,7 @@ export function formatForecastResult(result, { stale = false } = {}) {
     model: { name: result.model, mae: result.mae },
     historyWorkingDays: result.historyWorkingDays,
     historicalTransactionCount: result.historicalTransactionCount,
+    excludedTransactionCount: result.excludedTransactionCount ?? 0,
     historyStartDate: result.historyStartDate ?? null,
     historyEndDate: result.historyEndDate ?? null,
     errorCode: result.errorCode ?? null,

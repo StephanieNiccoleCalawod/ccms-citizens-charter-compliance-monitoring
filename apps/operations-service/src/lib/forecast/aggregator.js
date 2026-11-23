@@ -19,6 +19,7 @@
  */
 
 import { manilaDate, addCalendarDays } from './calendar-client.js';
+import { SLOW_CASE_CTE } from '../../modules/analytics/slow-cases.js';
 
 const HISTORY_SCAN_DAYS = 90; // scan at most 90 calendar days back to find working days
 const HISTORY_ROUND_DAYS = 45; // calendar days asked about at once; 45 days hold well over 30 working days
@@ -30,14 +31,15 @@ const HISTORY_ROUND_DAYS = 45; // calendar days asked about at once; 45 days hol
  * @param {import('typeorm').DataSource} dataSource
  * @param {{ officeId: string, serviceId?: string|null, fromDate: string, toDate: string }} opts
  */
-async function queryDailyCounts(dataSource, { officeId, serviceId, fromDate, toDate }) {
+async function queryDailyCounts(dataSource, { officeId, serviceId, fromDate, asOf }) {
   // started_at is timestamptz; AT TIME ZONE 'Asia/Manila' gives the Manila local date.
-  const params = [officeId, `${fromDate}T00:00:00+08:00`, `${toDate}T23:59:59+08:00`];
-  let sql = `
+  const params = [officeId, `${fromDate}T00:00:00+08:00`, asOf.toISOString()];
+  let sql = `${SLOW_CASE_CTE}
     SELECT
       (started_at AT TIME ZONE 'Asia/Manila')::date::text AS working_date,
-      COUNT(*)::int AS cnt
-    FROM transactions
+      COUNT(*) FILTER (WHERE excluded_id IS NULL)::int AS cnt,
+      COUNT(*) FILTER (WHERE excluded_id IS NOT NULL)::int AS excluded_count
+    FROM transactions LEFT JOIN slow ON transaction_id = excluded_id
     WHERE office_id = $1
       AND started_at BETWEEN $2 AND $3
   `;
@@ -48,7 +50,7 @@ async function queryDailyCounts(dataSource, { officeId, serviceId, fromDate, toD
   sql += ' GROUP BY 1 ORDER BY 1';
 
   const rows = await dataSource.query(sql, params);
-  return new Map(rows.map((r) => [r.working_date, Number(r.cnt)]));
+  return new Map(rows.map((r) => [r.working_date, { count: Number(r.cnt), excluded: Number(r.excluded_count ?? 0) }]));
 }
 
 /**
@@ -64,7 +66,7 @@ export async function buildHistorySeries(dataSource, calendarClient, { officeId,
   const fromDate = addCalendarDays(today, -HISTORY_SCAN_DAYS);
 
   // Query raw daily counts for the whole window
-  const dailyCounts = await queryDailyCounts(dataSource, { officeId, serviceId, fromDate, toDate: today });
+  const dailyCounts = await queryDailyCounts(dataSource, { officeId, serviceId, fromDate, asOf: now });
 
   // Walk calendar days newest-first to find working days within the scan window
   // The days are asked about in rounds, every day of a round at once: one question after another used to cost one round trip
@@ -87,10 +89,11 @@ export async function buildHistorySeries(dataSource, calendarClient, { officeId,
   workingDays.sort();
 
   const dates = workingDays;
-  const counts = workingDays.map((d) => dailyCounts.get(d) ?? 0);
+  const counts = workingDays.map((d) => dailyCounts.get(d)?.count ?? 0);
+  const excludedTransactionCount = workingDays.reduce((sum, d) => sum + (dailyCounts.get(d)?.excluded ?? 0), 0);
   const totalTransactions = counts.reduce((s, c) => s + c, 0);
 
-  return { dates, counts, totalTransactions };
+  return { dates, counts, totalTransactions, excludedTransactionCount };
 }
 
 /**

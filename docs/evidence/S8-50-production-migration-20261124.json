@@ -1,0 +1,85 @@
+{
+  "checkedAt": "2026-11-23T17:38:31.641Z",
+  "projectId": "morning-wind-47114114",
+  "branchId": "br-autumn-heart-b3rh3v8j",
+  "database": "ccms_operations",
+  "method": "Exact repository up-migration SQL and TypeORM ledger entry in one transaction, using the repository advisory lock keys (43436,900).",
+  "migration": {
+    "data": [
+      {
+        "rows": [],
+        "totalRowCount": 0,
+        "truncated": false
+      },
+      {
+        "rows": [],
+        "totalRowCount": 0,
+        "truncated": false
+      },
+      {
+        "rows": [],
+        "totalRowCount": 0,
+        "truncated": false
+      },
+      {
+        "rows": [],
+        "totalRowCount": 0,
+        "truncated": false
+      },
+      {
+        "rows": [
+          {
+            "id": 17,
+            "timestamp": "1795478400000",
+            "name": "S850TrainingExclusions1795478400000"
+          }
+        ],
+        "totalRowCount": 1,
+        "truncated": false
+      },
+      {
+        "rows": [
+          {
+            "database": "ccms_operations",
+            "retained_forecast_runs": "531",
+            "historical_runs_with_unknown_count": "531"
+          }
+        ],
+        "totalRowCount": 1,
+        "truncated": false
+      }
+    ]
+  },
+  "verification": {
+    "data": {
+      "rows": [
+        {
+          "database": "ccms_operations",
+          "ledger": [
+            {
+              "id": 17,
+              "name": "S850TrainingExclusions1795478400000",
+              "timestamp": 1795478400000
+            }
+          ],
+          "column_verified": [
+            {
+              "data_type": "integer",
+              "column_name": "excluded_transaction_count",
+              "is_nullable": "YES",
+              "column_default": null
+            }
+          ],
+          "constraint_verified": [
+            "CHECK ((excluded_transaction_count >= 0))"
+          ],
+          "retained_forecast_runs": "531"
+        }
+      ],
+      "totalRowCount": 1,
+      "truncated": false
+    }
+  },
+  "localChecks": "User supplied: 8 database tests passed; operations-service npm run lint returned to prompt without errors.",
+  "deployment": "Not pushed or deployed; no models retrained."
+}

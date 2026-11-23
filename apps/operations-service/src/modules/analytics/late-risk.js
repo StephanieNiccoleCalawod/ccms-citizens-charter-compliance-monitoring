@@ -1,6 +1,7 @@
 import { Errors, ROLES, calculation, endOfManilaDay, fromManila, manilaWeekday, toManilaDate } from 'ccms-shared';
 import { canReadTransaction } from '../transaction/access.js';
 import { coreBaseUrl } from '../transaction/core-client.js';
+import { slowCaseIds } from './slow-cases.js';
 import { classify, features, MODEL_THRESHOLDS, predict, RULE_THRESHOLDS, sampleFraction, train } from './late-risk-model.js';
 
 const MINUTE = 60_000;
@@ -160,7 +161,7 @@ function modelStatus(run, now) {
     last_run_at: run?.created_at ? iso(run.created_at) : null,
     training_data: run?.coefficients?.training_data ?? null,
     calculations: { training: calculation({ shows: 'The recorded population of the latest late-risk training attempt.',
-      steps: ['Select completed requests across offices with a compliance result and measured working time; exclude records whose hold timing is unknown.',
+      steps: ['Select completed requests across offices with a compliance result and measured working time; exclude records whose hold timing is unknown and slow cases above each office/service Q3 + 3 x IQR fence (minimum 20 usable completions).',
         'Create reproducible time samples and a separate holdout; train logistic regression only when the training set has enough late and on-time cases.',
         'Use the trained model for seven days; otherwise use the allowed-time-share rule.'],
       count: run?.rows ?? 0, from: run?.coefficients?.training_data?.period_from ?? null,
@@ -177,10 +178,13 @@ export async function trainLateRisk(db, { now = new Date(), timing } = {}) {
     const [lock] = await manager.query('SELECT pg_try_advisory_xact_lock($1::bigint) AS acquired', [RUN_LOCK]);
     if (!lock.acquired) return { running: true, model: modelStatus(await latestRun(manager), now.getTime()) };
     const rows = await history(manager, null, now);
-    const contexts = new Map([...Map.groupBy(rows, (row) => row.office_id)].map(([office, records]) => [office, officeHistory(records)]));
+    const slow = slowCaseIds(rows.filter((row) => row.ended_at && instant(row.ended_at) <= now.getTime()));
+    const contexts = new Map([...Map.groupBy(rows.filter((row) => !slow.has(row.transaction_id)), (row) => row.office_id)]
+      .map(([office, records]) => [office, officeHistory(records)]));
     const candidates = rows.filter((row) => row.status === 'COMPLETED' && row.ended_at && instant(row.ended_at) <= now.getTime() &&
       row.is_compliant !== null && row.elapsed_working_minutes !== null);
     const jobs = candidates.flatMap((row) => {
+      if (slow.has(row.transaction_id)) return [];
       const holds = holdIntervals(row);
       // Older records may only have the accumulated hold minutes. A sample with unknown hold timing would leak later information.
       if (row.held_minutes > 0 && !holds.length) return [];
@@ -197,6 +201,7 @@ export async function trainLateRisk(db, { now = new Date(), timing } = {}) {
     }
     const dates = result.rows ? jobs.map(({ row }) => toManilaDate(row.ended_at)).sort() : [];
     const coefficients = { ...result.model, training_data: { record_count: result.rows,
+      excluded_slow_cases: candidates.filter((row) => slow.has(row.transaction_id)).length,
       period_from: dates[0] ?? null, period_to: dates.at(-1) ?? null,
       date_basis: 'Eligible completed requests across all offices by Manila end date; includes training and holdout rows.' } };
     const [run] = await manager.query(`INSERT INTO late_risk_runs (status, rows, training_rows, holdout_rows, late_cases, excluded_rows, metrics, coefficients)
