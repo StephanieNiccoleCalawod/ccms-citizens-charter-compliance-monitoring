@@ -1,4 +1,4 @@
-import { Errors, ROLES, assertOfficeAccess, isOfficeBound, isUuid, officeFilter, toManilaDate } from 'ccms-shared';
+import { Errors, ROLES, assertOfficeAccess, calculation, isOfficeBound, isUuid, officeFilter, toManilaDate } from 'ccms-shared';
 import { resolvePeriod } from './period.js';
 
 // ONE KPI module for reports, dashboards and Insights (Sprint 5 TT3; spec 2.3). computeKpis is a pure function: rows in, figures out.
@@ -62,7 +62,7 @@ function makeBucket() {
   };
 }
 
-function finish(bucket, nowMs) {
+function finish(bucket, nowMs, from, to) {
   const { _times, _margins, _waits, _oldest, ...figures } = bucket;
   const sorted = [..._times].sort((a, b) => a - b);
   const r = figures.results;
@@ -75,6 +75,24 @@ function finish(bucket, nowMs) {
   if (_oldest !== null) {
     figures.pending.oldest_started_at = new Date(_oldest).toISOString();
     figures.pending.oldest_age_minutes = Math.max(0, Math.floor((nowMs - _oldest) / 60_000));
+  }
+  const explain = (shows, steps, count, method, extra = {}) => calculation({ shows, steps, count, method,
+    from: from ?? null, to: to ?? null, basis: 'Manila dates; completed results by end date, received and auto-closed by start date.',
+    source: 'analytics_transactions', at: nowMs, ...extra });
+  figures.calculations = {
+    received: explain('Requests received in the selected period.', ['Apply the office and service filters.', 'Count requests started in the selected Manila dates.'], figures.received, 'count'),
+    on_time_rate: explain('The percentage of judged requests finished on time.', ['Count on-time and late completions by end date.', 'Include auto-closed requests not marked on time as late, by start date; exclude cancellations and awaiting results.', 'Divide on-time results by all judged results and multiply by 100; round to one decimal.'], divisor, 'on_time / (on_time + late + late_auto_closed) * 100'),
+    median_minutes: explain('The typical working time taken by completed requests.', ['Use completions in the period with a computed result and a finite working time.', 'Sort working minutes; use the middle value, or average the two middle values.'], _times.length, 'median'),
+    p90_minutes: explain('The working time within which at least 90% of measured requests finished.', ['Use the same measured completions as the typical processing time.', 'Sort working minutes and take position ceil(0.90 × count), counting from one.'], _times.length, 'nearest-rank percentile', { parameters: { percentile: 90 } }),
+    average_minutes: explain('The mean working time of measured completions.', ['Use completions with a computed result and finite working minutes.', 'Divide the sum of working minutes by their count and round to one decimal.'], _times.length, 'arithmetic mean'),
+    pending: explain('Requests still open now, regardless of the selected period.', ['Select requests in progress or on hold.', 'Count them and measure the age of the earliest start in clock minutes.'], figures.pending.count, 'open count and oldest start', { from: _oldest === null ? null : toManilaDate(new Date(_oldest)), to: toManilaDate(new Date(nowMs)), basis: 'Current open requests by start date; independent of selected period.' }),
+    outcomes: explain('Completed requests grouped by their recorded decision.', ['Select completions by end date.', 'Count granted, disapproved and not-recorded decisions separately.'], figures.outcomes.completed, 'count by outcome'),
+    early: explain('How far before the limit early requests finished.', ['Select on-time completions with negative variance.', 'Average the absolute variance in working minutes.'], _margins.length, 'mean early margin'),
+    queue_wait: explain('Average clock minutes between ticket issue and request start.', ['Use requests started in the period with a measured queue wait, including zero.', 'Divide total queue minutes by the number measured.'], _waits.length, 'arithmetic mean'),
+    start_flags: explain('Requests started with the displayed status or registry flag.', ['Select requests by start date.', 'Count cancellations, auto-closures and registry flags; backdated starts are not also counted as outside-hours starts.'], figures.received, 'counts by recorded flags'),
+  };
+  if (Object.hasOwn(figures, 'user_id')) {
+    figures.calculations.attribution = explain('Figures attributed to this staff account.', ['Attribute starts and open requests to the starter.', 'Attribute completions to the ender, or the starter when the ender is unknown.'], null, 'starter / ender attribution', { basis: 'Each metric uses its own date basis and record count above.' });
   }
   return figures;
 }
@@ -162,7 +180,7 @@ export function computeKpis(rows, { officeId, serviceId, from, to, groupBy = 'to
       }, startKey(row));
     }
   }
-  return { totals: finish(totals, nowMs), groups: [...groups.values()].map((g) => finish(g, nowMs)) };
+  return { totals: finish(totals, nowMs, from, to), groups: [...groups.values()].map((g) => finish(g, nowMs, from, to)) };
 }
 
 const COLUMNS = `started_at, ended_at, office_id, service_id, status, outcome, is_compliant, variance_minutes, elapsed_working_minutes,

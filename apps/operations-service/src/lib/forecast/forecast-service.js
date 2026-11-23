@@ -5,10 +5,26 @@
  * Returns a ForecastResult object whose shape is what the API route renders.
  */
 
-import { Errors, toManilaDate } from 'ccms-shared';
+import { Errors, calculation, toManilaDate } from 'ccms-shared';
 import { buildHistorySeries, countServiceTransactions } from './aggregator.js';
 import { CoreCalendarError, createCalendarClient } from './calendar-client.js';
-import { MIN_HISTORY, MIN_SERVICE_TXN, runForecastEngine } from './engine.js';
+import { BACK_TEST, MIN_HISTORY, MIN_SERVICE_TXN, runForecastEngine } from './engine.js';
+
+function forecastCalculation({ count, from, to, model, at, tooFew = false }) {
+  return { forecast: calculation({
+    shows: 'Expected requests for the next five working days, with an estimated range.',
+    steps: model === 'NONE' ? ['Check that the office has at least 20 working days of history; a service also needs at least 40 all-time transactions.',
+      'No forecast was fitted for this run; the status explains why. The record count is the available history, or the all-time count when service eligibility failed.'] : ['Count received requests by Manila working date; include zero-request working days and exclude today.',
+      'Compare additive Holt-Winters with a five-working-day season against seasonal naive on the last five working days; choose the lower mean absolute error (Holt-Winters wins ties).',
+      'Refit the winner on all selected history and forecast the next five working days.',
+      'Add the 10th and 90th percentiles of back-test errors to each prediction; clamp the lower bound to zero and the upper bound to at least the prediction.'],
+    count, from, to, method: model, at, source: 'transactions',
+    basis: tooFew ? 'All-time office/service transaction count used only for the eligibility check; no model was fitted.' : 'Requests by start date on the selected working days in Asia/Manila.',
+    parameters: { season_working_days: BACK_TEST, back_test_working_days: BACK_TEST,
+      minimum_working_days: MIN_HISTORY, minimum_service_transactions: MIN_SERVICE_TXN,
+      service_requires_both_minimums: true, range_percentiles: [10, 90] },
+  }) };
+}
 
 /**
  * @param {import('typeorm').DataSource}  dataSource
@@ -166,6 +182,10 @@ export function isForecastFreshForToday(row, now = new Date()) {
 
 export function formatStoredRun(row, { stale = false } = {}) {
   return {
+    calculations: forecastCalculation({ count: row.historical_transaction_count ?? null,
+      from: row.history_start_date ? toManilaDate(row.history_start_date) : null,
+      to: row.history_end_date ? toManilaDate(row.history_end_date) : null,
+      model: row.selected_model, at: row.generated_at, tooFew: row.status === 'TOO_FEW' }),
     status: row.status,
     scope: { officeId: row.office_id, serviceId: row.service_id ?? null },
     stale,
@@ -185,6 +205,9 @@ export function formatStoredRun(row, { stale = false } = {}) {
 
 export function formatForecastResult(result, { stale = false } = {}) {
   return {
+    calculations: forecastCalculation({ count: result.historicalTransactionCount ?? null,
+      from: result.historyStartDate ?? null, to: result.historyEndDate ?? null,
+      model: result.model, at: result.generatedAt, tooFew: result.status === 'TOO_FEW' }),
     status: result.status,
     scope: { officeId: result.officeId, serviceId: result.serviceId ?? null },
     stale,

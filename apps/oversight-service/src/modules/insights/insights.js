@@ -1,4 +1,4 @@
-import { ROLES, Errors, isUuid, officeFilter, assertOfficeAccess, isOfficeBound, toManilaDate } from 'ccms-shared';
+import { ROLES, Errors, calculation, isUuid, officeFilter, assertOfficeAccess, isOfficeBound, toManilaDate } from 'ccms-shared';
 import { computeKpis } from '../analytics/kpi.js';
 import { addDays, resolvePeriod } from '../analytics/period.js';
 import { charterCheck } from './charter.js';
@@ -88,7 +88,7 @@ async function loadTrendCounts(db, { officeId, from, to }) {
 
 const oneDecimal = (value) => Math.round(value * 10) / 10;
 
-function buildMonthlySeries(trendCounts, months, { officeId }) {
+function buildMonthlySeries(trendCounts, months, { officeId, now }) {
   const officeIds = new Set(officeId ? [officeId] : []);
   const perMonth = new Map(months.map((m) => [m.key, { on_time: 0, late_total: 0, byOffice: new Map() }]));
   for (const row of trendCounts) {
@@ -116,7 +116,21 @@ function buildMonthlySeries(trendCounts, months, { officeId }) {
         cells: monthData.map((m) => ({ period: m.key, value: m.byOffice.get(id) ?? null })),
       })),
     },
+    monthlyCalculations: months.map((m) => ({ period: m.key,
+      total: monthlyCalculation(perMonth.get(m.key), m, now),
+      offices: [...officeIds].sort().map((id) => ({ office_id: id,
+        ...monthlyCalculation(perMonth.get(m.key).byOffice.get(id) ?? { on_time: 0, late_total: 0 }, m, now) })),
+    })),
   };
+}
+
+function monthlyCalculation(counts, period, now) {
+  return calculation({ shows: 'The percentage of judged requests finished on time in this month.',
+    steps: ['Count on-time and late completions by Manila end date; include auto-closed requests as late by start date unless marked on time.',
+      'Divide on-time requests by the total judged count, multiply by 100 and round to one decimal.'],
+    count: counts.on_time + counts.late_total, from: period.from, to: period.to, at: now,
+    source: 'analytics_transactions', basis: 'Completed results by end date; late auto-closures by start date in Asia/Manila.',
+    method: 'on_time / (on_time + late + late_auto_closed) * 100' });
 }
 
 const inRange = (date, from, to) => date >= from && date <= to;
@@ -182,8 +196,8 @@ export async function getInsights(db, actor, query, now = new Date()) {
   const today = toManilaDate(now);
   const periodRows = rows.filter((r) => (r.started_at && inRange(toManilaDate(r.started_at), period.from, period.to)) || r.status === 'IN_PROGRESS' || r.status === 'ON_HOLD' || (r.ended_at && inRange(toManilaDate(r.ended_at), period.from, period.to)));
   const heatmap = buildHeatmap(periodRows, period);
-  const { trend, compliance_heatmap } = buildMonthlySeries(trendCounts, months, { officeId });
-  const rawCharter = charterCheck(completedIn(periodRows, period));
+  const { trend, compliance_heatmap, monthlyCalculations } = buildMonthlySeries(trendCounts, months, { officeId, now });
+  const rawCharter = charterCheck(completedIn(periodRows, period), { ...period, now });
   const rowById = new Map(periodRows.map((r) => [r.transaction_id, r]));
   const charter = {
     ...rawCharter,
@@ -212,6 +226,27 @@ export async function getInsights(db, actor, query, now = new Date()) {
   const completedAll = rows.filter((r) => r.status === 'COMPLETED');
   return {
     period: period.type, from: period.from, to: period.to, previous: prev, generated_at: now.toISOString(),
+    calculations: { ...totals.calculations,
+      previous_on_time_rate: before.totals.calculations.on_time_rate,
+      charter_summary: rawCharter.calculations.charter,
+      service_late_rates: calculation({ shows: 'The percentage of completed requests that finished late in each office and service.',
+        steps: ['Group completions with a boolean compliance result by office and service.', 'Divide each group’s late count by its completed count; mark groups below the minimum sample as too few.'],
+        count: heatmap.reduce((sum, c) => sum + c.completed, 0), from: period.from, to: period.to, at: now,
+        source: 'analytics_transactions', basis: 'Manila completion date; only computed results count.',
+        method: 'per-cell late / completed * 100', parameters: { minimum_cell_completed: MIN_CELL_COMPLETED } }),
+      monthly: monthlyCalculations,
+      services: byService.groups.map((g) => ({ service_id: g.service_id, calculations: g.calculations })),
+      offices: current.groups.map((g) => ({ office_id: g.office_id, calculations: g.calculations })),
+      received_today: calculation({ shows: 'Requests received today within the loaded dashboard records.', steps: ['Use the selected office records loaded for the selected and preceding periods, plus currently open requests.', 'Count loaded requests started on today’s Manila date.'],
+        count: pulse.received_today, from: today, to: today, at: now, basis: 'Manila start date within loaded dashboard records.', source: 'analytics_transactions', method: 'count', parameters: { loaded_from: prev.from, loaded_to: period.to } }),
+      completed_today: calculation({ shows: 'Requests completed today within the loaded dashboard records.', steps: ['Use the selected office records loaded for the selected and preceding periods.', 'Count loaded completed requests whose end date is today in Manila.'],
+        count: pulse.completed_today, from: today, to: today, at: now, basis: 'Manila end date within loaded dashboard records.', source: 'analytics_transactions', method: 'count', parameters: { loaded_from: prev.from, loaded_to: period.to } }),
+      heatmap: heatmap.map((c) => ({ office_id: c.office_id, service_id: c.service_id,
+        ...calculation({ shows: 'The late percentage for this office and service.', steps: ['Count completions in the period with a boolean compliance result.', 'Divide late completions by this count and multiply by 100.'],
+          count: c.completed, from: period.from, to: period.to, at: now, basis: 'Manila end date; completed results only.',
+          source: 'analytics_transactions', method: 'late / completed * 100' }) })),
+      charter: rawCharter.services.map((s) => ({ office_id: s.office_id, service_id: s.service_id, ...s.calculations.charter })),
+    },
     scope: officeId ? { kind: 'office', office_id: officeId } : { kind: 'campus' },
     pulse, heatmap, compliance_heatmap, min_cell_completed: MIN_CELL_COMPLETED, sentences, max_sentences: MAX_SENTENCES, charter,
     about: {
@@ -242,6 +277,15 @@ export async function getCell(db, actor, query, now = new Date()) {
   }
   return {
     from: period.from, to: period.to, office_id: officeId, service_id: serviceId, service_code: rows[0]?.service_code ?? null,
+    generated_at: now.toISOString(),
+    calculations: { weekly: calculation({ shows: 'The weekly late percentage for this office and service.',
+      steps: ['Select completed requests with a computed compliance result in the selected period.', 'Group by Monday of the Manila completion week; divide late results by the number completed in each week.'],
+      count: done.length, from: period.from, to: period.to, at: now, basis: 'Manila end date, clipped to selected dates even for partial weeks.',
+      source: 'analytics_transactions', method: 'late / completed * 100' }),
+      late_transactions: calculation({ shows: 'The 50 most recently completed late requests in this selection.',
+        steps: ['Select completed late results in the office, service and date filters.', 'Sort by completion time, newest first, and return up to 50.'],
+        count: done.filter((r) => !r.is_compliant).length, from: period.from, to: period.to, at: now,
+        basis: 'Manila end date; record_count is the total matching count before the 50-row limit.', source: 'analytics_transactions', method: 'filter and newest 50' }) },
     weekly: [...weeks.values()].sort((a, b) => a.week_start.localeCompare(b.week_start)).map((w) => ({ ...w, late_rate: rate(w.late, w.completed) })),
     late_transactions: done.filter((r) => r.is_compliant === false)
       .sort((a, b) => String(b.ended_at).localeCompare(String(a.ended_at)))

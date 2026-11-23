@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { AppError, Errors, ROLES, isUuid } from 'ccms-shared';
+import { AppError, Errors, ROLES, calculation, isUuid, toManilaDate } from 'ccms-shared';
 
 // CC057 (spec 9.2; C-10, K24): service rating with a one-time code from the completion receipt.
 //   - the code is issued when the transaction completes (issueRatingCode, inside that database transaction)
@@ -47,7 +47,7 @@ export async function rateWithCode(db, body, { now = new Date() } = {}) {
 }
 
 /** GET /ratings/summary?office_id=&from=&to= : count and average per service (rated only), apart from compliance. */
-export async function ratingSummary(db, actor, params) {
+export async function ratingSummary(db, actor, params, now = new Date()) {
   const get = (n) => params.get(n) || undefined;
   const bound = actor.role === ROLES.OFFICE_HEAD || actor.role === ROLES.OFFICE_STAFF;
   let officeId = get('office_id');
@@ -64,7 +64,8 @@ export async function ratingSummary(db, actor, params) {
     officeId = actor.officeId;
   }
   const items = rowsOf(await db.query(
-    `SELECT service_id, max(service_code) AS service_code, max(service_name) AS service_name, count(stars)::int AS count, round(avg(stars)::numeric, 2)::float AS average
+    `SELECT service_id, max(service_code) AS service_code, max(service_name) AS service_name, count(stars)::int AS count, round(avg(stars)::numeric, 2)::float AS average,
+       min(rated_at) AS first_rated_at, max(rated_at) AS last_rated_at
        FROM service_ratings
       WHERE stars IS NOT NULL AND ($1::uuid IS NULL OR office_id = $1::uuid)
         AND ($2::date IS NULL OR rated_at >= ($2::date::timestamp AT TIME ZONE 'Asia/Manila'))
@@ -73,5 +74,17 @@ export async function ratingSummary(db, actor, params) {
     [officeId ?? null, from ?? null, to ?? null]));
   const total = items.reduce((n, i) => n + i.count, 0);
   const average = total ? Math.round((items.reduce((s, i) => s + i.average * i.count, 0) / total) * 100) / 100 : null;
-  return { items, total_count: total, average };
+  const explain = (count, first, last, method, steps) => calculation({
+    shows: 'Submitted service ratings on a scale of one to five stars.', steps, count, method,
+    from: from ?? (first ? toManilaDate(first) : null), to: to ?? (last ? toManilaDate(last) : null),
+    source: 'service_ratings', basis: 'Submitted ratings by rated_at in Asia/Manila; unused rating codes are excluded.', at: now,
+  });
+  const first = items.map((i) => i.first_rated_at).filter(Boolean).sort((a, b) => new Date(a) - new Date(b))[0];
+  const last = items.map((i) => i.last_rated_at).filter(Boolean).sort((a, b) => new Date(b) - new Date(a))[0];
+  return { items: items.map(({ first_rated_at, last_rated_at, ...item }) => ({ ...item,
+    calculations: { ratings: explain(item.count, first_rated_at, last_rated_at, 'arithmetic mean',
+      ['Select submitted ratings for the service and office in the requested dates.', 'Divide the sum of stars by the number submitted and round to two decimals.']) },
+  })), total_count: total, average,
+  calculations: { ratings: explain(total, first, last, 'count-weighted mean of rounded service averages',
+    ['Select submitted ratings in the office and date filters.', 'Multiply each rounded service average by its count, divide their sum by the total count, and round to two decimals.']) } };
 }
