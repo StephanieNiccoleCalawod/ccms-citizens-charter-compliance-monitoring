@@ -188,7 +188,7 @@ describe('the detail page after CC027', () => {
     const body = detail.split(/\r?\n/).filter((line) => !/^import /.test(line)).join('\n');
     assert.ok(!/receipt_email|resend.*receipt|sendReceipt/i.test(body));
     // CC045: the only receipt UI is the proof-of-payment panel, never for a read-only (Executive) viewer.
-    assert.match(detail, /\{!readOnly && canSeeReceipts\(role\) \? <ReceiptPanel transactionId=\{tx\.transaction_id\} \/> : null\}/);
+    assert.match(detail, /\{!readOnly && canSeeReceipts\(role\) \? <ReceiptPanel transactionId=\{tx\.transaction_id\} canAttach=\{tx\.status !== 'CANCELLED'\} \/> : null\}/); // S8-17: no receipt form on a cancelled transaction
   });
 });
 

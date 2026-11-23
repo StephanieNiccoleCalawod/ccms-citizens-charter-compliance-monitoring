@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import { getAccountNames, getComplaintSummary, getKpis, getOfficeNames, getOfficePendingTransactions } from '../../lib/api/kpis.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
-import { DEFAULT_PERIOD, HOME_MESSAGES, PERIOD_OPTIONS, failureMessage, groupByFor, officeRows, periodLabel, sortOfficeRows, staffRows, tilesFor } from '../../lib/ui/kpi-home.js';
+import { DEFAULT_PERIOD, HOME_MESSAGES, PERIOD_OPTIONS, failureMessage, groupByFor, hasUnnamedStaff, officeRows, periodLabel, sortOfficeRows, staffRows, tilesFor } from '../../lib/ui/kpi-home.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import DataTable from '../ui/DataTable.js';
 import StatCard from '../ui/StatCard.js';
@@ -190,6 +190,9 @@ export default function KpiHome({ user }) {
                 ))}
               </Table>
             </TableShell>
+            {user.role === ROLES.OFFICE_HEAD && hasUnnamedStaff(rows) ? (
+              <p className="text-sm text-slate-600" data-testid="staff-names-note">Staff names are not shown to Office Heads yet, so those rows say &ldquo;Staff member&rdquo;. The figures in each row are still that person&rsquo;s own.</p>
+            ) : null}
           </section>
 
           <section aria-labelledby="office-pending-heading" className="space-y-3" data-testid="office-pending-list">

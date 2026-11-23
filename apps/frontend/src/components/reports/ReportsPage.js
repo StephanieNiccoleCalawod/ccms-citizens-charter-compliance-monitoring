@@ -14,6 +14,7 @@ import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import { FieldError, RequiredMark } from '../forms/Field.js';
 import FilterBar from '../forms/FilterBar.js';
+import { statusLabel } from '../../lib/ui/record-status.js';
 import Button from '../ui/Button.js';
 import StatusBadge from '../ui/StatusBadge.js';
 import StatusBanner from '../feedback/StatusBanner.js';
@@ -210,7 +211,7 @@ export default function ReportsPage({ user }) {
           <div className="w-full sm:w-64"><label htmlFor="rf-office" className="label">Office</label>
             <select id="rf-office" className="input select-chevron" value={filters.officeId} onChange={setFilter('officeId')}>
               <option value="">All offices</option>
-              {offices.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
+              {offices.map((o) => <option key={o.office_id} value={o.office_id}>{statusLabel(o.office_name, o)}</option>)}
             </select></div>
         ) : null}
         <div className="w-full sm:w-48"><label htmlFor="rf-period" className="label">Period</label>

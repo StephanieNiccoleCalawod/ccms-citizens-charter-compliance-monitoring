@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import BrandMark from '../ui/BrandMark.js';
+import PublicFooter from './PublicFooter.js';
 import { BRAND } from '../../lib/constants/brand.js';
 import { DIRECTORY_PATH, directoryHref } from '../../lib/ui/public-directory.js';
 
@@ -82,6 +83,7 @@ export default function LandingHero() {
           <p className="mt-5 max-w-md text-sm text-white/85">Every service shows its requirements, steps, and processing time.</p>
         </div>
       </main>
+      <PublicFooter tone="dark" />
     </div>
   );
 }

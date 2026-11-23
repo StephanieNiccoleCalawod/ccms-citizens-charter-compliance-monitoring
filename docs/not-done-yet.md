@@ -26,3 +26,32 @@ Things we did not finish, could not check, or left on purpose. The PM questions 
 - Send `questions-for-pm.md` to the PM.
 - Two ESLint warnings are older than this work.
 - Commits for S8-25, S8-35, S8-36, S8-37 and S8-38 are in one commit because the same files were touched by several tickets.
+
+## Public footer (S8-16)
+- Footer is built (`PublicFooter.js`) on `/` and `/directory`. Waiting on D8-12: the approved contact route, the approved rights holder (the line uses the campus name for now), and Privacy / Accessibility pages (none exist, so no links).
+- There is no public page to track a transaction; the footer links "Check a complaint" instead.
+
+## Usability walkthrough (S8-41) — `walkthrough-log-S8-41.md`
+- Only a scripted walkthrough was done (no participants, no SUS). The real walkthrough per role still needs people and a PM/QA to run it.
+- Not run: Start, Hold/Resume, Complete end to end (they write records; use a test office). Office Head and Staff were checked with a mocked sign-in and empty data.
+- Deferred: Add Transaction being a button, not a link (low); menu order (D8-20).
+
+## Retest V1 / S8-10 — `retest-V1-DEF14-18.md`
+- DEF-14 (complaint email to a test mailbox, M6-10) not run: needs SMTP and a test mailbox. Operations `receipt.test.js` hung here and its result is unknown.
+- DEF-16/17/18 passed on the local stack only; repeat on the QA stack (S8-18) and with real Office Head / Executive accounts.
+
+## Retest V2 / S8-11 — `retest-V2-DEF19-20.md`
+- Real saves not done (would write to the system): two blank employee numbers, a real duplicate, and turning "applies to" off after removing its entries. QA to run on the QA stack after the migration is applied there (S8-19). The older Identity DB on port 5433 still has employee_no NOT NULL.
+
+## Re-triage of older defects (S8-12) — `retriage-older-defects-S8-12.md`
+- #6, #7, #9 were not retested: the ticket does not name them and the DEFECTS sheet is not in the repo. QA to send the rows.
+- #3 was checked with an inactive office marked in the browser only (no inactive data exists). #12 and #2 were not saved for real.
+- Decisions needed: #2 (password in Clerk mode), #8 (visible Edit button?), #10 (wording).
+
+- Everything that needs an answer is collected in `needs-clarification.md` (PM, QA, BE, accessibility).
+
+## Screen observations (S8-17) — `recheck-V4-S8-17.md`
+- #2 (document ticks) and #6 (cancelled receipt) were checked at 1280 px only. #3 (staff names) is a backend gap.
+
+## Four chains on the hosted release (S8-22)
+- Not started: no hosted address, no approved demo accounts, no PM approval (D8-11), and the chains write records. Status for now: **Blocked, no safe environment**. See `needs-clarification.md`.

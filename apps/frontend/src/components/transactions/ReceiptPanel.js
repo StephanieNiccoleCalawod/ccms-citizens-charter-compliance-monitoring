@@ -15,7 +15,8 @@ const LABEL = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 // CC045 proof of payment on transaction detail: Office Staff / Office Head of the office and Super Admin. Never rendered for an
 // Executive (TransactionDetail checks canSeeReceipts) and the server answers 403 regardless. The photo is fetched with the session
 // and shown from a local object URL that is released when the panel closes; nothing is cached or linked publicly.
-export default function ReceiptPanel({ transactionId }) {
+// canAttach is false for a cancelled transaction: nothing was paid for, so no receipt can be added (S8-17). A receipt already there is still shown.
+export default function ReceiptPanel({ transactionId, canAttach = true }) {
   const [state, setState] = useState({ loading: true, receipt: null, message: null });
   const [form, setForm] = useState({ ...EMPTY_RECEIPT_FORM });
   const [errors, setErrors] = useState({});
@@ -122,7 +123,10 @@ export default function ReceiptPanel({ transactionId }) {
           {imageUrl ? <img src={imageUrl} alt={`Cashier receipt ${receipt.or_number}`} className="max-h-[32rem] max-w-full rounded border border-slate-200" /> : null}
         </div>
       ) : null}
-      {!state.loading && !receipt && !state.message ? (
+      {!state.loading && !receipt && !state.message && !canAttach ? (
+        <p className="mt-2 text-sm text-slate-600" data-testid="receipt-not-allowed">This transaction was cancelled, so no receipt can be attached.</p>
+      ) : null}
+      {!state.loading && !receipt && !state.message && canAttach ? (
         <form className="mt-2 grid max-w-xl gap-3" onSubmit={submit} noValidate aria-label="Attach a receipt">
           <div>
             <label className="label" htmlFor="receipt-file">Receipt photo (JPG or PNG, up to 2 MB)</label>

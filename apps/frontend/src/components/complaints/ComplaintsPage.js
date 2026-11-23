@@ -12,6 +12,7 @@ import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import { FieldError, RequiredMark } from '../forms/Field.js';
 import FilterBar from '../forms/FilterBar.js';
+import { statusLabel } from '../../lib/ui/record-status.js';
 import Button from '../ui/Button.js';
 import DataTable from '../ui/DataTable.js';
 import StatusBadge from '../ui/StatusBadge.js';
@@ -138,7 +139,7 @@ export default function ComplaintsPage({ user }) {
           <div className="w-full sm:w-64"><label htmlFor="cf-office" className="label">Office</label>
             <select id="cf-office" className="input select-chevron" value={filters.officeId} onChange={setFilter('officeId')}>
               <option value="">All offices</option>
-              {offices.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
+              {offices.map((o) => <option key={o.office_id} value={o.office_id}>{statusLabel(o.office_name, o)}</option>)}
             </select></div>
         ) : null}
         <div className="w-full sm:w-48"><label htmlFor="cf-status" className="label">Status</label>

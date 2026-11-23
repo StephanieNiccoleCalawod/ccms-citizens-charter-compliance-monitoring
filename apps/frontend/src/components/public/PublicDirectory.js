@@ -9,7 +9,7 @@ import Pager from '../navigation/Pager.js';
 import PublicServiceView from '../service/PublicServiceView.js';
 import { PUBLIC_SERVICES_API } from '../../lib/api/catalogue.js';
 import { publicFetch } from '../../lib/api/client.js';
-import { BRAND } from '../../lib/constants/brand.js';
+import PublicFooter from './PublicFooter.js';
 import { clampPage, pageOf } from '../../lib/ui/public-catalogue.js';
 import { DIRECTORY_PAGE_SIZE, TIME_FILTERS, filterByTime, officeCounts, sequenceLabel, showingRange, sortByName } from '../../lib/ui/public-directory.js';
 
@@ -144,7 +144,7 @@ export default function PublicDirectory({ catalogue }) {
         <section className="mt-9" aria-labelledby="directory-heading">
           <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
             <div className="min-w-0">
-              <h2 id="directory-heading" className="break-words font-serif text-3xl" style={{ color: DARK }}>{heading}</h2>
+              <h1 id="directory-heading" className="break-words font-serif text-3xl" style={{ color: DARK }}>{heading}</h1>
               {!state.loading && !state.error ? (
                 <p className="mt-1 text-sm" style={{ color: MUTED }} data-testid="service-count">
                   {total} {total === 1 ? 'service' : 'services'}
@@ -199,10 +199,8 @@ export default function PublicDirectory({ catalogue }) {
           ) : null}
         </section>
 
-        <footer className="mt-12 border-t pt-5 text-center text-sm" style={{ borderColor: DIVIDER, color: MUTED }}>
-          {BRAND.campus} &middot; {BRAND.fullName}
-        </footer>
       </main>
+      <div className="mt-12"><PublicFooter tone="light" /></div>
 
       <Modal open={selected !== null} title="Service requirements" widthClass="max-w-4xl" hideHeader fullScreenOnMobile onClose={() => setSelected(null)}>
         {selected ? <RequirementsBody key={selected.service_id} service={selected} onClose={() => setSelected(null)} /> : null}

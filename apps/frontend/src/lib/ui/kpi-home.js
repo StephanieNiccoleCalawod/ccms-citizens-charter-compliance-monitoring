@@ -66,12 +66,16 @@ export function tilesFor(bucket) {
   ];
 }
 
+/** S8-17: true when some rows could not be given a name (the Office Head is not sent other staff's names yet). */
+export const hasUnnamedStaff = (rows) => (rows ?? []).some((row) => row.named === false);
+
 /** Rows of the per-staff table (Office Head) or the single own row (Office Staff). Names come from `names` (id -> name). */
 export function staffRows(groups, names = new Map()) {
   return (groups ?? [])
     .map((g) => ({
       id: g.user_id,
       name: names.get(g.user_id) || 'Staff member',
+      named: names.has(g.user_id),
       received: count(g.received),
       onTime: count(g.results?.on_time),
       late: count(g.results?.late_total ?? g.results?.late),

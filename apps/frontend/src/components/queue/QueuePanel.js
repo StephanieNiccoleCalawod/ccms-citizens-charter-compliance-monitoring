@@ -125,6 +125,8 @@ export default function QueuePanel({ user }) {
     if (!officeId) return;
     try {
       const data = await getQueueBoard(officeId);
+      // S8-41: a reply that is not a queue board (no counts or lists) is a failed load, not a crash of the whole page.
+      if (!data || !data.counts || !Array.isArray(data.waiting) || !Array.isArray(data.called)) throw new Error('Unexpected queue reply');
       setBoard({
         officeId,
         data,
@@ -1119,9 +1121,9 @@ export default function QueuePanel({ user }) {
                         className="rounded-xl border border-[#F3C5C5] bg-[#FDF2F2]/40 p-4"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
+                          <div className="min-w-0 max-w-full">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-sans text-2xl font-bold tabular-nums text-[#800000]">
+                              <span className="min-w-0 break-all font-sans text-2xl font-bold tabular-nums text-[#800000]">
                                 {t.ticket_no}
                               </span>
                               <StatusBadge variant={t.lane === 'PRIORITY' ? 'priority' : 'regular'}>
@@ -1230,7 +1232,7 @@ export default function QueuePanel({ user }) {
                             <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-[#F4F5F8] px-1.5 font-sans text-xs font-bold tabular-nums text-[#475569]">
                               {i + 1}
                             </span>
-                            <span className="font-sans text-sm font-bold tabular-nums text-[#202938]">
+                            <span className="min-w-0 break-all font-sans text-sm font-bold tabular-nums text-[#202938]">
                               {t.ticket_no}
                             </span>
                             {t.skip_count > 0 ? (
@@ -1325,8 +1327,8 @@ export default function QueuePanel({ user }) {
                         key={item.id}
                         className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
                       >
-                        <div className="flex flex-wrap items-center gap-2.5">
-                          <span className="font-sans text-sm font-bold tabular-nums text-[#202938]">
+                        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2.5">
+                          <span className="min-w-0 break-all font-sans text-sm font-bold tabular-nums text-[#202938]">
                             {item.ticket_no}
                           </span>
                           <StatusBadge variant={item.lane === 'PRIORITY' ? 'priority' : 'regular'}>

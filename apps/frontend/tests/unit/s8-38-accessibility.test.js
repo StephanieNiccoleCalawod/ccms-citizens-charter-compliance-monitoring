@@ -42,3 +42,30 @@ test('the account menu name starts with what the button shows', () => {
   const shell = read('components/layout/AppShell.js');
   assert.ok(shell.includes('Account menu for ${user.fullName} ${ROLE_LABELS[user.role]}'));
 });
+
+test('S8-41: a queue reply that is not a board shows the retry message instead of crashing the page', () => {
+  const q = read('components/queue/QueuePanel.js');
+  assert.ok(q.includes('!Array.isArray(data.waiting)') && q.includes('The queue could not be loaded. It will try again shortly.'));
+});
+
+test('S8-41: the service directory has one top-level heading', () => {
+  assert.ok(read('components/public/PublicDirectory.js').includes('<h1 id="directory-heading"'));
+});
+
+test('S8-12 #3: the Reports and Complaints office filters say when an office is inactive', () => {
+  for (const f of ['components/reports/ReportsPage.js', 'components/complaints/ComplaintsPage.js']) {
+    const s = read(f);
+    assert.ok(s.includes('statusLabel(o.office_name, o)'), f);
+    assert.ok(!s.includes('>{o.office_name}</option>'), f + ' still lists offices without their status');
+  }
+});
+
+test('S8-17: no receipt form on a cancelled transaction, long tickets wrap, unnamed staff are explained', () => {
+  assert.ok(read('components/transactions/TransactionDetail.js').includes("canAttach={tx.status !== 'CANCELLED'}"));
+  const receipt = read('components/transactions/ReceiptPanel.js');
+  assert.ok(receipt.includes('canAttach = true') && receipt.includes('so no receipt can be attached'));
+  const queue = read('components/queue/QueuePanel.js');
+  assert.equal((queue.match(/min-w-0 break-all font-sans text-(2xl|sm) font-bold tabular-nums/g) || []).length, 3);
+  const home = read('components/home/KpiHome.js');
+  assert.ok(home.includes('hasUnnamedStaff(rows)') && home.includes('data-testid="staff-names-note"'));
+});
