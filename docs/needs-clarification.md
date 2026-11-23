@@ -51,3 +51,15 @@ Open questions from the latest FE work (S8-16, S8-38, S8-41, V1, V2, V3). Each s
 | BE team / PM | Give an Office Head a way to read the names of their own office's staff (a names list limited to the office, or a name inside the per-staff KPI rows). | Today every row of "By staff member" says "Staff member" (S8-17 #3). Only a Super Admin may read accounts. |
 | PM (D8-11) | S8-22 (four chains on the hosted release): approve protected demo accounts and hosted actions, give the hosted URL, and say which SHA is deployed. | Not started by FE. There is no hosted address or approved demo account here, and the chains create records. Without approval the ticket says to mark "Blocked, no safe environment". |
 | QA / BE | S8-22 (a): file the dated screenshot of the October report on the deployed site, with the deployed commit. | A developer reported it on 11/20, but no proof is filed yet. |
+
+## Added for S8-27 (release run) and S8-28 (freeze)
+
+| For | Ask | Why |
+|---|---|---|
+| BE Dev 1 / repo owner | Send the GitHub Actions log of the `f0b936e` run, or rerun it, and name the failing test. | The failing assertion is unknown. FE unit tests pass at that commit (1,121) and every suite passes at the current head. |
+| FE (me) / PM | OK to rewrite the Service Charter Compliance steps of `analytics-dashboards.cjs` for the office performance view, and to run it against a production build. | The script is stale and its request counts fail on the dev server (see `release-run-record-S8-27.md`). |
+| PM (D8-15) | Which SHA is frozen, and the freeze date. | Nothing can be called "the release run" until then; the run record must be repeated on it. |
+| PM + QA | Who records the backup demo video, on which SHA, and where the file is kept. Demo runs twice the same way (AC2). | Not started by FE. |
+| PM + BE | Rollback note: how the hosted release is rolled back (previous deployment, database backup). | Depends on how the host is deployed; FE does not know it. |
+| PM | The master plan §15 manifest. | It is not in the repository, so `evidence-manifest.md` lists only what exists. |
+| QA | Read the user manual draft (`user-manual-draft.md`) against the released version. | Written from the screens by the developer; no one else has checked it. |

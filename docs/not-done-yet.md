@@ -55,3 +55,8 @@ Things we did not finish, could not check, or left on purpose. The PM questions 
 
 ## Four chains on the hosted release (S8-22)
 - Not started: no hosted address, no approved demo accounts, no PM approval (D8-11), and the chains write records. Status for now: **Blocked, no safe environment**. See `needs-clarification.md`.
+
+## Release run (S8-27) and freeze (S8-28) — `release-run-record-S8-27.md`, `evidence-manifest.md`
+- Not run: `next build` and `npm audit` (see the record), the CI run, hosted smoke. The f0b936e failing test is still unnamed.
+- Not done: freeze record, backup demo video, rollback note, final RTM and test plan. The user manual and limitations list are drafts.
+- The browser e2e script is stale after the redesign and needs a rewrite of its Charter-tab steps.
