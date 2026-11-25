@@ -50,8 +50,10 @@ export function parseBackdate(body, { now, storedStart = null, allowStart = true
   return { startedAt, endedAt, backdateReason };
 }
 
-/** 'MM/DD/YYYY' for messages, from a 'YYYY-MM-DD' Manila date. */
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** 'November 10, 2026' for messages, from a 'YYYY-MM-DD' Manila date (S8-62). The name is kept so callers do not change. */
 export function usDate(manilaDate) {
   const [y, m, d] = manilaDate.split('-');
-  return `${m}/${d}/${y}`;
+  return `${MONTH_NAMES[Number(m) - 1]} ${Number(d)}, ${y}`;
 }

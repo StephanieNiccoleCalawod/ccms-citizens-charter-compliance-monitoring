@@ -149,7 +149,7 @@ describe('CC049 content and privacy', () => {
       started_at: new Date('2026-11-12T01:30:00Z'), ended_at: new Date('2026-11-12T03:00:00Z'),
     };
     const ack = buildAcknowledgement(row);
-    for (const part of ['PUP-OSAS-20261112-0001', 'Student Affairs', 'Transcript of Records', 'Maria Officer', 'Administrative Aide III', '11/12/2026 9:30 AM', ACK_QUOTE_LINE]) {
+    for (const part of ['PUP-OSAS-20261112-0001', 'Student Affairs', 'Transcript of Records', 'Maria Officer', 'Administrative Aide III', 'November 12, 2026 at 9:30 AM', ACK_QUOTE_LINE]) {
       assert.ok(ack.text.includes(part), part);
     }
     assert.deepEqual(buildAcknowledgement(row), ack, 'deterministic');

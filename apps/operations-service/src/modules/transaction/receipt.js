@@ -11,11 +11,13 @@ export const RECEIPT_CLAIM_MS = 120_000;
 
 const pad = (n) => String(n).padStart(2, '0');
 
-/** 'MM/DD/YYYY h:mm AM' in Asia/Manila (Decision C32). */
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** 'November 10, 2026 at 2:30 PM' in Asia/Manila (S8-62: dates are written out; API and CSV dates are unchanged). */
 export function manilaStamp(value) {
   const p = manilaParts(value);
   const hour12 = p.hour % 12 === 0 ? 12 : p.hour % 12;
-  return `${pad(p.month)}/${pad(p.day)}/${p.year} ${hour12}:${pad(p.minute)} ${p.hour < 12 ? 'AM' : 'PM'}`;
+  return `${MONTH_NAMES[p.month - 1]} ${p.day}, ${p.year} at ${hour12}:${pad(p.minute)} ${p.hour < 12 ? 'AM' : 'PM'}`;
 }
 
 /**
@@ -37,7 +39,7 @@ export function buildReceipt(row) {
       `Completed: ${manilaStamp(row.ended_at)}`,
       '',
       'Please quote this tracking number whenever you file a complaint about this transaction.',
-      ...(row.rating_code ? ['', `Tell us how we served you (CC057). Your one-time rating code: ${formatCode(row.rating_code)}`, `Rate at: ${process.env.RATING_PAGE_URL || 'the Rate page of the CCMS website'} (1 to 5 stars, once; no name or comment is asked for).`,
+      ...(row.rating_code ? ['', `Tell us how we served you. Your one-time rating code: ${formatCode(row.rating_code)}`, `Rate at: ${process.env.RATING_PAGE_URL || 'the Rate page of the CCMS website'} (1 to 5 stars, once; no name or comment is asked for).`,
         ...(process.env.RATING_PAGE_URL ? [`Or open this link and your code is filled in for you: ${process.env.RATING_PAGE_URL.replace(/#.*$/, '')}#${row.rating_code}`] : [])] : []),
     ].join('\n'),
   };

@@ -1,4 +1,4 @@
-import { Errors, ROLES, isUuid, toManilaDate } from 'ccms-shared';
+import { Errors, ROLES, isUuid, serviceApiBase, toManilaDate } from 'ccms-shared';
 import { identityBaseUrl } from '../transaction/identity-client.js';
 
 const lower = (v) => typeof v === 'string' ? v.toLowerCase() : v;
@@ -37,6 +37,29 @@ export async function fetchOfficePeople(officeId, { fetcher = fetch } = {}) {
   } catch { throw Errors.unavailable('Current office membership could not be verified. Please try again.', 'REPORT_MEMBERSHIP_UNAVAILABLE'); }
 }
 
+// S8-54: complaints that name a transaction's tracking number, counted by Oversight (it owns complaints). Any failure or no setting gives
+// null, so the report says "not available" and never shows a made-up zero.
+export async function fetchComplaintCounts(officeId, { env = process.env, fetcher = fetch } = {}) {
+  const base = serviceApiBase(env.OVERSIGHT_SERVICE_URL);
+  if (!base || !env.SERVICE_KEY) return null;
+  try {
+    const r = await fetcher(`${base}/internal/complaint-links?office_id=${encodeURIComponent(officeId)}`, {
+      headers: { accept: 'application/json', 'x-service-key': env.SERVICE_KEY }, signal: AbortSignal.timeout(5000) });
+    if (!r.ok) return null;
+    const { items } = await r.json();
+    if (!Array.isArray(items) || !items.every((i) => typeof i.tracking_no === 'string' && Number.isInteger(i.count))) return null;
+    return new Map(items.map((i) => [i.tracking_no.toUpperCase(), i.count]));
+  } catch { return null; }
+}
+
+/** Sum complaint counts per person: transactions in the report's own scope (same filters and seeded rule), keyed like the main query. */
+export const PEOPLE_COMPLAINT_SQL = `SELECT t.started_by, upper(t.tracking_no) AS tracking_no
+  FROM transactions t
+  WHERE t.office_id=$1 AND t.started_at >= $2::timestamptz AND t.started_at < $3::timestamptz
+    AND ($4::uuid IS NULL OR t.started_by=$4) AND upper(t.tracking_no)=ANY($5::text[])
+    AND NOT (EXISTS (SELECT 1 FROM seeded_transactions s WHERE s.transaction_id=t.transaction_id)
+      OR (t.tracking_no ~ '-9[0-9]{3}$' AND right(t.tracking_no,4) <> '9000'))`;
+
 export const PEOPLE_REPORT_SQL = `WITH scoped AS (
   SELECT t.started_by, t.status, t.is_compliant, t.elapsed_working_minutes, t.held_minutes, r.stars,
     (EXISTS (SELECT 1 FROM seeded_transactions s WHERE s.transaction_id=t.transaction_id)
@@ -64,16 +87,16 @@ SELECT GROUPING(person_key)=1 AS is_total, person_key AS person_id,
   (SELECT count(*)::int FROM scoped WHERE seeded) AS excluded_seed_count
 FROM eligible GROUP BY GROUPING SETS ((),(person_key))`;
 
-function metrics(row = {}) {
+function metrics(row = {}, linkedComplaints = null) {
   const counts = ['handled', 'completed', 'measured_completed', 'on_time', 'late', 'auto_closed', 'cancelled', 'open', 'paused_minutes', 'rating_count'];
   const result = Object.fromEntries(counts.map((k) => [k, Number(row[k] ?? 0)]));
   return { ...result, on_time_percent: result.measured_completed ? Math.round(10000 * result.on_time / result.measured_completed) / 100 : null,
     median_working_minutes: row.median_working_minutes == null ? null : Number(row.median_working_minutes),
-    rating_average: result.rating_count ? Number(row.rating_sum) / result.rating_count : null, linked_complaints: null };
+    rating_average: result.rating_count ? Number(row.rating_sum) / result.rating_count : null, linked_complaints: linkedComplaints };
 }
 
 // BE Dev 1 source data. Oversight owns composing, publishing and freezing the final reports.
-export async function readPeopleReport(db, user, params, { now = new Date(), roster = fetchOfficePeople } = {}) {
+export async function readPeopleReport(db, user, params, { now = new Date(), roster = fetchOfficePeople, complaintCounts = fetchComplaintCounts } = {}) {
   const q = parsePeopleReport(params, user, now);
   const people = user.role === ROLES.OFFICE_STAFF ? [{ account_id: user.id, full_name: user.fullName ?? null }] : await roster(q.officeId);
   const names = new Map(people.map((p) => [lower(p.account_id), p.full_name]));
@@ -83,17 +106,33 @@ export async function readPeopleReport(db, user, params, { now = new Date(), ros
   const end = new Date(`${q.to}T00:00:00+08:00`); end.setUTCDate(end.getUTCDate() + 1);
   const rows = await db.query(PEOPLE_REPORT_SQL, [q.officeId, `${q.from}T00:00:00+08:00`, end.toISOString(), q.personId, allowed]);
   const total = rows.find((r) => r.is_total) ?? {};
-  const items = rows.filter((r) => !r.is_total).map((r) => ({ person_id: r.person_id,
-    person_name: r.person_id ? names.get(lower(r.person_id)) ?? null : 'Other or former handlers', ...metrics(r) }));
-  if (q.scope === 'all_staff') for (const [id, name] of names) {
-    if (!items.some((p) => lower(p.person_id) === id)) items.push({ person_id: id, person_name: name, ...metrics() });
+  // S8-54: complaints linked by tracking number. null (not 0) when Oversight cannot be asked.
+  const counts = await complaintCounts(q.officeId);
+  let byPerson = null; let totalComplaints = null;
+  if (counts) {
+    byPerson = new Map(); totalComplaints = 0;
+    if (counts.size) {
+      const linked = await db.query(PEOPLE_COMPLAINT_SQL, [q.officeId, `${q.from}T00:00:00+08:00`, end.toISOString(), q.personId, [...counts.keys()]]);
+      for (const t of linked) {
+        const n = counts.get(t.tracking_no) ?? 0;
+        totalComplaints += n;
+        const key = allowed && !allowed.includes(lower(t.started_by)) ? null : lower(t.started_by);
+        byPerson.set(key, (byPerson.get(key) ?? 0) + n);
+      }
+    }
   }
-  if (q.scope === 'person' && !items.length) items.push({ person_id: q.personId, person_name: names.get(q.personId) ?? null, ...metrics() });
+  const complaintsOf = (id) => (byPerson ? byPerson.get(id ?? null) ?? 0 : null);
+  const items = rows.filter((r) => !r.is_total).map((r) => ({ person_id: r.person_id,
+    person_name: r.person_id ? names.get(lower(r.person_id)) ?? null : 'Other or former handlers', ...metrics(r, complaintsOf(r.person_id ? lower(r.person_id) : null)) }));
+  if (q.scope === 'all_staff') for (const [id, name] of names) {
+    if (!items.some((p) => lower(p.person_id) === id)) items.push({ person_id: id, person_name: name, ...metrics({}, complaintsOf(id)) });
+  }
+  if (q.scope === 'person' && !items.length) items.push({ person_id: q.personId, person_name: names.get(q.personId) ?? null, ...metrics({}, complaintsOf(q.personId)) });
   items.sort((a, b) => String(a.person_name ?? '').localeCompare(String(b.person_name ?? '')) || String(a.person_id ?? '').localeCompare(String(b.person_id ?? '')));
   return { scope: q.scope, office_id: q.officeId, person_id: q.personId, from: q.from, to: q.to, generated_at: now.toISOString(),
-    totals: metrics(total), items: q.scope === 'office' ? [] : items, excluded_seed_count: Number(total.excluded_seed_count ?? 0),
+    totals: metrics(total, totalComplaints), items: q.scope === 'office' ? [] : items, excluded_seed_count: Number(total.excluded_seed_count ?? 0),
     note: 'Seeded rows are excluded from these figures (K17).',
     basis: 'Transactions received in the selected Manila start-date period, attributed to the person who started them. Paused minutes are completed holds recorded so far.',
     attribution: { person: 'started_by', ratings: 'Service ratings linked to handled transactions; not a rating of the staff member.',
-      complaints: 'Unavailable here: complaint linkage and stored report composition belong to Oversight (BE Dev 2).' } };
+      complaints: counts ? 'Complaints that name the tracking number of a transaction the person started (counted by Oversight).' : 'Complaint counts are not available right now.' } };
 }

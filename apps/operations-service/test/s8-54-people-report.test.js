@@ -49,3 +49,41 @@ test('S8-54 membership lookup fails closed on an unavailable or malformed Identi
     if (oldKey === undefined) delete process.env.SERVICE_KEY; else process.env.SERVICE_KEY = oldKey;
   }
 });
+
+test('S8-54 complaints linked by tracking number are counted per person, and the total matches', async () => {
+  const head = { ...user, role: ROLES.OFFICE_HEAD };
+  const a = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const sqls = [];
+  const db = { query: async (sql, args) => {
+    sqls.push(sql);
+    if (/upper\(t\.tracking_no\)=ANY/.test(sql)) {
+      assert.deepEqual([...args[4]].sort(), ['T-1', 'T-2']);
+      return [{ started_by: person, tracking_no: 'T-1' }, { started_by: person, tracking_no: 'T-2' }, { started_by: a, tracking_no: 'T-2' }];
+    }
+    return [{ is_total: true, handled: 3 }, { is_total: false, person_id: person, handled: 2 }, { is_total: false, person_id: a, handled: 1 }];
+  } };
+  const out = await readPeopleReport(db, head, query({ scope: 'all_staff' }), { roster: async () => [{ account_id: person, full_name: 'Ana' }, { account_id: a, full_name: 'Ben' }],
+    complaintCounts: async () => new Map([['T-1', 1], ['T-2', 2]]) });
+  const by = Object.fromEntries(out.items.map((i) => [i.person_name, i.linked_complaints]));
+  assert.deepEqual(by, { Ana: 3, Ben: 2 });
+  assert.equal(out.totals.linked_complaints, 5);
+  assert.match(out.attribution.complaints, /counted by Oversight/);
+});
+
+test('S8-54 when Oversight cannot be asked the figure is null, never zero, and the note says so', async () => {
+  const out = await readPeopleReport({ query: async () => [{ is_total: true, handled: 0 }] }, user, query(), { complaintCounts: async () => null });
+  assert.equal(out.items[0].linked_complaints, null);
+  assert.equal(out.totals.linked_complaints, null);
+  assert.match(out.attribution.complaints, /not available/);
+});
+
+test('S8-54 the complaint count call is not made without OVERSIGHT_SERVICE_URL and the service key, and failures give null', async () => {
+  const { fetchComplaintCounts } = await import('../src/modules/reports/people.js');
+  assert.equal(await fetchComplaintCounts(office, { env: {}, fetcher: () => assert.fail('no call') }), null);
+  const env = { OVERSIGHT_SERVICE_URL: 'http://oversight', SERVICE_KEY: 'k' };
+  assert.equal(await fetchComplaintCounts(office, { env, fetcher: async () => new Response('{}', { status: 503 }) }), null);
+  assert.equal(await fetchComplaintCounts(office, { env, fetcher: async () => { throw new Error('down'); } }), null);
+  assert.equal(await fetchComplaintCounts(office, { env, fetcher: async () => new Response('{"items":[{"tracking_no":"x"}]}') }), null);
+  const ok = await fetchComplaintCounts(office, { env, fetcher: async (url, init) => { assert.match(url, /\/internal\/complaint-links\?office_id=/); assert.equal(init.headers['x-service-key'], 'k'); return new Response('{"items":[{"tracking_no":"t-1","count":2}]}'); } });
+  assert.equal(ok.get('T-1'), 2);
+});

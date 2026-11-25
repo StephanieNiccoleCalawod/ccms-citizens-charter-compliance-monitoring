@@ -42,7 +42,7 @@ describe('the receipt email content', () => {
     const mail = buildReceipt(row);
     assert.equal(mail.to, 'juan@example.com');
     assert.equal(mail.subject, 'Your CCMS transaction receipt PUP-OSAS-20261110-0001');
-    for (const line of ['Tracking number: PUP-OSAS-20261110-0001', 'Service: Transcript of Records', 'Office: Student Affairs', 'Started: 11/10/2026 2:05 PM', 'Completed: 11/10/2026 2:35 PM']) {
+    for (const line of ['Tracking number: PUP-OSAS-20261110-0001', 'Service: Transcript of Records', 'Office: Student Affairs', 'Started: November 10, 2026 at 2:05 PM', 'Completed: November 10, 2026 at 2:35 PM']) {
       assert.ok(mail.text.includes(line), line);
     }
     assert.match(mail.text, /quote this tracking number whenever you file a complaint/i);
@@ -51,9 +51,9 @@ describe('the receipt email content', () => {
   });
 
   it('12-hour stamps: midnight is 12:00 AM and noon is 12:00 PM', () => {
-    assert.equal(manilaStamp(new Date(at('2026-11-10', '00:00'))), '11/10/2026 12:00 AM');
-    assert.equal(manilaStamp(new Date(at('2026-11-10', '12:00'))), '11/10/2026 12:00 PM');
-    assert.equal(manilaStamp(new Date(at('2026-11-10', '23:59'))), '11/10/2026 11:59 PM');
+    assert.equal(manilaStamp(new Date(at('2026-11-10', '00:00'))), 'November 10, 2026 at 12:00 AM');
+    assert.equal(manilaStamp(new Date(at('2026-11-10', '12:00'))), 'November 10, 2026 at 12:00 PM');
+    assert.equal(manilaStamp(new Date(at('2026-11-10', '23:59'))), 'November 10, 2026 at 11:59 PM');
   });
 });
 

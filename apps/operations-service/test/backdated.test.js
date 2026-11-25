@@ -97,7 +97,7 @@ describe('CC026 backdated start', () => {
     const r = await start({ started_at: iso('2024-06-01', '09:00'), backdate_reason: 'Old paperwork' });
     assert.equal(r.status, 409);
     assert.equal(r.body.error.code, 'STANDARD_NOT_IN_FORCE');
-    assert.equal(r.body.error.message, 'No standard was in force for this service on 06/01/2024');
+    assert.equal(r.body.error.message, 'No standard was in force for this service on June 1, 2024');
   });
 
   it('AC3: times in the future, an unreadable time, or an end before the start are refused', async () => {
