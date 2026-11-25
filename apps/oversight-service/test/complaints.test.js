@@ -1,3 +1,5 @@
+// These tests file complaints without a tracking number; the tracking rule (S8-56, on by default) has its own tests.
+process.env.COMPLAINT_REQUIRE_TRACKING = 'false';
 // Sprint 6 CC032 / CC033: file a complaint without an account and check its status, on a real database as the runtime role.
 // Core (office check) and the mailer are stand-ins.
 import { strict as assert } from 'node:assert';

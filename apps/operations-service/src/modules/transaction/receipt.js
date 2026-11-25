@@ -37,7 +37,8 @@ export function buildReceipt(row) {
       `Completed: ${manilaStamp(row.ended_at)}`,
       '',
       'Please quote this tracking number whenever you file a complaint about this transaction.',
-      ...(row.rating_code ? ['', `Tell us how we served you (CC057). Your one-time rating code: ${formatCode(row.rating_code)}`, `Rate at: ${process.env.RATING_PAGE_URL || 'the Rate page of the CCMS website'} (1 to 5 stars, once; no name or comment is asked for).`] : []),
+      ...(row.rating_code ? ['', `Tell us how we served you (CC057). Your one-time rating code: ${formatCode(row.rating_code)}`, `Rate at: ${process.env.RATING_PAGE_URL || 'the Rate page of the CCMS website'} (1 to 5 stars, once; no name or comment is asked for).`,
+        ...(process.env.RATING_PAGE_URL ? [`Or open this link and your code is filled in for you: ${process.env.RATING_PAGE_URL.replace(/#.*$/, '')}#${row.rating_code}`] : [])] : []),
     ].join('\n'),
   };
 }

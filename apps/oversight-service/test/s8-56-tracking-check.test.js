@@ -33,10 +33,11 @@ describe('checkTrackingNumber', () => {
   });
 });
 
-describe('complaint needs a confirmed number only when switched on', () => {
-  it('is off unless COMPLAINT_REQUIRE_TRACKING=true', () => {
-    assert.equal(trackingRequired({}), false);
+describe('complaint needs a confirmed number unless switched off', () => {
+  it('is on by default and off only when COMPLAINT_REQUIRE_TRACKING=false', () => {
+    assert.equal(trackingRequired({}), true);
     assert.equal(trackingRequired({ COMPLAINT_REQUIRE_TRACKING: 'true' }), true);
+    assert.equal(trackingRequired({ COMPLAINT_REQUIRE_TRACKING: 'false' }), false);
   });
   const required = { COMPLAINT_REQUIRE_TRACKING: 'true' };
   const never = async () => assert.fail('must not reach the database');

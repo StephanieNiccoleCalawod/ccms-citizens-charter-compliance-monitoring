@@ -27,5 +27,5 @@ export async function checkTrackingNumber(trackingNo, { env = process.env, fetch
   return { found: true, office_id: String(body.office_id ?? '').toLowerCase(), office_name: body.office_name ?? null, service_name: body.service_name ?? null, date: body.started_at ? manilaDay(body.started_at) : null };
 }
 
-/** Whether a complaint must carry a confirmed tracking number (D-AC-1 pending, so off unless COMPLAINT_REQUIRE_TRACKING=true). */
-export const trackingRequired = (env = process.env) => env.COMPLAINT_REQUIRE_TRACKING === 'true';
+/** A complaint must carry a tracking number that Operations confirms (PM decision, S8-56). Only COMPLAINT_REQUIRE_TRACKING=false turns it off. */
+export const trackingRequired = (env = process.env) => env.COMPLAINT_REQUIRE_TRACKING !== 'false';

@@ -24,3 +24,19 @@ export function ratingFailure(error) {
 }
 
 export const averageText = (average) => (average === null || average === undefined ? '–' : `${Number(average).toFixed(2)} / 5`);
+
+/**
+ * The link on the receipt: the rating page with the code after the # (it stays in the browser and is never sent to the server).
+ * The plain page link and the printed code remain as the fallback.
+ */
+export const ratingPath = '/rate';
+export const ratingLink = (origin, code) => `${String(origin ?? '').replace(/\/+$/, '')}${ratingPath}#${cleanCode(code)}`;
+export const ratingPlainLink = (origin) => `${String(origin ?? '').replace(/\/+$/, '')}${ratingPath}`;
+
+/** The code carried in a page address hash ("#ABCD-EFGH-JKMN"), or '' when there is none or it is not a valid code. */
+export function codeFromHash(hash) {
+  const raw = String(hash ?? '').replace(/^#/, '');
+  if (!raw) return '';
+  const clean = cleanCode(raw);
+  return clean.length === CODE_LENGTH && CODE_CHARS.test(clean) ? clean : '';
+}

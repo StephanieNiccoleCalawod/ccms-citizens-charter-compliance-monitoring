@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { submitRating } from '../../lib/api/ratings.js';
-import { STAR_LABEL, STAR_VALUES, cleanCode, ratingErrors, ratingFailure, showCode } from '../../lib/ui/ratings.js';
+import { STAR_LABEL, STAR_VALUES, cleanCode, codeFromHash, ratingErrors, ratingFailure, showCode } from '../../lib/ui/ratings.js';
 import PublicHeader from '../layout/PublicHeader.js';
 
 // Public rating page (CC057): no sign-in, a code from the receipt, 1 to 5 stars, once per code. No name, no comment, nothing about the person.
@@ -13,6 +13,16 @@ export default function RatePage() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState('');
   const [done, setDone] = useState(null);
+
+  // The receipt link carries the code after the # ("/rate#CODE"). Read it once, fill the field, and take it out of the address bar so it
+  // is not kept in the history or copied by mistake. The hash is never sent to the server.
+  useEffect(() => {
+    const fromLink = codeFromHash(window.location.hash);
+    if (!fromLink) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the address on first load
+    setCode(fromLink);
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+  }, []);
 
   async function submit(event) {
     event.preventDefault();
