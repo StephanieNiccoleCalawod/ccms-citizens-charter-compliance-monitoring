@@ -99,7 +99,7 @@ function cli(service, url, args, extraEnv = {}) {
 }
 
 function revertAfterIdentityCc046(url) {
-  for (const migration of ['ClerkInvitations1795300000000', 'Def19OptionalEmployeeNo1795200000000', 'ClerkAccountLinks1795100000000', 'Cc056PermissionSwitches1794650000000']) {
+  for (const migration of ['AccessRequests1795400000000', 'ClerkInvitations1795300000000', 'Def19OptionalEmployeeNo1795200000000', 'ClerkAccountLinks1795100000000', 'Cc056PermissionSwitches1794650000000']) {
     const reverted = cli('identity', url, ['revert']);
     assert.equal(reverted.code, 0, reverted.out);
     assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);
@@ -463,10 +463,11 @@ describe('Sprint 5 numbered migrations', () => {
       }
       if (service === 'core') {
         // The sample office triggers the drop guard. Only the new test migration's column is being removed.
-        const migration = 'S853OfficeBackdatePermission1795478500000';
-        const reverted = cli(service, db.url, ['revert'], { CCMS_ALLOW_DATA_LOSS: migration });
-        assert.equal(reverted.code, 0, reverted.out);
-        assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);
+        for (const migration of ['S858ServiceHasFee1795478600000', 'S853OfficeBackdatePermission1795478500000']) {
+          const reverted = cli(service, db.url, ['revert'], { CCMS_ALLOW_DATA_LOSS: migration });
+          assert.equal(reverted.code, 0, reverted.out);
+          assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);
+        }
         assert.match(cli(service, db.url, ['revert']).out, /Reverted: Cc047AllowedClientTypes1794528000000/);
         assert.match(cli(service, db.url, ['revert']).out, /Reverted: Cc058CalendarReasons1794441700000/);
       }

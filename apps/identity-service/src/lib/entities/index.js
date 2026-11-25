@@ -138,4 +138,48 @@ export const ClerkInvitation = new EntitySchema({
   indices: [{ name: 'clerk_invitations_open_uq', columns: ['accountId'], unique: true, where: '"used_at" IS NULL AND "revoked_at" IS NULL' }],
 });
 
-export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit, PermissionSwitch, AccountLastLogin, ClerkAccountLink, ClerkAccessRequest, ClerkInvitation];
+// S8-52 Request Access: what a person asked for, and the grant it led to. Keep identical to migrations/sql/1795400000000-AccessRequests.up.sql.
+// The CHECK constraints are added in after-sync (like permission_switches_key_ck) and are part of the same .up.sql file.
+export const AccessRequest = new EntitySchema({
+  name: 'AccessRequest',
+  tableName: 'access_requests',
+  columns: {
+    requestId: { name: 'request_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'access_requests_pkey' },
+    accountId: { name: 'account_id', type: 'uuid' },
+    officeId: { name: 'office_id', type: 'uuid' },
+    permissionKey: { name: 'permission_key', type: 'text' },
+    reason: { type: 'text' },
+    status: { type: 'text', default: () => "'PENDING'" },
+    requestedAt: { name: 'requested_at', type: 'timestamptz', default: () => 'now()' },
+    decidedBy: { name: 'decided_by', type: 'uuid', nullable: true },
+    decidedAt: { name: 'decided_at', type: 'timestamptz', nullable: true },
+    decisionNote: { name: 'decision_note', type: 'text', nullable: true },
+    endsOn: { name: 'ends_on', type: 'date', nullable: true },
+  },
+  indices: [
+    { name: 'access_requests_status_idx', columns: ['status', 'requestedAt'] },
+    { name: 'access_requests_one_pending_uq', columns: ['accountId', 'permissionKey'], unique: true, where: "\"status\" = 'PENDING'" },
+  ],
+});
+
+export const AccountPermissionGrant = new EntitySchema({
+  name: 'AccountPermissionGrant',
+  tableName: 'account_permission_grants',
+  columns: {
+    grantId: { name: 'grant_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'account_permission_grants_pkey' },
+    requestId: { name: 'request_id', type: 'uuid' },
+    accountId: { name: 'account_id', type: 'uuid' },
+    officeId: { name: 'office_id', type: 'uuid' },
+    permissionKey: { name: 'permission_key', type: 'text' },
+    grantedBy: { name: 'granted_by', type: 'uuid' },
+    grantedAt: { name: 'granted_at', type: 'timestamptz', default: () => 'now()' },
+    endsOn: { name: 'ends_on', type: 'date' },
+    status: { type: 'text', default: () => "'ACTIVE'" },
+    endedAt: { name: 'ended_at', type: 'timestamptz', nullable: true },
+    endedBy: { name: 'ended_by', type: 'uuid', nullable: true },
+  },
+  uniques: [{ name: 'account_permission_grants_request_uq', columns: ['requestId'] }],
+  indices: [{ name: 'account_permission_grants_account_idx', columns: ['accountId', 'status'] }],
+});
+
+export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit, PermissionSwitch, AccountLastLogin, ClerkAccountLink, ClerkAccessRequest, ClerkInvitation, AccessRequest, AccountPermissionGrant];
