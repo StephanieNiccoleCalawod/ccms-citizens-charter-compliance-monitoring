@@ -36,9 +36,43 @@ function push(kind, message) {
   return id;
 }
 
+// S8-51: one result dialog for an outcome the person must read and acknowledge (Success, Warning, Failed) or decide (Confirm).
+// It is opened with notify.result(...) and drawn once by <ResultModal /> in the app shell. A new result replaces the open one.
+export const RESULT_VARIANTS = ['success', 'warning', 'error', 'confirm'];
+export const RESULT_TITLES = { success: 'Success', warning: 'Warning', error: 'Failed', confirm: 'Please confirm' };
+let current = null;
+let nextResultId = 1;
+
+function result({ variant = 'success', title, message, confirmLabel, cancelLabel, onConfirm } = {}) {
+  const text = typeof message === 'string' ? message.trim() : '';
+  if (!text) return null;
+  const kind = RESULT_VARIANTS.includes(variant) ? variant : 'error';
+  current = {
+    id: nextResultId++,
+    variant: kind,
+    title: (typeof title === 'string' && title.trim()) || RESULT_TITLES[kind],
+    message: text,
+    confirmLabel: confirmLabel || (kind === 'confirm' ? 'Confirm' : 'OK'),
+    cancelLabel: cancelLabel || 'Cancel',
+    onConfirm: kind === 'confirm' && typeof onConfirm === 'function' ? onConfirm : null,
+  };
+  emit();
+  return current.id;
+}
+
+export function dismissResult() {
+  if (!current) return;
+  current = null;
+  emit();
+}
+
+export const getResult = () => current;
+export const getServerResult = () => null;
+
 export const notify = {
   success: (message) => push('success', message),
   error: (message) => push('error', message),
+  result,
   dismiss,
 };
 
@@ -56,5 +90,7 @@ export function resetNotifications() {
   timers.clear();
   toasts = [];
   nextId = 1;
+  current = null;
+  nextResultId = 1;
   emit();
 }

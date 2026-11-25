@@ -79,7 +79,7 @@ describe('reports rules', () => {
     assert.equal(rows[0].rate, '77.8%');
     assert.equal(rows[0].cancelled, '1');
     assert.equal(figureRows({ figures: { services: [], total: { results: {} } } })[0].rate, 'No rate yet');
-    assert.equal(periodText(REPORT), '07/01/2026 to 12/31/2026');
+    assert.equal(periodText(REPORT), 'July 1 – December 31, 2026');
   });
   it('server codes become plain sentences', () => {
     assert.match(failureMessage({ code: 'REPORT_ALREADY_PUBLISHED' }), /new version/);

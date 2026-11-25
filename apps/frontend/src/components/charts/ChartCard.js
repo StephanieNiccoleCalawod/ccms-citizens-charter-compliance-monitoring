@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import CalculationInfo from '../analytics/CalculationInfo.js';
 import EmptyState from '../ui/EmptyState.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 
@@ -92,6 +93,8 @@ export default function ChartCard({
   title,
   badge = null,
   headerRight = null,
+  calculation,
+  calculationSubject = null,
   description,
   legend = null,
   empty = false,
@@ -103,6 +106,8 @@ export default function ChartCard({
 }) {
   const [viewMode, setViewMode] = useState('chart');
   const showToggle = Boolean(table && !empty);
+  // S8-46: a chart that passes `calculation` (even null) gets the "How is this calculated?" control.
+  const showCalculation = calculation !== undefined;
 
   return (
     <section id={id} aria-labelledby={`${id}-title`} className={`card flex h-full flex-col min-w-0 p-5 ${className}`.trim()}>
@@ -114,9 +119,10 @@ export default function ChartCard({
           </div>
           {description ? <p className="mt-1 font-sans text-xs text-[#64748B] sm:text-sm">{description}</p> : null}
         </div>
-        {headerRight || showToggle ? (
+        {headerRight || showToggle || showCalculation ? (
           <div className="flex shrink-0 items-center gap-2">
             {headerRight}
+            {showCalculation ? <CalculationInfo calculation={calculation} subject={calculationSubject ?? title.toLowerCase()} testId={`${id}-calc`} /> : null}
             {showToggle ? <ChartTableToggle mode={viewMode} onChange={setViewMode} testIdPrefix={id} /> : null}
           </div>
         ) : null}

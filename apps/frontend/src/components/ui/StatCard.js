@@ -1,3 +1,5 @@
+import CalculationInfo from '../analytics/CalculationInfo.js';
+
 /**
  * One figure in a row of summary cards (Dashboard KPIs, Insights pulse, Late-risk counts): small uppercase label, large value,
  * optional note or extra content (a change arrow) underneath. Lay several out with a grid (gap-4) in the page.
@@ -11,7 +13,9 @@ const TONES = {
   success: 'text-emerald-700',
 };
 
-export default function StatCard({ label, value, note, tone = 'default', icon = null, testId, className = '', children }) {
+export default function StatCard({ label, value, note, tone = 'default', icon = null, testId, className = '', calculation, children }) {
+  // S8-46: pass `calculation` (even null) to add the "How is this calculated?" control beside the label.
+  const info = calculation !== undefined ? <CalculationInfo calculation={calculation} subject={String(label).toLowerCase()} testId={testId ? `${testId}-calc` : 'stat-calc'} className="-my-1 -mr-1" /> : null;
   return (
     <div className={`card flex flex-col gap-1 p-4 ${className}`.trim()} data-testid={testId}>
       {icon ? (
@@ -20,11 +24,14 @@ export default function StatCard({ label, value, note, tone = 'default', icon = 
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
             <p className={`text-2xl font-bold leading-tight tabular-nums ${TONES[tone] ?? TONES.default}`}>{value}</p>
           </div>
-          <div className="shrink-0">{icon}</div>
+          <div className="flex shrink-0 items-center gap-1">{info}{icon}</div>
         </div>
       ) : (
         <>
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+            {info}
+          </div>
           <p className={`text-2xl font-bold leading-tight tabular-nums ${TONES[tone] ?? TONES.default}`}>{value}</p>
         </>
       )}

@@ -3,6 +3,7 @@
 // Operations' per-office forecast (/api/operations/analytics/forecast) and late-risk (/api/operations/analytics/late-risk).
 import { apiFetch } from '../auth/session.js';
 import { applyScope, normalizeHeatmap } from '../ui/analytics.js';
+import { combineCalculations } from '../ui/calculation.js';
 import { completedKpiLabel, forecastSentence, highRiskSentence, mergeSentences, minutesText, sentenceText } from '../ui/insights.js';
 import { getInsightsOverview, getOfficeForecast, getOfficeLateRisk } from './insights.js';
 
@@ -38,7 +39,7 @@ export async function fetchOfficeModels(officeId, fetcher = apiFetch) {
     modelOfficeId: officeId,
     lateRisk: riskRes.status === 'fulfilled'
       ? { state: 'ok', value: riskRes.value, message: '' }
-      : { state: 'error', value: null, message: riskRes.reason?.message || 'Late-risk predictions are unavailable right now.' },
+      : { state: 'error', value: null, message: riskRes.reason?.message || 'The chance of finishing late is unavailable right now.' },
     forecast: forecastRes.status === 'fulfilled'
       ? { state: 'ok', value: forecastRes.value, message: '' }
       : { state: 'error', value: null, message: forecastRes.reason?.message || 'Could not load the forecast.' },
@@ -66,7 +67,9 @@ export function dashboardTrendPulse(overview) {
   const current = pulse.on_time_rate ?? null;
   const previous = pulse.previous_on_time_rate ?? null;
   const change = current !== null && previous !== null ? round1(current - previous) : null;
-  return { current, previous, change, trend };
+  const monthly = Array.isArray(overview?.calculations?.monthly) ? overview.calculations.monthly : [];
+  const calculation = combineCalculations(monthly.map((m) => m?.total));
+  return { current, previous, change, trend, calculation };
 }
 
 /** Builds the 4 top KPI summary cards from live Oversight pulse + Operations late-risk counts. */
@@ -84,6 +87,7 @@ export function dashboardKpis({ overview, lateRisk }) {
         ? 'No open high-risk transactions'
         : 'In selected office';
 
+  const calc = overview?.calculations ?? {};
   return [
     {
       key: 'ontime',
@@ -91,6 +95,7 @@ export function dashboardKpis({ overview, lateRisk }) {
       value: pulse.on_time_rate ?? null,
       unit: '%',
       previous: pulse.previous_on_time_rate ?? null,
+      calculation: calc.on_time_rate ?? null,
     },
     {
       key: 'completed',
@@ -99,6 +104,7 @@ export function dashboardKpis({ overview, lateRisk }) {
       unit: '',
       previous: pulse.previous_results ?? null,
       note: pulse.previous_results == null ? `${pulse.completed_today ?? 0} finished today` : undefined,
+      calculation: calc.on_time_rate ?? null,
     },
     {
       key: 'open',
@@ -109,6 +115,7 @@ export function dashboardKpis({ overview, lateRisk }) {
       note: pulse.oldest_open_age_minutes != null
         ? `Oldest open ${minutesText(pulse.oldest_open_age_minutes)}`
         : `${pulse.received_today ?? 0} received today`,
+      calculation: calc.pending ?? null,
     },
     {
       key: 'high_risk',
@@ -118,6 +125,7 @@ export function dashboardKpis({ overview, lateRisk }) {
       previous: null,
       tone: highCount ? 'danger' : 'default',
       note: highNote,
+      calculation: lateRisk?.value?.calculations?.late_risk ?? null,
     },
   ];
 }
@@ -165,6 +173,7 @@ export function dashboardLateRisk({ lateRisk, officeName = '' } = {}) {
     asOf: lateRisk.value?.as_of ?? null,
     officeName,
     message: '',
+    calculation: lateRisk.value?.calculations?.late_risk ?? null,
   };
 }
 
@@ -278,5 +287,7 @@ export function dashboardComplianceHeatmap({ overview, scope, offices = [], name
     normalized.rows.sort((a, b) => a.officeName.localeCompare(b.officeName));
   }
 
-  return applyScope({ heatmap: normalized, scope: overview?.scope }, scope).heatmap;
+  const monthly = Array.isArray(overview?.calculations?.monthly) ? overview.calculations.monthly : [];
+  const calculation = combineCalculations(monthly.flatMap((m) => (Array.isArray(m?.offices) ? m.offices : [])));
+  return { ...applyScope({ heatmap: normalized, scope: overview?.scope }, scope).heatmap, calculation };
 }

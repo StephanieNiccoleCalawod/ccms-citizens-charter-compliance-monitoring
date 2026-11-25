@@ -29,6 +29,7 @@ function Kpi({ k }) {
       value={`${n(k.value)}${k.value !== null && k.value !== undefined ? k.unit : ''}`}
       tone={k.tone ?? 'default'}
       testId={k.testId}
+      calculation={k.calculation}
       className="justify-between"
     >
       {change !== null || k.note === undefined

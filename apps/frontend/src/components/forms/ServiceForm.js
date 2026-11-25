@@ -352,6 +352,20 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
           aria-describedby={describe('fees')}
         />
         <FieldError id={`${id}-fees-error`}>{fieldError('fees')}</FieldError>
+        <label className="mt-2 flex items-start gap-2 text-sm text-slate-800" htmlFor={`${id}-has-fee`}>
+          <input
+            id={`${id}-has-fee`}
+            data-field="has_fee"
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon"
+            checked={form.has_fee !== false}
+            onChange={(e) => change({ has_fee: e.target.checked }, 'has_fee')}
+          />
+          <span>
+            This service charges a fee
+            <span className="block text-xs text-slate-500">Turn this off for a free service. Staff can attach a proof of payment only when it is on.</span>
+          </span>
+        </label>
       </div>
 
       <div>

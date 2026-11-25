@@ -88,6 +88,6 @@ export function activeNavHref(items, pathname) {
 export function appNavForRole(role, access = {}) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
-  const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
+  const lateRisk = { section: 'Main', label: 'Chance of finishing late', href: '/late-risk' };
   return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), securityNav(role), logsNav(role)].filter(Boolean);
 }

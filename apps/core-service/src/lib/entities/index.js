@@ -54,6 +54,8 @@ export const Service = new EntitySchema({
     processingSteps: { name: 'processing_steps', type: 'text', nullable: true },
     // CC007/CC008 (BR-SRV-001, FR-SRV-001): Charter display-only reference fields.
     fees: { name: 'fees', type: 'text', nullable: true },
+    // S8-58: whether the service charges a fee (proof of payment is accepted only when true).
+    hasFee: { name: 'has_fee', type: 'boolean', default: true },
     whoMayAvail: { name: 'who_may_avail', type: 'text', nullable: true },
     // CC047: who may start this service, a non-empty subset of the four client types (canonical order, no duplicates).
     // Same default and CHECK as migrations/1794528000000-Cc047AllowedClientTypes.js.

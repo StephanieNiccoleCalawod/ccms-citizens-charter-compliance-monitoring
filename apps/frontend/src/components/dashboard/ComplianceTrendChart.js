@@ -57,6 +57,8 @@ export default function ComplianceTrendChart({ pulse }) {
       id="pulse"
       title="Compliance Trend"
       badge={<ChangeBadge change={pulse.change} />}
+      calculation={pulse.calculation ?? null}
+      calculationSubject="the compliance trend"
       description={
         pulse.current !== null ? (
           <>

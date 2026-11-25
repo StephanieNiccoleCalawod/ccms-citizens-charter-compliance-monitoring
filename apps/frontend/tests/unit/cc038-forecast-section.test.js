@@ -43,8 +43,8 @@ describe('CC038 RequestForecastSection', () => {
   });
 
   it('renders data-testid markers for each forecast state', () => {
-    assert.match(section, /data-testid="forecast-not-enough-history"/);
-    assert.match(section, /data-testid="forecast-too-few"/);
+    assert.match(section, /'forecast-not-enough-history'/);
+    assert.match(section, /'forecast-too-few'/);
     assert.match(section, /data-testid="forecast-success"/);
     assert.match(section, /data-testid="forecast-empty"/);
   });
@@ -77,7 +77,7 @@ describe('CC038 RequestForecastChart', () => {
   });
 
   it('marks the section heading with aria-label for accessibility', () => {
-    assert.match(chart, /aria-label="Expected request volume chart/);
+    assert.match(chart, /aria-label="Chart of recorded daily requests and the expected requests/);
   });
 
   it('uses the CCCMS maroon color for the actual line', () => {

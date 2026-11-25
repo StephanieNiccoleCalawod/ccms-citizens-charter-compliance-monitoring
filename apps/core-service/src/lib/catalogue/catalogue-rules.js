@@ -96,6 +96,11 @@ export function parseServiceFields(body, details = {}, { mode = 'create' } = {})
   else if (body.processing_steps.length > 10000) details.processing_steps = 'Procedure steps must be 10,000 characters or fewer';
   else processingSteps = body.processing_steps.trim() === '' ? null : body.processing_steps;
 
+  let hasFee;
+  if (body.has_fee === undefined) hasFee = undefined;
+  else if (typeof body.has_fee !== 'boolean') details.has_fee = 'Has fee must be true or false';
+  else hasFee = body.has_fee;
+
   let fees;
   if (body.fees === undefined) fees = undefined;
   else if (body.fees === null) fees = null;
@@ -128,6 +133,7 @@ export function parseServiceFields(body, details = {}, { mode = 'create' } = {})
     transactionTypes,
     processingSteps,
     fees,
+    hasFee,
     whoMayAvail,
     allowedClientTypes,
   };

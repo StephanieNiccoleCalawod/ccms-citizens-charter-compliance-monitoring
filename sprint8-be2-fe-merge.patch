@@ -1,0 +1,1572 @@
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/api-gateway/src/lib/routes.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/api-gateway/src/lib/routes.js
+--- a/apps/api-gateway/src/lib/routes.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/api-gateway/src/lib/routes.js	2026-11-25 18:13:08.703479516 +0800
+@@ -41,8 +41,8 @@
+   identity: ['/api/auth/', '/api/health'],
+   catalogue: ['/api/public/', '/api/health'],
+   calendar: ['/api/health'],
+-  // CC032/CC033: a citizen files a complaint and checks its status without an account. Exactly these two paths; the service rate limits them.
+-  logs: ['/api/complaints', '/api/complaints/status', '/api/health'],
++  // CC032/CC033: a citizen files a complaint and checks its status without an account. Exactly these paths (file, status, and S8-56 tracking-number check); the service rate limits them.
++  logs: ['/api/complaints', '/api/complaints/status', '/api/complaints/tracking-check', '/api/health'],
+   analytics: ['/api/health'],
+   reports: ['/api/health'],
+   // CC039: a walk-in takes a queue ticket without an account. Exactly this path; Operations rate limits it per client address.
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/app/account/page.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/app/account/page.js
+--- a/apps/frontend/src/app/account/page.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/app/account/page.js	2026-11-25 18:09:57.152688479 +0800
+@@ -9,6 +9,7 @@
+ import WhatICanDo from '../../components/account/WhatICanDo.js';
+ import LoadingState from '../../components/ui/LoadingState.js';
+ import { getMe, getOfficeName } from '../../lib/api/account.js';
++import { CLERK_PASSWORD_NOTE, showPasswordForm } from '../../lib/ui/account.js';
+ 
+ function MyAccount() {
+   const [me, setMe] = useState(null);
+@@ -37,12 +38,12 @@
+   return (
+     <div className="space-y-6">
+       <section className="card p-6" aria-label="Account profile">
+-        <AccountDetails account={me.account} officeName={officeName} />
++        <AccountDetails account={me.account} officeName={officeName} signIn={me.sign_in} />
+       </section>
+       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+         <section className="card p-6" aria-labelledby="acct-password">
+-          <h2 id="acct-password" className="mb-4 title-card">Change password</h2>
+-          <ChangePasswordForm />
++          <h2 id="acct-password" className="mb-4 title-card">{showPasswordForm(me.sign_in) ? 'Change password' : 'Password'}</h2>
++          {showPasswordForm(me.sign_in) ? <ChangePasswordForm /> : <p className="text-sm text-slate-600" data-testid="clerk-password-note">{CLERK_PASSWORD_NOTE}</p>}
+         </section>
+         <section className="card p-6" aria-label="What I can do">
+           <WhatICanDo items={me.what_i_can_do} />
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/app/login/page.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/app/login/page.js
+--- a/apps/frontend/src/app/login/page.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/app/login/page.js	2026-11-25 18:11:12.127151573 +0800
+@@ -6,7 +6,7 @@
+ import ErrorBanner from '../../components/feedback/ErrorBanner.js';
+ import { BRAND } from '../../lib/constants/brand.js';
+ import { ROLE_NOT_RECOGNIZED, ROLE_NOT_RECOGNIZED_MESSAGE } from '../../lib/auth/guards.js';
+-import { clearToken, refreshSession, revokeServerSession, sessionRejection, signIn } from '../../lib/auth/session.js';
++import { NOT_INVITED, clearToken, refreshSession, revokeServerSession, sessionRejection, signIn } from '../../lib/auth/session.js';
+ import { LOGIN_NOTICES, noticeAfterRetry, parseLoginNotice } from '../../lib/auth/sign-out-flow.js';
+ import BrandMark from '../../components/ui/BrandMark.js';
+ import AuthBrandPanel from '../../components/auth/AuthBrandPanel.js';
+@@ -62,6 +62,10 @@
+         }
+         // A session whose role is not recognized was dropped: say why and keep the form here.
+         if (sessionRejection() === ROLE_NOT_RECOGNIZED) setError(ROLE_NOT_RECOGNIZED_MESSAGE);
++        // S8-45: sent back here because the Clerk sign-in was never invited to CCCMS (or the check just said so).
++        const asked = parseLoginNotice(search);
++        if (asked && asked !== 'revoke_failed') setNotice(asked);
++        else if (sessionRejection() === NOT_INVITED) setNotice('not_invited');
+         setChecking(false);
+       })
+       .catch(() => {
+@@ -130,16 +134,18 @@
+             {notice ? (
+               <div className="space-y-2">
+                 <ErrorBanner message={LOGIN_NOTICES[notice]} />
+-                <div className="flex flex-wrap items-center gap-3">
+-                  <button type="button" className="btn-secondary btn-sm" onClick={retryRevoke} disabled={retry.busy}>
+-                    {retry.busy ? 'Trying again…' : 'Try again'}
+-                  </button>
+-                  {retry.result === 'failed' ? (
+-                    <span role="status" className="text-xs text-slate-600">
+-                      Still could not reach the server.
+-                    </span>
+-                  ) : null}
+-                </div>
++                {notice === 'revoke_failed' ? (
++                  <div className="flex flex-wrap items-center gap-3">
++                    <button type="button" className="btn-secondary btn-sm" onClick={retryRevoke} disabled={retry.busy}>
++                      {retry.busy ? 'Trying again…' : 'Try again'}
++                    </button>
++                    {retry.result === 'failed' ? (
++                      <span role="status" className="text-xs text-slate-600">
++                        Still could not reach the server.
++                      </span>
++                    ) : null}
++                  </div>
++                ) : null}
+               </div>
+             ) : retry.result === 'revoked' ? (
+               <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/app/settings/security/page.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/app/settings/security/page.js
+--- a/apps/frontend/src/app/settings/security/page.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/frontend/src/app/settings/security/page.js	2026-11-25 18:14:53.940171889 +0800
+@@ -0,0 +1,68 @@
++'use client';
++
++import { useEffect, useState } from 'react';
++import { ROLES } from 'ccms-shared/roles';
++import ErrorBanner from '../../../components/feedback/ErrorBanner.js';
++import AppShell from '../../../components/layout/AppShell.js';
++import LoadingState from '../../../components/ui/LoadingState.js';
++import TableShell, { Table, Th } from '../../../components/ui/TableShell.js';
++import { getSessionPolicy } from '../../../lib/api/account.js';
++import { SESSION_POLICY_OFF_NOTE, formatLimit } from '../../../lib/ui/account.js';
++
++// S8-34: the sign-in limits the server enforces for each role, read-only. The values come from Identity, never from this page.
++function SecurityAndSessions() {
++  const [policy, setPolicy] = useState(null);
++  const [error, setError] = useState(null);
++
++  useEffect(() => {
++    let cancelled = false;
++    getSessionPolicy()
++      .then((data) => !cancelled && setPolicy(data))
++      .catch((err) => !cancelled && setError(err.message));
++    return () => { cancelled = true; };
++  }, []);
++
++  if (error) return <ErrorBanner message={error} />;
++  if (!policy) return <LoadingState>Loading sign-in limits…</LoadingState>;
++  return (
++    <section className="card p-6" aria-labelledby="sess-heading">
++      <h2 id="sess-heading" className="title-card">Sign-in limits by role</h2>
++      <p className="mt-1 text-sm text-slate-600">
++        A person is signed out after the idle time with no activity, or after the total time since they signed in, whichever comes first.
++        A warning appears 60 seconds before the idle limit.
++      </p>
++      {policy.enforced ? null : <p className="mt-3 rounded-control bg-surface-muted px-4 py-3 text-sm text-slate-600" data-testid="session-policy-off">{SESSION_POLICY_OFF_NOTE}</p>}
++      <div className="mt-4">
++        <TableShell>
++          <Table
++            label="Sign-in limits by role"
++            head={
++              <tr>
++                <Th>Role</Th>
++                <Th>Idle limit</Th>
++                <Th>Total time</Th>
++              </tr>
++            }
++          >
++            {policy.roles.map((row) => (
++              <tr key={row.role} className="tr-row">
++                <td className="td font-semibold text-slate-900">{row.role_label}</td>
++                <td className="td">{formatLimit(row.idle_minutes)}</td>
++                <td className="td">{formatLimit(row.absolute_minutes)}</td>
++              </tr>
++            ))}
++          </Table>
++        </TableShell>
++      </div>
++      <p className="mt-4 text-xs text-slate-500">{policy.applies_to} These limits cannot be changed from this page.</p>
++    </section>
++  );
++}
++
++export default function SecurityAndSessionsPage() {
++  return (
++    <AppShell title="Security and sessions" subtitle="How long each role can stay signed in." allowedRoles={[ROLES.SUPER_ADMIN]}>
++      <SecurityAndSessions />
++    </AppShell>
++  );
++}
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/account/AccountDetails.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/account/AccountDetails.js
+--- a/apps/frontend/src/components/account/AccountDetails.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/components/account/AccountDetails.js	2026-11-25 18:09:53.736688356 +0800
+@@ -1,12 +1,13 @@
+ import RoleBadge from '../ui/RoleBadge.js';
+-import { initials, lastSignIn } from '../../lib/ui/account.js';
++import { initials, lastSignIn, signInMethodLabel } from '../../lib/ui/account.js';
+ 
+-/** My account: the person's own details, read-only. `officeName` is looked up by the page (the account only holds the office id). */
+-export default function AccountDetails({ account, officeName }) {
++/** My account: the person's own details, read-only. `officeName` is looked up by the page (the account only holds the office id). `signIn` is GET /me `sign_in`. */
++export default function AccountDetails({ account, officeName, signIn }) {
+   const rows = [
+     ['Employee number', account.employee_no || '—'],
+     ['Office', account.office_id ? officeName || 'Loading…' : 'All offices'],
+     ['Position', account.position || '—'],
++    ['Sign-in method', signInMethodLabel(signIn)],
+     ['Last sign-in', lastSignIn(account.last_login_at)],
+   ];
+   return (
+@@ -24,7 +25,7 @@
+         </div>
+       </div>
+ 
+-      <dl className="mt-6 grid gap-x-8 gap-y-4 border-t border-line pt-5 sm:grid-cols-4">
++      <dl className="mt-6 grid gap-x-8 gap-y-4 border-t border-line pt-5 sm:grid-cols-5">
+         {rows.map(([label, value]) => (
+           <div key={label}>
+             <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</dt>
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/analytics/LateRiskSection.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/analytics/LateRiskSection.js
+--- a/apps/frontend/src/components/analytics/LateRiskSection.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/components/analytics/LateRiskSection.js	2026-11-25 18:12:31.561759449 +0800
+@@ -4,7 +4,6 @@
+ import Link from 'next/link';
+ import { useRouter } from 'next/navigation';
+ import { ROLES } from 'ccms-shared/roles';
+-import ConfirmDialog from '../dialogs/ConfirmDialog.js';
+ import ErrorBanner from '../feedback/ErrorBanner.js';
+ import StatusBanner from '../feedback/StatusBanner.js';
+ import Modal from '../modals/Modal.js';
+@@ -217,7 +216,7 @@
+ /**
+  * Centered modal dialog for Escalate (high-risk / overdue) and Inspect (within time limit / review) actions.
+  * Uses the shared CCCMS <Modal> component to display Detail Header, Citizen's Charter Service card,
+- * Time Limit Used card, Processing Milestones timeline, and confirmation-gated Escalate / transaction detail actions.
++ * Time Limit Used card, Processing Milestones timeline, and the one real action: open the transaction record (no Escalate button: nothing stores an escalation).
+  */
+ export function LateRiskDetailDrawer({
+   item,
+@@ -227,10 +226,8 @@
+   showProbability = false,
+   isExecutive = false,
+   onClose,
+-  onEscalateConfirmed,
+ }) {
+   const router = useRouter();
+-  const [confirmEscalate, setConfirmEscalate] = useState(false);
+ 
+   if (!item) return null;
+ 
+@@ -486,39 +483,17 @@
+           {item.can_open ? (
+             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#E2E8F0] bg-[#F8FAFC] px-5 py-3.5">
+               <Button
+-                variant={isEscalateMode ? 'secondary' : 'primary'}
++                variant="primary"
+                 size="sm"
+                 data-testid="late-risk-drawer-open-record"
+                 onClick={() => router.push(`/transactions/${encodeURIComponent(item.transaction_id)}`)}
+               >
+                 Open Transaction Record
+               </Button>
+-              {isEscalateMode && !isExecutive ? (
+-                <Button
+-                  variant="primary"
+-                  size="sm"
+-                  data-testid="late-risk-drawer-escalate-btn"
+-                  onClick={() => setConfirmEscalate(true)}
+-                >
+-                  Confirm Escalation
+-                </Button>
+-              ) : null}
+             </div>
+           ) : null}
+         </div>
+       </Modal>
+-
+-      <ConfirmDialog
+-        open={confirmEscalate}
+-        title="Escalate high-risk transaction?"
+-        message={`Flag ${item.tracking_no} (${item.service_name}) for immediate supervisory follow-up and open its transaction record?`}
+-        confirmLabel="Confirm Escalation"
+-        onConfirm={() => {
+-          setConfirmEscalate(false);
+-          onEscalateConfirmed?.(item);
+-        }}
+-        onCancel={() => setConfirmEscalate(false)}
+-      />
+     </>
+   );
+ }
+@@ -570,7 +545,7 @@
+           <div className="space-y-1.5 whitespace-normal">
+             <div className="flex flex-wrap items-center justify-between gap-1.5 font-sans text-xs">
+               <span className="font-mono font-semibold text-[#202938]">
+-                {m.pctUsed !== null ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% used` : row.reason}
++                {m.overdueText ?? (m.pctUsed !== null ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% used` : row.reason)}
+               </span>
+               {m.isOverLimit ? (
+                 <span className="rounded bg-[#FDF2F2] px-1.5 py-0.2 font-sans text-[10px] font-bold uppercase text-[#800000]">
+@@ -636,7 +611,7 @@
+               : 'border-[#E2E8F0] bg-white text-[#202938] hover:bg-[#F8FAFC]'
+               }`}
+           >
+-            <span>{isHigh ? 'Escalate' : 'Inspect'}</span>
++            <span>{isHigh ? 'Review now' : 'Inspect'}</span>
+             <span aria-hidden="true">&rsaquo;</span>
+           </button>
+         );
+@@ -910,7 +885,7 @@
+ 
+             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3 font-sans text-xs text-[#64748B]">
+               <span>Working-time calculations automatically pause outside official campus hours &amp; holidays.</span>
+-              <span>Click Escalate or Inspect to view milestones</span>
++              <span>Click Review now or Inspect to view milestones</span>
+             </div>
+           </section>
+ 
+@@ -948,10 +923,6 @@
+         showProbability={isAdmin}
+         isExecutive={isExecutive}
+         onClose={() => setDetailTarget(null)}
+-        onEscalateConfirmed={(item) => {
+-          setNotice(`Escalation logged for ${item.tracking_no}. Follow-up notification queued.`);
+-          setDetailTarget(null);
+-        }}
+       />
+     </div>
+   );
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/auth/SessionGuard.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/auth/SessionGuard.js
+--- a/apps/frontend/src/components/auth/SessionGuard.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/frontend/src/components/auth/SessionGuard.js	2026-11-25 18:14:53.940442487 +0800
+@@ -0,0 +1,116 @@
++'use client';
++
++import { useCallback, useEffect, useRef, useState } from 'react';
++import Modal from '../modals/Modal.js';
++import Button from '../ui/Button.js';
++import { getMe } from '../../lib/api/account.js';
++import { clearToken, lastRenewedAt, refreshSession, revokeServerSession, setSessionLimitsOn } from '../../lib/auth/session.js';
++import {
++  ACTIVITY_EVENTS, ACTIVITY_KEY, ACTIVITY_WRITE_EVERY_MS, IDLE_NOTICE_URL, SESSION_END_KEY, WARNING_COPY,
++  countdownText, idleState, readSharedActivity, shouldRenew, writeSharedActivity,
++} from '../../lib/auth/idle-guard.js';
++
++/**
++ * Signs the person out after their role's idle limit (S8-33). Shows nothing until 60 seconds before that, then a dialog that is
++ * announced to screen readers and can be answered by keyboard. Does nothing when the server says limits are off (the default).
++ */
++export default function SessionGuard() {
++  const [policy, setPolicy] = useState(null);
++  const [state, setState] = useState({ phase: 'active', secondsLeft: 0 });
++  const [busy, setBusy] = useState(false);
++  const last = useRef(0); // set to the real time when the guard starts (an effect, not render)
++  const lastWrite = useRef(0);
++  const ending = useRef(false);
++
++  useEffect(() => {
++    let cancelled = false;
++    getMe()
++      .then((me) => {
++        if (cancelled) return;
++        const p = me?.session_policy;
++        setSessionLimitsOn(Boolean(p?.enforced));
++        if (p?.enforced) setPolicy(p);
++      })
++      .catch(() => {});
++    return () => { cancelled = true; };
++  }, []);
++
++  const endSession = useCallback(async () => {
++    if (ending.current) return;
++    ending.current = true;
++    try { window.localStorage.setItem(SESSION_END_KEY, String(Date.now())); } catch { /* blocked */ }
++    await revokeServerSession();
++    clearToken();
++    window.location.assign(IDLE_NOTICE_URL);
++  }, []);
++
++  const noteActivity = useCallback(() => {
++    if (!policy || ending.current) return;
++    const now = Date.now();
++    last.current = now;
++    if (now - lastWrite.current > ACTIVITY_WRITE_EVERY_MS) {
++      lastWrite.current = now;
++      writeSharedActivity(window.localStorage, now);
++    }
++    // The person is working: renew early enough that the server's idle clock never runs out under them.
++    if (shouldRenew({ now, renewedAt: lastRenewedAt(), idleMinutes: policy.idle_minutes })) refreshSession(true).catch(() => {});
++  }, [policy]);
++
++  useEffect(() => {
++    if (!policy) return undefined;
++    last.current = Date.now();
++    writeSharedActivity(window.localStorage, last.current);
++    const options = { passive: true, capture: true };
++    for (const name of ACTIVITY_EVENTS) window.addEventListener(name, noteActivity, options);
++    const onStorage = (event) => {
++      if (event.key === SESSION_END_KEY && !ending.current) { ending.current = true; window.location.assign(IDLE_NOTICE_URL); }
++      if (event.key === ACTIVITY_KEY) last.current = readSharedActivity(window.localStorage, last.current);
++    };
++    window.addEventListener('storage', onStorage);
++    const timer = window.setInterval(() => {
++      const next = idleState({ now: Date.now(), lastActivity: readSharedActivity(window.localStorage, last.current), idleMinutes: policy.idle_minutes });
++      setState((s) => (s.phase === next.phase && s.secondsLeft === next.secondsLeft ? s : next));
++      if (next.phase === 'expired') endSession();
++    }, 1000);
++    return () => {
++      for (const name of ACTIVITY_EVENTS) window.removeEventListener(name, noteActivity, options);
++      window.removeEventListener('storage', onStorage);
++      window.clearInterval(timer);
++    };
++  }, [policy, noteActivity, endSession]);
++
++  const stay = useCallback(async () => {
++    setBusy(true);
++    const now = Date.now();
++    last.current = now;
++    writeSharedActivity(window.localStorage, now); // "Stay signed in" counts as activity
++    try { await refreshSession(true); } catch { /* the next request will say if Identity is down */ }
++    setState({ phase: 'active', secondsLeft: 0 });
++    setBusy(false);
++  }, []);
++
++  const stayRef = useRef(null);
++  if (!policy) return null;
++  return (
++    <Modal
++      open={state.phase === 'warning'}
++      title={WARNING_COPY.title}
++      role="alertdialog"
++      describedBy="session-warning-text"
++      initialFocusRef={stayRef}
++      widthClass="max-w-md"
++      footer={
++        <>
++          <Button variant="secondary" onClick={endSession} disabled={busy}>{WARNING_COPY.signOut}</Button>
++          <Button ref={stayRef} variant="primary" onClick={stay} loading={busy} loadingLabel="Please wait…">{WARNING_COPY.stay}</Button>
++        </>
++      }
++    >
++      <p id="session-warning-text" className="text-sm text-ink-muted">{WARNING_COPY.message}</p>
++      <p className="mt-3 text-sm font-semibold text-slate-900" data-testid="session-countdown">
++        Signing out in <span aria-hidden="true">{countdownText(state.secondsLeft)}</span>
++        <span className="sr-only" role="status">{state.secondsLeft % 15 === 0 || state.secondsLeft <= 10 ? `Signing out in ${countdownText(state.secondsLeft)}` : ''}</span>
++      </p>
++    </Modal>
++  );
++}
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/complaints/ComplaintForm.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/complaints/ComplaintForm.js
+--- a/apps/frontend/src/components/complaints/ComplaintForm.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/components/complaints/ComplaintForm.js	2026-11-25 18:13:48.695927917 +0800
+@@ -1,32 +1,53 @@
+ 'use client';
+ 
+ import Link from 'next/link';
+-import { useEffect, useState } from 'react';
++import { useState } from 'react';
+ import ErrorBanner from '../feedback/ErrorBanner.js';
+ import PublicHeader from '../layout/PublicHeader.js';
+-import { fileComplaint, listPublicOffices } from '../../lib/api/complaints.js';
+-import { CATEGORIES, EMPTY_FORM, LIMITS, describeFailure, formErrors, privacyNoticeUrl, remaining } from '../../lib/ui/complaints.js';
++import { checkTrackingNumber, fileComplaint } from '../../lib/api/complaints.js';
++import { CATEGORIES, EMPTY_FORM, LIMITS, TRACKING_NOT_FOUND, TRACKING_REQUIRED, describeFailure, formErrors, foundLine, privacyNoticeUrl, remaining } from '../../lib/ui/complaints.js';
+ 
+ // CC032: a citizen files a complaint without an account. The page keeps nothing after the reference is shown.
++// S8-56: step 1 asks for the transaction tracking number and checks it. The rest of the form opens only when it is found; the office is then
++// filled in from that transaction and locked.
+ export default function ComplaintForm() {
+-  const [offices, setOffices] = useState({ items: [], loading: true, failed: false });
+   const [form, setForm] = useState({ ...EMPTY_FORM });
+   const [errors, setErrors] = useState({});
+   const [banner, setBanner] = useState('');
+   const [busy, setBusy] = useState(false);
+   const [done, setDone] = useState(null);
++  const [tracking, setTracking] = useState(''); // what is typed in step 1
++  const [check, setCheck] = useState({ status: 'idle', found: null, message: '' }); // idle | checking | found | notfound | error
+   const privacy = privacyNoticeUrl();
+ 
+-  useEffect(() => {
+-    let active = true;
+-    listPublicOffices().then((items) => active && setOffices({ items, loading: false, failed: false })).catch(() => active && setOffices({ items: [], loading: false, failed: true }));
+-    return () => { active = false; };
+-  }, []);
+-
+   const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
+   const error = (key) => (errors[key] ? <p id={`c-${key}-error`} className="mt-1 text-xs text-red-700">{errors[key]}</p> : null);
+   const aria = (key) => ({ 'aria-invalid': Boolean(errors[key]), 'aria-describedby': errors[key] ? `c-${key}-error` : undefined });
+ 
++  async function runCheck(event) {
++    event.preventDefault();
++    const value = tracking.trim();
++    if (!value) { setCheck({ status: 'notfound', found: null, message: TRACKING_REQUIRED }); return; }
++    setCheck({ status: 'checking', found: null, message: '' });
++    try {
++      const result = await checkTrackingNumber(value);
++      if (result?.found) {
++        setForm((f) => ({ ...f, tracking_no: value, office_id: result.office_id }));
++        setCheck({ status: 'found', found: result, message: '' });
++      } else {
++        setForm((f) => ({ ...f, tracking_no: '', office_id: '' }));
++        setCheck({ status: 'notfound', found: null, message: TRACKING_NOT_FOUND });
++      }
++    } catch (failure) {
++      setCheck({ status: 'error', found: null, message: describeFailure(failure).message });
++    }
++  }
++
++  function changeNumber() {
++    setForm((f) => ({ ...f, tracking_no: '', office_id: '' }));
++    setCheck({ status: 'idle', found: null, message: '' });
++  }
++
+   async function submit(event) {
+     event.preventDefault();
+     const found = formErrors(form);
+@@ -60,63 +81,76 @@
+             <p className="text-sm"><Link href={`/complaint/status?ref=${encodeURIComponent(done.reference)}`} className="btn-link">Check the status of this complaint</Link></p>
+           </section>
+         ) : (
+-          <form className="card space-y-4 p-6" onSubmit={submit} noValidate data-testid="complaint-form">
+-            <div>
+-              <h1 className="text-xl font-bold text-maroon-950">File a complaint</h1>
+-              <p className="mt-1 text-sm text-slate-600">You do not need an account. Tell us which office and what happened. Your name and email are optional.</p>
+-            </div>
+-            <ErrorBanner message={banner} onDismiss={() => setBanner('')} />
+-            {offices.failed ? <ErrorBanner message="The list of offices could not be loaded. Please reload the page." /> : null}
+-            <div>
+-              <label htmlFor="c-office" className="label">Office *</label>
+-              <select id="c-office" className="input select-chevron" value={form.office_id} onChange={set('office_id')} disabled={offices.loading} {...aria('office_id')}>
+-                <option value="">{offices.loading ? 'Loading offices…' : 'Choose an office'}</option>
+-                {offices.items.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
+-              </select>
+-              {error('office_id')}
+-            </div>
+-            <div>
+-              <label htmlFor="c-category" className="label">Category *</label>
+-              <select id="c-category" className="input select-chevron" value={form.category} onChange={set('category')} {...aria('category')}>
+-                <option value="">Choose a category</option>
+-                {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+-              </select>
+-              {error('category')}
+-            </div>
+-            <div>
+-              <label htmlFor="c-description" className="label">What happened? *</label>
+-              <textarea id="c-description" className="input" rows={6} maxLength={LIMITS.description} value={form.description} onChange={set('description')} {...aria('description')} />
+-              <p className="mt-1 text-xs text-slate-500">{remaining(form)} characters left</p>
+-              {error('description')}
+-            </div>
+-            <div>
+-              <label htmlFor="c-tracking" className="label">Tracking number (optional)</label>
+-              <input id="c-tracking" className="input" maxLength={LIMITS.tracking} value={form.tracking_no} onChange={set('tracking_no')} {...aria('tracking_no')} />
+-              <p className="mt-1 text-xs text-slate-500">The number on your acknowledgement, if you have one.</p>
+-              {error('tracking_no')}
+-            </div>
+-            <div className="grid gap-4 sm:grid-cols-2">
++          <div className="space-y-4">
++            <form className="card space-y-4 p-6" onSubmit={runCheck} noValidate data-testid="complaint-step-1">
+               <div>
+-                <label htmlFor="c-name" className="label">Your name (optional)</label>
+-                <input id="c-name" className="input" maxLength={LIMITS.name} autoComplete="name" value={form.name} onChange={set('name')} {...aria('name')} />
+-                {error('name')}
++                <h1 className="text-xl font-bold text-maroon-950">File a complaint</h1>
++                <p className="mt-1 text-sm text-slate-600">You do not need an account. First, confirm the transaction your complaint is about.</p>
+               </div>
+               <div>
+-                <label htmlFor="c-email" className="label">Your email (optional)</label>
+-                <input id="c-email" type="email" className="input" maxLength={LIMITS.email} autoComplete="email" value={form.email} onChange={set('email')} {...aria('email')} />
+-                <p className="mt-1 text-xs text-slate-500">We email your reference number here.</p>
+-                {error('email')}
++                <label htmlFor="c-tracking" className="label">Enter your transaction tracking number</label>
++                <div className="flex flex-wrap items-start gap-3">
++                  <input id="c-tracking" className="input min-w-0 flex-1" maxLength={LIMITS.tracking} value={tracking} onChange={(e) => setTracking(e.target.value)} readOnly={check.status === 'found'}
++                    aria-invalid={check.status === 'notfound' || undefined} aria-describedby="c-tracking-help" autoComplete="off" />
++                  {check.status === 'found' ? (
++                    <button type="button" className="btn-secondary" onClick={changeNumber}>Change number</button>
++                  ) : (
++                    <button type="submit" className="btn-primary" disabled={check.status === 'checking'} aria-busy={check.status === 'checking' || undefined}>{check.status === 'checking' ? 'Checking…' : 'Check'}</button>
++                  )}
++                </div>
++                <p id="c-tracking-help" className="mt-1 text-xs text-slate-500">The number on your acknowledgement slip.</p>
++                {check.status === 'notfound' || check.status === 'error' ? <p role="alert" className="mt-2 text-sm text-red-700" data-testid="tracking-not-found">{check.message}</p> : null}
++                {check.status === 'found' ? <p role="status" className="mt-2 rounded-control bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800" data-testid="tracking-found">{foundLine(check.found)}</p> : null}
+               </div>
+-            </div>
+-            <p className="text-xs text-slate-600">
+-              We use what you enter only to handle your complaint.{' '}
+-              {privacy ? <a href={privacy} className="btn-link" target="_blank" rel="noreferrer">Read the privacy notice</a> : null}
+-            </p>
+-            <div className="flex flex-wrap items-center gap-3">
+-              <button type="submit" className="btn-primary" disabled={busy || offices.loading} aria-busy={busy || undefined}>{busy ? 'Sending…' : 'Submit complaint'}</button>
+-              <Link href="/complaint/status" className="btn-link text-sm">Already filed? Check the status</Link>
+-            </div>
+-          </form>
++            </form>
++
++            {check.status === 'found' ? (
++              <form className="card space-y-4 p-6" onSubmit={submit} noValidate data-testid="complaint-form">
++                <ErrorBanner message={banner} onDismiss={() => setBanner('')} />
++                <div>
++                  <p className="label">Office and service</p>
++                  <p className="input bg-slate-50 text-slate-700" data-testid="complaint-office-locked">{[check.found.office_name, check.found.service_name].filter(Boolean).join(' — ')}</p>
++                  {error('office_id')}
++                  {error('tracking_no')}
++                </div>
++                <div>
++                  <label htmlFor="c-category" className="label">Category *</label>
++                  <select id="c-category" className="input select-chevron" value={form.category} onChange={set('category')} {...aria('category')}>
++                    <option value="">Choose a category</option>
++                    {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
++                  </select>
++                  {error('category')}
++                </div>
++                <div>
++                  <label htmlFor="c-description" className="label">What happened? *</label>
++                  <textarea id="c-description" className="input" rows={6} maxLength={LIMITS.description} value={form.description} onChange={set('description')} {...aria('description')} />
++                  <p className="mt-1 text-xs text-slate-500">{remaining(form)} characters left</p>
++                  {error('description')}
++                </div>
++                <div className="grid gap-4 sm:grid-cols-2">
++                  <div>
++                    <label htmlFor="c-name" className="label">Your name (optional)</label>
++                    <input id="c-name" className="input" maxLength={LIMITS.name} autoComplete="name" value={form.name} onChange={set('name')} {...aria('name')} />
++                    {error('name')}
++                  </div>
++                  <div>
++                    <label htmlFor="c-email" className="label">Your email (optional)</label>
++                    <input id="c-email" type="email" className="input" maxLength={LIMITS.email} autoComplete="email" value={form.email} onChange={set('email')} {...aria('email')} />
++                    <p className="mt-1 text-xs text-slate-500">We email your reference number here.</p>
++                    {error('email')}
++                  </div>
++                </div>
++                <p className="text-xs text-slate-600">
++                  We use what you enter only to handle your complaint.{' '}
++                  {privacy ? <a href={privacy} className="btn-link" target="_blank" rel="noreferrer">Read the privacy notice</a> : null}
++                </p>
++                <div className="flex flex-wrap items-center gap-3">
++                  <button type="submit" className="btn-primary" disabled={busy} aria-busy={busy || undefined}>{busy ? 'Sending…' : 'Submit complaint'}</button>
++                </div>
++              </form>
++            ) : null}
++            <p className="text-sm"><Link href="/complaint/status" className="btn-link">Already filed? Check the status</Link></p>
++          </div>
+         )}
+       </main>
+     </div>
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/layout/AppShell.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/layout/AppShell.js
+--- a/apps/frontend/src/components/layout/AppShell.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/components/layout/AppShell.js	2026-11-25 18:11:31.760310219 +0800
+@@ -22,6 +22,7 @@
+ import IconButton from '../ui/IconButton.js';
+ import RowActionMenu from '../ui/RowActionMenu.js';
+ import NotificationBell from '../notifications/NotificationBell.js';
++import SessionGuard from '../auth/SessionGuard.js';
+ import { hasBell } from '../../lib/ui/notifications.js';
+ 
+ // Active verified session and sidebar state. Populated only after verification post-hydration.
+@@ -366,6 +367,7 @@
+         </main>
+       </div>
+       <ConfirmDialog {...signOutControl.dialogProps} returnFocusRef={signOutButtonRef} />
++      <SessionGuard />
+       <Toaster />
+     </div>
+   );
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/layout/NavIcon.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/components/layout/NavIcon.js
+--- a/apps/frontend/src/components/layout/NavIcon.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/components/layout/NavIcon.js	2026-11-25 18:11:56.172286543 +0800
+@@ -98,6 +98,7 @@
+   '/calendar': 'calendar',
+   '/settings': 'sliders',
+   '/settings/roles': 'shield',
++  '/settings/security': 'shield',
+   '/logs': 'history',
+   '/registry': 'archive',
+   '/transactions': 'receipt',
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/api/account.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/api/account.js
+--- a/apps/frontend/src/lib/api/account.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/api/account.js	2026-11-25 18:11:56.172682865 +0800
+@@ -1,13 +1,15 @@
+ // CC056: the calls behind My account and Settings > Roles and permissions.
+ import { apiFetch } from '../auth/session.js';
+ import { OFFICES_API } from './catalogue.js';
+-import { ME_API, MY_PASSWORD_API, PERMISSION_SWITCHES_API } from './identity.js';
++import { ME_API, MY_PASSWORD_API, PERMISSION_SWITCHES_API, SESSION_POLICY_API } from './identity.js';
+ 
+ export const getMe = (fetcher = apiFetch) => fetcher(ME_API);
+ 
+ export const changeMyPassword = ({ current, next }, fetcher = apiFetch) =>
+   fetcher(MY_PASSWORD_API, { method: 'PUT', body: { current_password: current, new_password: next } });
+ 
++export const getSessionPolicy = (fetcher = apiFetch) => fetcher(SESSION_POLICY_API);
++
+ export const getPermissionSwitches = (fetcher = apiFetch) => fetcher(PERMISSION_SWITCHES_API);
+ 
+ /** `changes` is { KEY: boolean } for only the switches that changed. */
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/api/complaints.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/api/complaints.js
+--- a/apps/frontend/src/lib/api/complaints.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/api/complaints.js	2026-11-25 18:13:28.736854291 +0800
+@@ -2,6 +2,7 @@
+ //   GET  /api/catalogue/public/offices            the active offices (office_id, office_code, office_name) for the form
+ //   POST /api/logs/complaints                     { office_id, category, description, tracking_no?, name?, email? }
+ //                                                 -> 201 { reference, status, email_sent }; 400 with details by field; 429; 503
++//   GET  /api/logs/complaints/tracking-check?tracking_no=  -> { found: false } | { found: true, office_id, office_name, service_name, date } (S8-56; no personal data)
+ //   GET  /api/logs/complaints/status?ref=         -> { reference, status }; 404 COMPLAINT_NOT_FOUND shows nothing else
+ import { publicFetch, toQuery } from './client.js';
+ 
+@@ -50,6 +51,18 @@
+   } catch {
+     throw new ComplaintApiError('Cannot reach the server. Check your connection and try again.');
+   }
++  if (!response.ok) throw await errorFrom(response);
++  return response.json();
++}
++
++/** S8-56: does this tracking number exist? Only found / not found and the office, service and day come back. */
++export async function checkTrackingNumber(trackingNo, fetchImpl = fetch) {
++  let response;
++  try {
++    response = await fetchImpl(`${COMPLAINTS_API}/tracking-check${toQuery({ tracking_no: String(trackingNo ?? '').trim() })}`, { headers: { accept: 'application/json' } });
++  } catch {
++    throw new ComplaintApiError('Cannot reach the server. Check your connection and try again.');
++  }
+   if (!response.ok) throw await errorFrom(response);
+   return response.json();
+ }
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/api/identity.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/api/identity.js
+--- a/apps/frontend/src/lib/api/identity.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/api/identity.js	2026-11-25 18:11:56.172504738 +0800
+@@ -13,3 +13,5 @@
+ export const ME_API = `${IDENTITY_API}/me`;
+ export const MY_PASSWORD_API = `${IDENTITY_API}/me/password`;
+ export const PERMISSION_SWITCHES_API = `${IDENTITY_API}/permission-switches`;
++// S8-34 — GET /api/identity/session-policy (Super Admin, read-only) -> { enforced, applies_to, roles: [{ role, role_label, idle_minutes, absolute_minutes }] }
++export const SESSION_POLICY_API = `${IDENTITY_API}/session-policy`;
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/api/notifications.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/api/notifications.js
+--- a/apps/frontend/src/lib/api/notifications.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/api/notifications.js	2026-11-25 18:11:12.126769734 +0800
+@@ -8,7 +8,7 @@
+ export const OPERATIONS_NOTIFICATIONS_API = '/api/operations/notifications';
+ 
+ export async function getNotificationFeeds(fetcher = apiFetch) {
+-  const [oversight, operations] = await Promise.allSettled([fetcher(OVERSIGHT_NOTIFICATIONS_API), fetcher(OPERATIONS_NOTIFICATIONS_API)]);
++  const [oversight, operations] = await Promise.allSettled([fetcher(OVERSIGHT_NOTIFICATIONS_API, { background: true }), fetcher(OPERATIONS_NOTIFICATIONS_API, { background: true })]);
+   return { oversight, operations };
+ }
+ export const markNotificationsRead = (keys, fetcher = apiFetch) => fetcher(`${OVERSIGHT_NOTIFICATIONS_API}/read`, { method: 'POST', body: { keys } });
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/auth/idle-guard.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/auth/idle-guard.js
+--- a/apps/frontend/src/lib/auth/idle-guard.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/frontend/src/lib/auth/idle-guard.js	2026-11-25 18:11:31.744691862 +0800
+@@ -0,0 +1,55 @@
++// S8-33 (FE): the inactivity warning, as plain functions so the rules can be tested without a browser.
++// Only the person's own actions count as activity (mouse, keyboard, touch, scroll). Background polling never does.
++// The limits come from GET /me `session_policy` (the Super Admin sees all of them in Settings > Security and sessions).
++
++export const WARNING_SECONDS = 60;
++export const ACTIVITY_KEY = 'ccms_last_activity'; // shared by every tab of this browser, so the tabs agree
++export const SESSION_END_KEY = 'ccms_session_end';
++export const ACTIVITY_WRITE_EVERY_MS = 5_000;
++export const IDLE_NOTICE_URL = '/login?notice=session_idle';
++export const ACTIVITY_EVENTS = Object.freeze(['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll']);
++
++/** { phase: 'active' | 'warning' | 'expired', secondsLeft } for the idle clock at `now`. */
++export function idleState({ now, lastActivity, idleMinutes, warningSeconds = WARNING_SECONDS }) {
++  const secondsLeft = Math.ceil((lastActivity + idleMinutes * 60_000 - now) / 1000);
++  if (secondsLeft <= 0) return { phase: 'expired', secondsLeft: 0 };
++  if (secondsLeft <= warningSeconds) return { phase: 'warning', secondsLeft };
++  return { phase: 'active', secondsLeft };
++}
++
++/** Whether to ask Identity for a new access token on this activity: only when the last renewal is older than a third of the idle limit. */
++export function shouldRenew({ now, renewedAt, idleMinutes }) {
++  return now - renewedAt > (idleMinutes * 60_000) / 3;
++}
++
++/** The warning's words: how long is left, in whole seconds. */
++export function countdownText(secondsLeft) {
++  const s = Math.max(0, Math.floor(secondsLeft));
++  return `${s} ${s === 1 ? 'second' : 'seconds'}`;
++}
++
++export const WARNING_COPY = Object.freeze({
++  title: 'Still there?',
++  message: 'You will be signed out soon because there has been no activity. Choose Stay signed in to keep working.',
++  stay: 'Stay signed in',
++  signOut: 'Sign out',
++});
++
++/** The latest activity time saved by any tab (or `fallback`). */
++export function readSharedActivity(storage, fallback) {
++  try {
++    const value = Number(storage?.getItem(ACTIVITY_KEY));
++    return Number.isFinite(value) && value > 0 ? Math.max(value, fallback ?? 0) : fallback;
++  } catch {
++    return fallback;
++  }
++}
++
++/** Saves the activity time for the other tabs. Never throws (storage may be blocked). */
++export function writeSharedActivity(storage, time) {
++  try {
++    storage?.setItem(ACTIVITY_KEY, String(time));
++  } catch {
++    /* blocked: this tab still works on its own clock */
++  }
++}
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/auth/permissions.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/auth/permissions.js
+--- a/apps/frontend/src/lib/auth/permissions.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/auth/permissions.js	2026-11-25 18:11:56.171962914 +0800
+@@ -29,6 +29,11 @@
+   return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Roles and permissions', href: '/settings/roles' } : null;
+ }
+ 
++/** Settings > Security and sessions (S8-34) is for Super Admin only: the idle and total sign-in limits enforced for every role, read-only. Identity also answers 403 to everyone else. */
++export function securityNav(role) {
++  return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Security and sessions', href: '/settings/security' } : null;
++}
++
+ /**
+  * Clerk sign-in access (Landas 1): the Super Admin approves people who signed in with Clerk. It lives in the Accounts page's
+  * own "Clerk Sign-in Access" tab now, not a sidebar item of its own, so this no longer feeds appNavForRole; kept for the
+@@ -84,5 +89,5 @@
+   const shared = navForRole(role);
+   if (shared.length === 0) return shared;
+   const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
+-  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
++  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), securityNav(role), logsNav(role)].filter(Boolean);
+ }
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/auth/session.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/auth/session.js
+--- a/apps/frontend/src/lib/auth/session.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/auth/session.js	2026-11-25 18:11:12.126506326 +0800
+@@ -19,6 +19,9 @@
+ export const CLERK_EXCHANGE_API = `${IDENTITY_API}/auth/clerk/exchange`;
+ /** Identity's 403 codes for a valid Clerk sign-in that has no CCMS access: shown on the "No access yet" page. */
+ export const ACCESS_REJECTIONS = Object.freeze(['CCMS_ACCESS_PENDING', 'ACCOUNT_INACTIVE', 'IMPERSONATION_NOT_ALLOWED']);
++/** S8-45: a Clerk user CCCMS never invited (for example someone who only uses FMS or SCMS). Not a "No access yet" case: the person goes back to the sign-in page. */
++export const NOT_INVITED = 'NOT_INVITED';
++export const NOT_INVITED_NOTICE_URL = '/login?notice=not_invited';
+ // Which sign-in this tab used ('password' | 'clerk'), so a refresh asks the right place. Only matters in dual mode.
+ const METHOD_KEY = 'ccms_auth_method';
+ 
+@@ -41,6 +44,8 @@
+ 
+ let accessToken = null;
+ let expiresAt = 0;
++let renewedAt = 0; // when this tab last got a new access token (a renewal counts as activity at Identity when session limits are on)
++let sessionLimitsOn = false;
+ let refreshing = null;
+ let hydrated = false;
+ let rejection = null;
+@@ -195,6 +200,7 @@
+ function storeToken(data) {
+   accessToken = data.access_token;
+   expiresAt = Date.now() + data.expires_in * 1000;
++  renewedAt = Date.now();
+   if (!tokenUser()) return false;
+   rejection = null;
+   persist();
+@@ -281,7 +287,7 @@
+   if (!response.ok) {
+     const error = await toApiError(response);
+     clearToken();
+-    rejection = response.status === 403 && ACCESS_REJECTIONS.includes(error.code) ? error.code : null;
++    rejection = response.status === 403 && (ACCESS_REJECTIONS.includes(error.code) || error.code === NOT_INVITED) ? error.code : null;
+     return null;
+   }
+   if (!storeToken(await response.json())) return null;
+@@ -304,7 +310,7 @@
+           if (authProvider() === 'dual') saveMethod(method);
+           return user;
+         }
+-        if (rejection && ACCESS_REJECTIONS.includes(rejection)) return null; // a definite answer: do not try the next sign-in
++        if (rejection && (ACCESS_REJECTIONS.includes(rejection) || rejection === NOT_INVITED)) return null; // a definite answer: do not try the next sign-in
+       }
+       return null;
+     })().finally(() => {
+@@ -320,9 +326,17 @@
+   return refreshSession(true);
+ }
+ 
+-export async function getAccessToken() {
++/** S8-33: the guard tells the session layer whether inactivity limits are enforced for this password sign-in. */
++export function setSessionLimitsOn(on) {
++  sessionLimitsOn = Boolean(on) && methodsToTry()[0] === 'password';
++}
++export const lastRenewedAt = () => renewedAt;
++
++export async function getAccessToken({ background = false } = {}) {
+   hydrate();
+   if (tokenIsFresh()) return accessToken;
++  // Background polling (the bell) must never renew the session while limits are on: only the person's own activity may.
++  if (background && sessionLimitsOn) throw new ApiError('Paused while you are inactive.', { code: 'SESSION_PAUSED', status: 0 });
+   try {
+     const user = await refreshSession(true);
+     return user ? accessToken : null;
+@@ -335,6 +349,12 @@
+ 
+ export function redirectToLogin() {
+   if (typeof window === 'undefined') return;
++  // S8-45: end the Clerk session in this tab only (FMS and SCMS keep theirs) and return to the sign-in page with a plain message.
++  // Never to a protected page or /access-pending.
++  if (rejection === NOT_INVITED) {
++    signOutOfClerk().finally(() => window.location.assign(NOT_INVITED_NOTICE_URL));
++    return;
++  }
+   // A Clerk sign-in without CCMS access goes to the page that says so, not back to a sign-in page that would loop.
+   const target = rejection && ACCESS_REJECTIONS.includes(rejection) ? `${ACCESS_PENDING_PATH}?reason=${encodeURIComponent(rejection)}` : signInPath();
+   if (window.location.pathname !== target.split('?')[0]) window.location.assign(target);
+@@ -411,8 +431,8 @@
+ }
+ 
+ /** Calls an API through the gateway with the bearer token; refreshes once on 401. */
+-export async function apiFetch(path, { method = 'GET', body, headers } = {}, retried = false) {
+-  const token = await getAccessToken();
++export async function apiFetch(path, { method = 'GET', body, headers, background = false } = {}, retried = false) {
++  const token = await getAccessToken({ background });
+   if (!token) {
+     redirectToLogin();
+     throw new ApiError('Your session has ended. Please sign in again.', { status: 401, code: 'SESSION_ENDED' });
+@@ -440,7 +460,7 @@
+     // Forget only the token that was refused. If a concurrent request already replaced it, keep the
+     // new one so the retry reuses it instead of starting another refresh.
+     if (token === accessToken) clearToken();
+-    return apiFetch(path, { method, body, headers }, true);
++    return apiFetch(path, { method, body, headers, background }, true);
+   }
+   if (response.status === 401) {
+     redirectToLogin();
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/auth/sign-out-flow.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/auth/sign-out-flow.js
+--- a/apps/frontend/src/lib/auth/sign-out-flow.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/auth/sign-out-flow.js	2026-11-25 18:11:12.126953208 +0800
+@@ -16,6 +16,8 @@
+ 
+ /** Notices the sign-in page may show. Anything else in ?notice= is ignored, never rendered. */
+ export const LOGIN_NOTICES = Object.freeze({
++  session_idle: 'You were signed out because you were inactive for a while. Please sign in again.',
++  not_invited: 'This sign-in is not registered for CCCMS. Ask your CCCMS administrator for an invitation.',
+   revoke_failed:
+     'The server could not confirm that your session was ended. Your saved sign-in was removed from this page, but the session may still be active on the server. Choose "Try again" when the connection is back, or close the browser if this is a shared computer.',
+ });
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/ui/account.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/ui/account.js
+--- a/apps/frontend/src/lib/ui/account.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/ui/account.js	2026-11-25 18:11:56.172886759 +0800
+@@ -36,6 +36,38 @@
+   return groups;
+ }
+ 
++// S8-04: how this account signs in, from GET /me `sign_in` ({ clerk_linked, has_password }). Anything unclear keeps the password form,
++// so a problem reading the link never hides the way to change a CCCMS password.
++export const SIGN_IN_PASSWORD = 'Password';
++export const SIGN_IN_CLERK = 'PUP QC account (Clerk)';
++export const CLERK_PASSWORD_NOTE = 'Your password is managed in your PUP QC account, not in CCCMS. To change it, use the password option on the PUP QC sign-in page.';
++
++/** True only when the account is linked to Clerk and has no CCCMS password of its own. */
++export function isClerkOnly(signIn) {
++  return signIn?.clerk_linked === true && signIn?.has_password === false;
++}
++
++/** The "Sign-in method" line: Password, PUP QC account (Clerk), or both while the account can use either. */
++export function signInMethodLabel(signIn) {
++  if (isClerkOnly(signIn)) return SIGN_IN_CLERK;
++  if (signIn?.clerk_linked === true) return `${SIGN_IN_PASSWORD} or ${SIGN_IN_CLERK}`;
++  return SIGN_IN_PASSWORD;
++}
++
++/** The CCCMS password form is shown for password accounts and while both ways work; hidden only for a Clerk-only account. */
++export const showPasswordForm = (signIn) => !isClerkOnly(signIn);
++
++/** A limit in minutes as people read it: 15 minutes, 4 hours, 1 hour 30 minutes. */
++export function formatLimit(minutes) {
++  const unit = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
++  const hours = Math.floor(minutes / 60);
++  const rest = minutes % 60;
++  if (hours === 0) return unit(rest, 'minute');
++  return rest === 0 ? unit(hours, 'hour') : `${unit(hours, 'hour')} ${unit(rest, 'minute')}`;
++}
++
++export const SESSION_POLICY_OFF_NOTE = 'These limits are not being enforced yet. They apply once the sign-in limits are turned on for this system.';
++
+ export const LAST_SIGN_IN_NONE = 'No sign-in recorded yet';
+ export const lastSignIn = (iso) => (iso ? formatDateTime(iso) : LAST_SIGN_IN_NONE);
+ 
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/ui/complaints.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/ui/complaints.js
+--- a/apps/frontend/src/lib/ui/complaints.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/ui/complaints.js	2026-11-25 18:13:28.737063511 +0800
+@@ -1,3 +1,5 @@
++import { formatDateLong } from './date-format.js';
++
+ // Rules for the public complaint form and status page (CC032 / CC033), as pure functions. The wording says "complaint" (C-07).
+ // The category list mirrors COMPLAINT_CATEGORIES in the Oversight service (a test compares the two); the service decides.
+ export const CATEGORIES = Object.freeze([
+@@ -51,3 +53,14 @@
+   const url = String(env.NEXT_PUBLIC_PRIVACY_NOTICE_URL ?? '').trim();
+   return /^(https?:\/\/|\/)/.test(url) ? url : '';
+ };
++
++// S8-56: step 1 of the complaint form. The form opens only after the tracking number is found.
++export const TRACKING_NOT_FOUND = 'We could not find this tracking number. Please check it and try again.';
++export const TRACKING_REQUIRED = 'Enter your transaction tracking number.';
++
++/** The line shown for a found number: "Found: Registrar's Office — Request for TOR, November 18, 2026". */
++export function foundLine(found) {
++  const where = [found?.office_name, found?.service_name].filter(Boolean).join(' — ');
++  const day = found?.date ? formatDateLong(found.date) : '';
++  return `Found: ${[where, day].filter(Boolean).join(', ')}`;
++}
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/ui/date-format.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/ui/date-format.js
+--- a/apps/frontend/src/lib/ui/date-format.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/ui/date-format.js	2026-11-25 18:13:28.720696045 +0800
+@@ -57,3 +57,45 @@
+   const end = formatTime(to);
+   return start && end ? `${start} to ${end}` : '';
+ }
++
++// S8-62 (D-AC-2): written-out dates for sentences, headings, chart titles and report headers. Added next to the numeric formatDate,
++// which stays for the places that still use it. Same rules: calendar values are never converted, bad input gives ''.
++const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
++
++function parts(value) {
++  if (!formatDate(value)) return null;
++  const [year, month, day] = value.split('-').map(Number);
++  return { year, month: month - 1, day };
++}
++
++/** '2026-11-24' -> 'November 24, 2026'. */
++export function formatDateLong(value) {
++  const p = parts(value);
++  return p ? `${MONTHS[p.month]} ${p.day}, ${p.year}` : '';
++}
++
++/** '2026-11-24' -> 'Nov 24, 2026' (dense tables). */
++export function formatDateShort(value) {
++  const p = parts(value);
++  return p ? `${MONTHS[p.month].slice(0, 3)} ${p.day}, ${p.year}` : '';
++}
++
++/** '2026-11-24' -> 'Nov 24' (chart axes). */
++export function formatDateAxis(value) {
++  const p = parts(value);
++  return p ? `${MONTHS[p.month].slice(0, 3)} ${p.day}` : '';
++}
++
++/**
++ * A period in words: 'November 24, 2026' (one day), 'November 24–28, 2026' (same month),
++ * 'November 24 – December 2, 2026' (across months), 'December 29, 2026 – January 2, 2027' (across years). '' when either end is unreadable.
++ */
++export function formatDateRange(from, to) {
++  const a = parts(from);
++  const b = parts(to);
++  if (!a || !b) return '';
++  if (from === to) return formatDateLong(from);
++  if (a.year !== b.year) return `${formatDateLong(from)} – ${formatDateLong(to)}`;
++  if (a.month === b.month) return `${MONTHS[a.month]} ${a.day}–${b.day}, ${a.year}`;
++  return `${MONTHS[a.month]} ${a.day} – ${MONTHS[b.month]} ${b.day}, ${a.year}`;
++}
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/ui/insights.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/src/lib/ui/insights.js
+--- a/apps/frontend/src/lib/ui/insights.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/src/lib/ui/insights.js	2026-11-25 18:12:24.274454076 +0800
+@@ -258,6 +258,9 @@
+   return h ? `${h} h ${m % 60} min` : `${m} min`;
+ };
+ 
++/** "Overdue by 2 h 15 min (working time)": the wording the dashboard and the late-risk screen use for items past their limit. */
++export const overdueByText = (minutes) => `Overdue by ${minutesText(minutes)} (working time)`;
++
+ export const sortRows = (rows, key, dir = 'desc') => [...rows].sort((a, b) => (dir === 'desc' ? -1 : 1) * ((Number(a[key]) || 0) - (Number(b[key]) || 0)));
+ export const filterByFlag = (rows, flag) => (flag ? rows.filter((r) => r.flags?.includes(flag)) : rows);
+ 
+@@ -455,6 +458,13 @@
+     elapsedText = 'Limit reached';
+   }
+ 
++  // S8-25: how far past the limit, in working time. Only from numbers the server sent; nothing is worked out from a percentage.
++  const sentOverdue = item.overdue_working_minutes;
++  const overdueMinutes = Number.isFinite(Number(sentOverdue)) && sentOverdue !== null && sentOverdue !== undefined && Number(sentOverdue) > 0
++    ? Math.round(Number(sentOverdue))
++    : (limitMinutes && elapsedMinutes !== null && elapsedMinutes > limitMinutes ? Math.round(elapsedMinutes - limitMinutes) : null);
++  const overdueText = overdueMinutes ? overdueByText(overdueMinutes) : null;
++
+   return {
+     share,
+     pctUsed,
+@@ -462,6 +472,8 @@
+     barFillPct,
+     isOverLimit,
+     isSeverelyOverdue,
++    overdueMinutes,
++    overdueText,
+     limitMinutes,
+     elapsedMinutes,
+     limitText,
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/tests/unit/audit-log.test.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/tests/unit/audit-log.test.js
+--- a/apps/frontend/tests/unit/audit-log.test.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/frontend/tests/unit/audit-log.test.js	2026-11-25 18:14:28.026873391 +0800
+@@ -55,7 +55,7 @@
+       assert.equal(nav.some((item) => item.href === '/settings'), role === ROLES.EXECUTIVE, role);
+       assert.ok(nav.some((item) => item.href === '/services') && nav.some((item) => item.href === '/calendar'), role);
+     }
+-    assert.deepEqual(appNavForRole(ROLES.SUPER_ADMIN).filter((i) => i.section === 'Administration').map((i) => i.label), ['Accounts', 'Offices', 'Registry', 'Roles and permissions', 'Logs']); // CC056 added Roles and permissions
++    assert.deepEqual(appNavForRole(ROLES.SUPER_ADMIN).filter((i) => i.section === 'Administration').map((i) => i.label), ['Accounts', 'Offices', 'Registry', 'Roles and permissions', 'Security and sessions', 'Logs']); // CC056 added Roles and permissions; S8-34 added Security and sessions
+   });
+ 
+   it('the page is limited to Super Admin by the app shell, and the menu item is not a plain link in the shared nav', () => {
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/tests/unit/s8-frontend-pass.test.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/frontend/tests/unit/s8-frontend-pass.test.js
+--- a/apps/frontend/tests/unit/s8-frontend-pass.test.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/frontend/tests/unit/s8-frontend-pass.test.js	2026-11-25 18:14:28.028698166 +0800
+@@ -0,0 +1,146 @@
++// Sprint 8 front-end pass: My Account sign-in method (S8-04), NOT_INVITED (S8-45), the inactivity warning (S8-33), Security and sessions (S8-34),
++// written-out dates (S8-62 helpers), the complaint tracking check (S8-56) and the overdue wording without a fake Escalate (S8-25).
++import { strict as assert } from 'node:assert';
++import { readFileSync } from 'node:fs';
++import { fileURLToPath } from 'node:url';
++import { describe, it } from 'node:test';
++import { ROLES } from 'ccms-shared/roles';
++import { CLERK_PASSWORD_NOTE, formatLimit, isClerkOnly, showPasswordForm, signInMethodLabel } from '../../src/lib/ui/account.js';
++import { appNavForRole, securityNav } from '../../src/lib/auth/permissions.js';
++import { LOGIN_NOTICES, parseLoginNotice } from '../../src/lib/auth/sign-out-flow.js';
++import { WARNING_SECONDS, countdownText, idleState, readSharedActivity, shouldRenew, writeSharedActivity } from '../../src/lib/auth/idle-guard.js';
++import { formatDateAxis, formatDateLong, formatDateRange, formatDateShort } from '../../src/lib/ui/date-format.js';
++import { checkTrackingNumber } from '../../src/lib/api/complaints.js';
++import { TRACKING_NOT_FOUND, foundLine } from '../../src/lib/ui/complaints.js';
++import { deriveLateRiskItemMetrics, overdueByText } from '../../src/lib/ui/insights.js';
++
++const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8');
++
++describe('S8-04 My Account knows how you sign in', () => {
++  it('shows Password, Clerk, or both, and hides the form only for a Clerk-only account', () => {
++    assert.equal(signInMethodLabel({ clerk_linked: false, has_password: true }), 'Password');
++    assert.equal(signInMethodLabel({ clerk_linked: true, has_password: false }), 'PUP QC account (Clerk)');
++    assert.equal(signInMethodLabel({ clerk_linked: true, has_password: true }), 'Password or PUP QC account (Clerk)');
++    assert.equal(isClerkOnly({ clerk_linked: true, has_password: false }), true);
++    assert.equal(showPasswordForm({ clerk_linked: true, has_password: false }), false);
++    for (const unclear of [undefined, null, {}, { clerk_linked: null, has_password: false }]) assert.equal(showPasswordForm(unclear), true);
++    assert.match(CLERK_PASSWORD_NOTE, /PUP QC account/);
++  });
++  it('the page uses them and keeps the password form for password accounts', () => {
++    const page = read('src/app/account/page.js');
++    assert.match(page, /showPasswordForm\(me\.sign_in\)/);
++    assert.match(page, /<ChangePasswordForm \/>/);
++  });
++});
++
++describe('S8-45 a Clerk user CCCMS never invited', () => {
++  it('goes back to the sign-in page with a plain message, never to /access-pending', () => {
++    const session = read('src/lib/auth/session.js');
++    assert.match(session, /NOT_INVITED_NOTICE_URL = '\/login\?notice=not_invited'/);
++    assert.match(session, /if \(rejection === NOT_INVITED\)[\s\S]*signOutOfClerk\(\)/);
++    assert.ok(!/ACCESS_REJECTIONS = Object\.freeze\(\[[^\]]*NOT_INVITED/.test(session));
++    assert.equal(parseLoginNotice('?notice=not_invited'), 'not_invited');
++    assert.equal(LOGIN_NOTICES.not_invited, 'This sign-in is not registered for CCCMS. Ask your CCCMS administrator for an invitation.');
++    assert.equal(parseLoginNotice('?notice=<script>'), null);
++  });
++});
++
++describe('S8-33 inactivity warning', () => {
++  const idleMinutes = 15;
++  const last = 1_000_000;
++  it('is active, then warns 60 seconds before the limit, then expires', () => {
++    assert.equal(idleState({ now: last + 10 * 60_000, lastActivity: last, idleMinutes }).phase, 'active');
++    const warning = idleState({ now: last + 14 * 60_000 + 1_000, lastActivity: last, idleMinutes });
++    assert.equal(warning.phase, 'warning');
++    assert.equal(warning.secondsLeft, 59);
++    assert.equal(idleState({ now: last + idleMinutes * 60_000, lastActivity: last, idleMinutes }).phase, 'expired');
++    assert.equal(WARNING_SECONDS, 60);
++  });
++  it('renews early only when the last renewal is older than a third of the limit', () => {
++    assert.equal(shouldRenew({ now: 6 * 60_000, renewedAt: 0, idleMinutes: 15 }), true);
++    assert.equal(shouldRenew({ now: 4 * 60_000, renewedAt: 0, idleMinutes: 15 }), false);
++  });
++  it('says the countdown in words and shares activity between tabs without throwing', () => {
++    assert.equal(countdownText(1), '1 second');
++    assert.equal(countdownText(45), '45 seconds');
++    const store = new Map();
++    const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
++    writeSharedActivity(storage, 5000);
++    assert.equal(readSharedActivity(storage, 1000), 5000);
++    assert.equal(readSharedActivity({ getItem() { throw new Error('blocked'); } }, 7), 7);
++    assert.doesNotThrow(() => writeSharedActivity({ setItem() { throw new Error('blocked'); } }, 1));
++  });
++  it('the dialog is an alert dialog with no Escape-to-dismiss, and polling never renews while limits are on', () => {
++    const guard = read('src/components/auth/SessionGuard.js');
++    assert.match(guard, /role="alertdialog"/);
++    assert.ok(!/onClose=/.test(guard));
++    assert.match(read('src/lib/auth/session.js'), /background && sessionLimitsOn/);
++    assert.match(read('src/lib/api/notifications.js'), /background: true/);
++    assert.match(read('src/components/layout/AppShell.js'), /<SessionGuard \/>/);
++  });
++});
++
++describe('S8-34 Security and sessions', () => {
++  it('is a Super Admin menu item and a read-only page', () => {
++    assert.deepEqual(securityNav(ROLES.SUPER_ADMIN), { section: 'Administration', label: 'Security and sessions', href: '/settings/security' });
++    for (const role of [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE]) {
++      assert.equal(securityNav(role), null);
++      assert.ok(!appNavForRole(role).some((i) => i.href === '/settings/security'));
++    }
++    const page = read('src/app/settings/security/page.js');
++    assert.match(page, /allowedRoles=\{\[ROLES\.SUPER_ADMIN\]\}/);
++    assert.ok(!/<input|<select|method: 'PUT'/.test(page));
++  });
++  it('writes limits as people read them', () => {
++    assert.equal(formatLimit(15), '15 minutes');
++    assert.equal(formatLimit(240), '4 hours');
++    assert.equal(formatLimit(90), '1 hour 30 minutes');
++    assert.equal(formatLimit(1), '1 minute');
++  });
++});
++
++describe('S8-62 written-out dates', () => {
++  it('formats sentences, tables, axes and ranges', () => {
++    assert.equal(formatDateLong('2026-11-24'), 'November 24, 2026');
++    assert.equal(formatDateShort('2026-11-24'), 'Nov 24, 2026');
++    assert.equal(formatDateAxis('2026-11-24'), 'Nov 24');
++    assert.equal(formatDateRange('2026-11-24', '2026-11-28'), 'November 24–28, 2026');
++    assert.equal(formatDateRange('2026-11-24', '2026-12-02'), 'November 24 – December 2, 2026');
++    assert.equal(formatDateRange('2026-12-29', '2027-01-02'), 'December 29, 2026 – January 2, 2027');
++    assert.equal(formatDateRange('2026-11-24', '2026-11-24'), 'November 24, 2026');
++    for (const bad of ['', null, '2026-02-30', '11/24/2026']) {
++      assert.equal(formatDateLong(bad), '');
++      assert.equal(formatDateRange(bad, '2026-11-24'), '');
++    }
++  });
++});
++
++describe('S8-56 complaint starts with a tracking number check', () => {
++  it('calls the public check route and shows the found line', async () => {
++    const calls = [];
++    const fetchImpl = async (url) => { calls.push(url); return { ok: true, json: async () => ({ found: true, office_name: 'Registrar’s Office', service_name: 'Request for TOR', date: '2026-11-18' }) }; };
++    const result = await checkTrackingNumber(' 2026-00123 ', fetchImpl);
++    assert.equal(calls[0], '/api/logs/complaints/tracking-check?tracking_no=2026-00123');
++    assert.equal(foundLine(result), 'Found: Registrar’s Office — Request for TOR, November 18, 2026');
++    assert.match(TRACKING_NOT_FOUND, /could not find this tracking number/);
++  });
++  it('the form opens only after the number is found and locks the office', () => {
++    const form = read('src/components/complaints/ComplaintForm.js');
++    assert.match(form, /check\.status === 'found' \? \(\s*<form[^>]*data-testid="complaint-form"/);
++    assert.match(form, /data-testid="complaint-office-locked"/);
++  });
++});
++
++describe('S8-25 overdue wording and no fake Escalate', () => {
++  it('says how long past the limit in working time, from the numbers the server sent', () => {
++    assert.equal(overdueByText(135), 'Overdue by 2 h 15 min (working time)');
++    const m = deriveLateRiskItemMetrics({ level: 'HIGH', working_minutes_left: 0, share_used: 1.4, limit_minutes: 300, elapsed_working_minutes: 435, overdue_working_minutes: 135 });
++    assert.equal(m.overdueText, 'Overdue by 2 h 15 min (working time)');
++    assert.equal(deriveLateRiskItemMetrics({ level: 'LOW', working_minutes_left: 120, share_used: 0.4 }).overdueText, null);
++  });
++  it('the late-risk screen has no Confirm Escalation button that reports an action nothing stored', () => {
++    const screen = read('src/components/analytics/LateRiskSection.js');
++    assert.ok(!/Confirm Escalation|Escalation logged|Follow-up notification queued/.test(screen));
++    assert.match(screen, /data-testid="late-risk-drawer-open-record"/);
++  });
++});
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/identity-service/src/lib/me.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/identity-service/src/lib/me.js
+--- a/apps/identity-service/src/lib/me.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/identity-service/src/lib/me.js	2026-11-25 18:11:02.581582657 +0800
+@@ -6,6 +6,7 @@
+ import { kickOutbox } from './outbox.js';
+ import { hashPassword, passwordProblem, verifyPassword } from './passwords.js';
+ import { hashToken } from './tokens.js';
++import { policyForRole } from './session-policy.js';
+ 
+ const rowsOf = (result) => (Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result);
+ 
+@@ -24,6 +25,7 @@
+     },
+     what_i_can_do: capabilitiesFor(dto.role, switches).map(({ key, group, label, access, switchKey, switchOn }) => ({ key, group, label, access, switch_key: switchKey, switch_on: switchOn })),
+     sign_in: await signInMethods(db, account),
++    session_policy: policyForRole(dto.role),
+   };
+ }
+ 
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/identity-service/src/lib/session-policy.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/identity-service/src/lib/session-policy.js
+--- a/apps/identity-service/src/lib/session-policy.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/identity-service/src/lib/session-policy.js	2026-11-25 18:11:02.581378919 +0800
+@@ -1,7 +1,9 @@
+ import { ROLES, ROLE_LABELS } from 'ccms-shared';
+ 
+ // S8-33 / S8-34 (BE): how long a password sign-in may sit idle and how long it may last in total, per role.
+-// Defaults are the PROPOSED values from the Sprint 8 backlog (D8-04); they apply only when SESSION_POLICY_ENABLED=true (off by default).
++// Defaults are the numbers APPROVED for Sprint 8 (D8-04, D8-17, D8-05): Super Admin 15 min idle / 4 h, Office Head 20 min / 8 h,
++// Office Staff 30 min / 8 h, Executive 20 min / 8 h. They apply only when SESSION_POLICY_ENABLED=true (off by default until the
++// deployment turns it on together with the front-end warning). Limits are read-only in Settings; nobody edits them from the screen.
+ // An administrator can tighten or loosen them with SESSION_POLICY_OVERRIDES, a JSON object such as
+ //   {"office_staff":{"idleMinutes":1,"absoluteMinutes":3}}          (accelerated limits for a local test)
+ // Values are bounded and there is no "never expires": an override outside the bounds is ignored and the default is used.
+@@ -48,3 +50,9 @@
+     }),
+   };
+ }
++
++/** What the signed-in person's own screen needs for the inactivity warning: only their role's limits. */
++export function policyForRole(role, env = process.env) {
++  const { idleMinutes, absoluteMinutes } = limitsFor(role, env);
++  return { enforced: env.SESSION_POLICY_ENABLED === 'true', idle_minutes: idleMinutes, absolute_minutes: absoluteMinutes };
++}
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/identity-service/test/me-sign-in.test.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/identity-service/test/me-sign-in.test.js
+--- a/apps/identity-service/test/me-sign-in.test.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/identity-service/test/me-sign-in.test.js	2026-11-25 18:15:52.707249062 +0800
+@@ -45,12 +45,28 @@
+   it('the existing parts of the answer are unchanged and no secret is added', async () => {
+     const account = await seedAccount(ds, { role: ROLES.OFFICE_STAFF });
+     const body = await (await me(account)).json();
+-    assert.deepEqual(Object.keys(body), ['account', 'what_i_can_do', 'sign_in']);
++    assert.deepEqual(Object.keys(body), ['account', 'what_i_can_do', 'sign_in', 'session_policy']); // S8-33 added session_policy
+     assert.equal(body.account.account_id, account.accountId);
+     assert.ok(Array.isArray(body.what_i_can_do));
+     assert.ok(!JSON.stringify(body).includes(account.passwordHash));
+   });
+ 
++  it('S8-33: /me carries only the caller\'s own role limits and whether they are enforced', async () => {
++    const staff = await seedAccount(ds, { role: ROLES.OFFICE_STAFF });
++    assert.deepEqual((await (await me(staff)).json()).session_policy, { enforced: false, idle_minutes: 30, absolute_minutes: 480 });
++    process.env.SESSION_POLICY_ENABLED = 'true';
++    try {
++      const admin = await seedAccount(ds, { role: ROLES.SUPER_ADMIN });
++      assert.deepEqual((await (await me(admin)).json()).session_policy, { enforced: true, idle_minutes: 15, absolute_minutes: 240 });
++      for (const [role, idle, total] of [[ROLES.OFFICE_HEAD, 20, 480], [ROLES.EXECUTIVE, 20, 480]]) {
++        const account = await seedAccount(ds, { role });
++        assert.deepEqual((await (await me(account)).json()).session_policy, { enforced: true, idle_minutes: idle, absolute_minutes: total });
++      }
++    } finally {
++      delete process.env.SESSION_POLICY_ENABLED;
++    }
++  });
++
+   it('if the link lookup fails, /me still answers and says it is unknown', async () => {
+     const account = await seedAccount(ds, { role: ROLES.OFFICE_STAFF });
+     const wrapped = new Proxy(ds, {
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/operations-service/src/app/api/internal/tracking-check/route.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/operations-service/src/app/api/internal/tracking-check/route.js
+--- a/apps/operations-service/src/app/api/internal/tracking-check/route.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/operations-service/src/app/api/internal/tracking-check/route.js	2026-11-25 18:13:08.690519071 +0800
+@@ -0,0 +1,23 @@
++import { Errors, json, requireServiceKey, route } from 'ccms-shared';
++import { getDb } from '../../../../lib/data-source.js';
++
++export const dynamic = 'force-dynamic';
++
++const rowsOf = (result) => (Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result);
++
++// GET /internal/tracking-check?tracking_no= — S8-56, service key only; the gateway never forwards /api/internal.
++// Called by Oversight so a citizen can confirm a transaction before filing a complaint. Answers only whether the number exists and which
++// office, service and day it belongs to: no client, staff, receipt or status details. Exact match after trimming and upper-casing.
++export const GET = route(async (request) => {
++  requireServiceKey(request);
++  const raw = new URL(request.url).searchParams.get('tracking_no');
++  const trackingNo = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
++  if (!trackingNo || trackingNo.length > 60) throw Errors.validation('Enter a tracking number.', { tracking_no: 'Enter a tracking number.' });
++  const rows = rowsOf(await (await getDb()).query(
++    `SELECT office_id, office_name, service_name, started_at FROM transactions WHERE upper(tracking_no) = $1 ORDER BY started_at DESC LIMIT 1`,
++    [trackingNo],
++  ));
++  if (!rows.length) return json({ found: false }, 200, { 'cache-control': 'no-store' });
++  const row = rows[0];
++  return json({ found: true, office_id: row.office_id, office_name: row.office_name, service_name: row.service_name, started_at: new Date(row.started_at).toISOString() }, 200, { 'cache-control': 'no-store' });
++});
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/operations-service/src/modules/analytics/late-risk.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/operations-service/src/modules/analytics/late-risk.js
+--- a/apps/operations-service/src/modules/analytics/late-risk.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/operations-service/src/modules/analytics/late-risk.js	2026-11-25 18:12:03.775378323 +0800
+@@ -230,7 +230,10 @@
+     main_reason_code: !prediction ? RULE_REASON_CODES[level] : strongest === -1 ? 'MODEL_BASELINE' : MAIN_REASON_CODES[strongest],
+     probability: prediction?.probability ?? null,
+     reason: !prediction ? shareReason : strongest === -1 ? 'Model baseline; no individual factor increases the score' : reasons[strongest],
+-    working_minutes_left: Math.max(0, times.limit - times.used), share_used: Math.round(input.share * 1000) / 1000, rule_based: !prediction };
++    working_minutes_left: Math.max(0, times.limit - times.used),
++    // S8-25: the screen can say "Overdue by 2 h 15 min (working time)" only from these three numbers (working minutes, whole numbers).
++    limit_minutes: Math.round(times.limit), elapsed_working_minutes: Math.round(times.used), overdue_working_minutes: Math.max(0, Math.round(times.used - times.limit)),
++    share_used: Math.round(input.share * 1000) / 1000, rule_based: !prediction };
+ }
+ 
+ const riskOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/operations-service/test/s8-25-overdue-minutes.test.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/operations-service/test/s8-25-overdue-minutes.test.js
+--- a/apps/operations-service/test/s8-25-overdue-minutes.test.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/operations-service/test/s8-25-overdue-minutes.test.js	2026-11-25 18:16:06.320701681 +0800
+@@ -0,0 +1,39 @@
++// S8-25: late-risk items carry limit, elapsed and overdue working minutes, so the screen can say "Overdue by 2 h 15 min (working time)".
++import { strict as assert } from 'node:assert';
++import { test } from 'node:test';
++import { ROLES } from 'ccms-shared';
++import { readLateRisk } from '../src/modules/analytics/late-risk.js';
++
++const now = new Date('2026-11-24T04:00:00Z');
++const officeId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
++const actor = { role: ROLES.OFFICE_HEAD, officeId };
++
++function read(used, limit) {
++  const row = { transaction_id: 'tx-1', tracking_no: 'T1', service_name: 'Service', office_id: officeId, service_id: 'service',
++    service_classification: 'SIMPLE', started_by: 'staff', status: 'IN_PROGRESS', started_at: '2026-11-23T01:00:00Z', closed_at: null,
++    standard_duration_days: 0, standard_duration_hours: 1, standard_duration_minutes: 0, held_minutes: 0, hold_started_at: null };
++  const db = { query: async (sql) => {
++    if (sql.includes('FROM late_risk_runs')) return [];
++    if (sql.startsWith('SELECT scored_at')) return [];
++    if (sql.includes('FROM transactions t')) return [row];
++    if (sql.startsWith('INSERT INTO late_risk_score_cache')) return [];
++    assert.fail(`Unexpected query: ${sql}`);
++  } };
++  const timing = { baseUrl: 'http://core/api', key: 'test', fetcher: async () => new Response(JSON.stringify({ items: [{ at: now.toISOString(), used, limit, onHold: false, workingDays: ['2026-11-23'] }] })) };
++  return readLateRisk(db, officeId, actor, { now, timing });
++}
++
++test('an item past its limit reports how many working minutes past', async () => {
++  const [item] = (await read(435, 300)).items;
++  assert.equal(item.limit_minutes, 300);
++  assert.equal(item.elapsed_working_minutes, 435);
++  assert.equal(item.overdue_working_minutes, 135);
++  assert.equal(item.working_minutes_left, 0);
++});
++
++test('an item inside its limit reports zero overdue and the minutes it has used', async () => {
++  const [item] = (await read(120, 300)).items;
++  assert.equal(item.overdue_working_minutes, 0);
++  assert.equal(item.elapsed_working_minutes, 120);
++  assert.equal(item.working_minutes_left, 180);
++});
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/operations-service/test/s8-56-tracking-check.test.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/operations-service/test/s8-56-tracking-check.test.js
+--- a/apps/operations-service/test/s8-56-tracking-check.test.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/operations-service/test/s8-56-tracking-check.test.js	2026-11-25 18:16:20.793456044 +0800
+@@ -0,0 +1,37 @@
++// S8-56 (Operations side): GET /internal/tracking-check answers only found / not found and the office, service and day.
++import { strict as assert } from 'node:assert';
++import { after, before, beforeEach, describe, it } from 'node:test';
++import { GET } from '../src/app/api/internal/tracking-check/route.js';
++import { SERVICE_KEY, call, insertTransaction, req, resetData, seedCoreServices, setupTestEnv } from './helpers.js';
++
++let env;
++before(async () => { env = await setupTestEnv(); seedCoreServices(env.core); });
++after(async () => env?.teardown());
++beforeEach(async () => { await resetData(env.ds); });
++
++const withKey = (path) => call(GET, req('GET', path, { key: SERVICE_KEY }));
++
++describe('GET /internal/tracking-check', () => {
++  it('refuses a caller without the service key', async () => {
++    const res = await call(GET, req('GET', '/internal/tracking-check?tracking_no=X'));
++    assert.equal(res.status, 401);
++  });
++
++  it('says found with only office, service and start time for a real number (trimmed, any letter case)', async () => {
++    await insertTransaction(env.ds, { tracking_no: 'REG-20261118-0001' });
++    const res = await withKey(`/internal/tracking-check?tracking_no=${encodeURIComponent(' reg-20261118-0001 ')}`);
++    assert.equal(res.status, 200);
++    const body = res.body;
++    assert.equal(body.found, true);
++    assert.deepEqual(Object.keys(body).sort(), ['found', 'office_id', 'office_name', 'service_name', 'started_at']);
++  });
++
++  it('says not found for an unknown number and returns nothing else', async () => {
++    const { body } = await withKey('/internal/tracking-check?tracking_no=NOPE-1');
++    assert.deepEqual(body, { found: false });
++  });
++
++  it('refuses an empty number', async () => {
++    assert.equal((await withKey('/internal/tracking-check?tracking_no=')).status, 400);
++  });
++});
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/oversight-service/src/app/api/complaints/tracking-check/route.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/oversight-service/src/app/api/complaints/tracking-check/route.js
+--- a/apps/oversight-service/src/app/api/complaints/tracking-check/route.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/oversight-service/src/app/api/complaints/tracking-check/route.js	2026-11-25 18:13:08.692980841 +0800
+@@ -0,0 +1,13 @@
++import { json, route } from 'ccms-shared';
++import { limitRequest } from '../../../../modules/complaints/complaints.js';
++import { checkTrackingNumber } from '../../../../modules/complaints/tracking-check.js';
++
++export const dynamic = 'force-dynamic';
++
++// GET /complaints/tracking-check?tracking_no=: public (S8-56); only found / not found plus office, service and day; rate limited like the status check.
++export const GET = route(async (request, { correlationId }) => {
++  const limited = await limitRequest(request, correlationId, 'status');
++  if (limited) return limited;
++  const result = await checkTrackingNumber(new URL(request.url).searchParams.get('tracking_no'));
++  return json(result, 200, { 'cache-control': 'no-store' });
++});
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/oversight-service/src/modules/complaints/complaints.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/oversight-service/src/modules/complaints/complaints.js
+--- a/apps/oversight-service/src/modules/complaints/complaints.js	2026-11-24 12:46:26.000000000 +0800
++++ b/apps/oversight-service/src/modules/complaints/complaints.js	2026-11-25 18:13:08.703199449 +0800
+@@ -2,6 +2,7 @@
+ import { AppError, Errors, buildErrorBody, clientIp, createDbStore, createRateLimiter, isUuid, publicLimits } from 'ccms-shared';
+ import { getDb } from '../../lib/data-source.js';
+ import { getMailer } from '../../lib/mailer.js';
++import { checkTrackingNumber, trackingRequired } from './tracking-check.js';
+ 
+ // CC032 / CC033: a citizen files a complaint without an account and checks its status with the reference. Oversight holds them
+ // (spec 8.2; ERD section 8 still to be confirmed by the team). Staff handling is Sprint 7, so a complaint is RECEIVED here and
+@@ -106,8 +107,19 @@
+ const mailText = (reference) => `Your complaint has been received.\n\nReference number: ${reference}\n\nKeep this number. You can check the status of your complaint at any time with it on the CCMS website, without signing in.\n\nThis is an automatic message. Please do not reply.`;
+ 
+ /** POST /complaints. Returns { reference, status, email_sent }. The email never decides whether the complaint is saved. */
+-export async function fileComplaint(db, body, { now = new Date(), isActiveOffice = officeIsActive, mailer = null } = {}) {
++export async function fileComplaint(db, body, { now = new Date(), isActiveOffice = officeIsActive, mailer = null, checkTracking = checkTrackingNumber, env = process.env } = {}) {
+   const v = validateComplaint(body);
++  // S8-56 (COMPLAINT_REQUIRE_TRACKING=true): the complaint must carry a tracking number Operations confirms, and the office must be that transaction's office.
++  if (trackingRequired(env)) {
++    const details = {};
++    if (!v.trackingNo) details.tracking_no = 'Enter your transaction tracking number.';
++    else {
++      const found = await checkTracking(v.trackingNo);
++      if (!found.found) details.tracking_no = 'We could not find this tracking number. Please check it and try again.';
++      else if (found.office_id !== v.officeId) details.office_id = 'This tracking number belongs to a different office.';
++    }
++    if (Object.keys(details).length) throw Errors.validation('Please correct the highlighted fields.', details);
++  }
+   if (!(await isActiveOffice(v.officeId))) throw Errors.validation('Choose an active office.', { office_id: 'Choose an active office.' });
+   let reference;
+   for (let attempt = 0; attempt < 5 && !reference; attempt += 1) {
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/oversight-service/src/modules/complaints/tracking-check.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/oversight-service/src/modules/complaints/tracking-check.js
+--- a/apps/oversight-service/src/modules/complaints/tracking-check.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/oversight-service/src/modules/complaints/tracking-check.js	2026-11-25 18:13:08.691848910 +0800
+@@ -0,0 +1,31 @@
++import { AppError, serviceApiBase } from 'ccms-shared';
++
++// S8-56: does this tracking number belong to a real transaction? Asked of Operations with the shared service key (Oversight keeps no
++// transactions). Returns { found: false } or { found: true, office_id, office_name, service_name, date } (date = the Manila day it started).
++// Operations or the key unavailable is a 503, never a guess, so a complaint is never tied to a number nobody confirmed.
++const UNAVAILABLE = 'The tracking number cannot be checked right now. Please try again in a few minutes.';
++
++const manilaDay = (iso) => new Date(new Date(iso).getTime() + 8 * 3_600_000).toISOString().slice(0, 10);
++
++export async function checkTrackingNumber(trackingNo, { env = process.env, fetchImpl = fetch } = {}) {
++  const value = typeof trackingNo === 'string' ? trackingNo.trim() : '';
++  if (!value) return { found: false };
++  const base = serviceApiBase(env.OPERATIONS_SERVICE_URL);
++  if (!base || !env.SERVICE_KEY) throw new AppError(503, 'OPERATIONS_UNAVAILABLE', UNAVAILABLE);
++  let response;
++  try {
++    response = await fetchImpl(`${base}/internal/tracking-check?tracking_no=${encodeURIComponent(value)}`, {
++      headers: { accept: 'application/json', 'x-service-key': env.SERVICE_KEY },
++      signal: AbortSignal.timeout(5000),
++    });
++  } catch {
++    throw new AppError(503, 'OPERATIONS_UNAVAILABLE', UNAVAILABLE);
++  }
++  if (!response.ok) throw new AppError(503, 'OPERATIONS_UNAVAILABLE', UNAVAILABLE);
++  const body = await response.json().catch(() => null);
++  if (!body || body.found !== true) return { found: false };
++  return { found: true, office_id: String(body.office_id ?? '').toLowerCase(), office_name: body.office_name ?? null, service_name: body.service_name ?? null, date: body.started_at ? manilaDay(body.started_at) : null };
++}
++
++/** Whether a complaint must carry a confirmed tracking number (D-AC-1 pending, so off unless COMPLAINT_REQUIRE_TRACKING=true). */
++export const trackingRequired = (env = process.env) => env.COMPLAINT_REQUIRE_TRACKING === 'true';
+diff -ruN '--exclude=node_modules' '--exclude=.next' '--exclude=.run-*' '--exclude=.qa' '--exclude=.env.local' orig/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/oversight-service/test/s8-56-tracking-check.test.js cccms_src/ccms-citizens-charter-compliance-monitoring-codebase-for-deployment/apps/oversight-service/test/s8-56-tracking-check.test.js
+--- a/apps/oversight-service/test/s8-56-tracking-check.test.js	1970-01-01 08:00:00.000000000 +0800
++++ b/apps/oversight-service/test/s8-56-tracking-check.test.js	2026-11-25 18:16:33.772702663 +0800
+@@ -0,0 +1,54 @@
++// S8-56: the public tracking-number check, and the optional rule (COMPLAINT_REQUIRE_TRACKING=true) that a complaint needs a confirmed number.
++import { strict as assert } from 'node:assert';
++import { describe, it } from 'node:test';
++import { checkTrackingNumber, trackingRequired } from '../src/modules/complaints/tracking-check.js';
++import { fileComplaint } from '../src/modules/complaints/complaints.js';
++import { OFFICE_A } from './helpers.js';
++
++const env = { OPERATIONS_SERVICE_URL: 'http://ops', SERVICE_KEY: 'k' };
++const answer = (body, status = 200) => async () => ({ ok: status < 400, status, json: async () => body });
++const good = (over = {}) => ({ office_id: OFFICE_A, category: 'DELAYED_SERVICE', description: 'Waited three weeks.', ...over });
++
++describe('checkTrackingNumber', () => {
++  it('asks Operations with the service key and returns only office, service and the Manila day', async () => {
++    let seen;
++    const fetchImpl = async (url, init) => { seen = { url, key: init.headers['x-service-key'] }; return { ok: true, status: 200, json: async () => ({ found: true, office_id: OFFICE_A.toUpperCase(), office_name: 'Registrar', service_name: 'TOR', started_at: '2026-11-17T17:30:00Z', client_email: 'secret@x.ph' }) }; };
++    const result = await checkTrackingNumber(' REG-1 ', { env, fetchImpl });
++    assert.equal(seen.url, 'http://ops/api/internal/tracking-check?tracking_no=REG-1');
++    assert.equal(seen.key, 'k');
++    assert.deepEqual(result, { found: true, office_id: OFFICE_A, office_name: 'Registrar', service_name: 'TOR', date: '2026-11-18' }); // 01:30 Manila on the 18th
++    assert.ok(!JSON.stringify(result).includes('secret'));
++  });
++  it('says not found without calling Operations for an empty number, and for an unknown one', async () => {
++    let calls = 0;
++    const fetchImpl = async () => { calls += 1; return { ok: true, status: 200, json: async () => ({ found: false }) }; };
++    assert.deepEqual(await checkTrackingNumber('  ', { env, fetchImpl }), { found: false });
++    assert.equal(calls, 0);
++    assert.deepEqual(await checkTrackingNumber('NOPE', { env, fetchImpl }), { found: false });
++  });
++  it('fails closed with 503 when Operations or the key is missing, down or answers an error', async () => {
++    await assert.rejects(checkTrackingNumber('A', { env: {}, fetchImpl: answer({}) }), (e) => e.status === 503);
++    await assert.rejects(checkTrackingNumber('A', { env, fetchImpl: async () => { throw new Error('down'); } }), (e) => e.status === 503);
++    await assert.rejects(checkTrackingNumber('A', { env, fetchImpl: answer({}, 500) }), (e) => e.status === 503);
++  });
++});
++
++describe('complaint needs a confirmed number only when switched on', () => {
++  it('is off unless COMPLAINT_REQUIRE_TRACKING=true', () => {
++    assert.equal(trackingRequired({}), false);
++    assert.equal(trackingRequired({ COMPLAINT_REQUIRE_TRACKING: 'true' }), true);
++  });
++  const required = { COMPLAINT_REQUIRE_TRACKING: 'true' };
++  const never = async () => assert.fail('must not reach the database');
++  const db = { query: never };
++  it('refuses a missing number', async () => {
++    await assert.rejects(fileComplaint(db, good(), { env: required, isActiveOffice: async () => true, checkTracking: never }), (e) => e.status === 400 && /tracking number/i.test(e.details.tracking_no));
++  });
++  it('refuses a number that does not exist', async () => {
++    await assert.rejects(fileComplaint(db, good({ tracking_no: 'X' }), { env: required, isActiveOffice: async () => true, checkTracking: async () => ({ found: false }) }), (e) => e.status === 400 && /could not find/i.test(e.details.tracking_no));
++  });
++  it('refuses a number from a different office', async () => {
++    const other = '11111111-1111-4111-8111-111111111111';
++    await assert.rejects(fileComplaint(db, good({ tracking_no: 'X' }), { env: required, isActiveOffice: async () => true, checkTracking: async () => ({ found: true, office_id: other }) }), (e) => e.status === 400 && 'office_id' in e.details);
++  });
++});

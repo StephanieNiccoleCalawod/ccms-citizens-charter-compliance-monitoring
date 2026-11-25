@@ -142,3 +142,19 @@ export function completionBody(manual) {
   if (!manual?.enabled) return undefined;
   return { ended_at: manilaIso(manual.ended_at), backdate_reason: manual.reason.trim() };
 }
+
+/**
+ * S8-53: may this person record a past transaction for this office? The Super Admin always may; anyone else only when the office's
+ * switch is on. An office the screen could not read stays open (the server still refuses with OFFICE_BACKDATE_NOT_ALLOWED).
+ */
+export function officeAllowsPast(office, role) {
+  if (role === 'SUPER_ADMIN') return true;
+  if (!office || typeof office.allow_backdated_transactions !== 'boolean') return true;
+  return office.allow_backdated_transactions;
+}
+
+export const BACKDATE_OFFICE_MESSAGES = {
+  saved: (name, on) => `${name} can ${on ? 'now' : 'no longer'} record past transactions.`,
+  failed: 'The change was not saved. Please try again.',
+  denied: 'Only a Super Admin can change this.',
+};

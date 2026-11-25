@@ -34,6 +34,8 @@ export const EMPTY_SERVICE_FORM = {
   procedure_mode: 'steps',
   procedure_steps: [],
   fees: '',
+  // S8-58: does the service charge a fee? Proof of payment is offered only when it does.
+  has_fee: true,
   who_may_avail: '',
   // CC047: who may start this service; at least one. New services allow all four.
   allowed_client_types: ['STUDENT', 'ALUMNI', 'EMPLOYEE', 'EXTERNAL'],
@@ -57,6 +59,7 @@ export function serviceToForm(service) {
     transaction_types: Array.isArray(service.transaction_types) ? [...service.transaction_types] : [],
     ...procedureFields(service.processing_steps),
     fees: service.fees ?? '',
+    has_fee: service.has_fee !== false,
     who_may_avail: service.who_may_avail ?? '',
     // An older Core without the field: all four (what it enforces). Kept as stored otherwise.
     allowed_client_types: Array.isArray(service.allowed_client_types) ? [...service.allowed_client_types] : [...EMPTY_SERVICE_FORM.allowed_client_types],
@@ -115,6 +118,7 @@ export function formToBody(form, isNew) {
     // Step editor: the numbered text. Text box: exactly what is in it. Empty is no procedure.
     processing_steps: procedureForBody(form),
     fees: blank(form.fees) ? null : form.fees,
+    has_fee: form.has_fee !== false,
     who_may_avail: blank(form.who_may_avail) ? null : form.who_may_avail,
     allowed_client_types: [...form.allowed_client_types],
   };

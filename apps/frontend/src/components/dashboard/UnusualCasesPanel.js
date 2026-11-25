@@ -1,5 +1,6 @@
 'use client';
 
+import CalculationInfo from '../analytics/CalculationInfo.js';
 import Link from 'next/link';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 import { buildUnusualEmptyState, filterScopedUnusual, minutesText } from '../../lib/ui/insights.js';
@@ -165,7 +166,10 @@ export default function UnusualCasesPanel({
   return (
     <Card id="unusual" as="section" aria-label="Unusual delays" padding="md" className="space-y-4 sm:p-6" data-testid="insights-unusual">
       <div>
-        <h3 className="font-serif text-2xl font-normal leading-tight text-[#202938]">Unusual Delays</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-serif text-2xl font-normal leading-tight text-[#202938]">Unusual Delays</h3>
+          <CalculationInfo calculation={overview?.calculations?.charter_summary ?? null} subject="the unusual delays" testId="unusual-calc" />
+        </div>
         <p className="mt-1 font-sans text-sm text-[#64748B]">{description}</p>
       </div>
       {table}

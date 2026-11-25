@@ -125,7 +125,7 @@ export default function KpiHome({ user }) {
       header: 'Status',
       render: (row) => (
         <StatusBadge variant={row.status === 'ON_HOLD' ? 'warning' : 'neutral'}>
-          {row.status === 'ON_HOLD' ? 'On hold' : 'In progress'}
+          {row.status === 'ON_HOLD' ? 'Paused (waiting for the client)' : 'In progress'}
         </StatusBadge>
       ),
     },

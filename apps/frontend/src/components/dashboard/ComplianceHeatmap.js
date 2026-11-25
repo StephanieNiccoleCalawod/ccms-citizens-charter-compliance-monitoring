@@ -9,6 +9,8 @@ export default function ComplianceHeatmap({ heatmap, scope }) {
     <ChartCard
       id="heatmap"
       title="On-Time Compliance by Office"
+      calculation={heatmap.calculation ?? null}
+      calculationSubject="on-time compliance by office"
       description={scope.kind === 'office' ? 'Your office, by month.' : 'Each row is an office and each column is a month. Hover over or select a cell to see its value.'}
       empty={heatmap.rows.length === 0 || heatmap.periods.length === 0}
       emptyMessage="No office data to show yet."

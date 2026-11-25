@@ -2,6 +2,7 @@ import { clientIp, json, requirePermission, route } from 'ccms-shared';
 import { getDb } from '../../../../../lib/data-source.js';
 import { RECEIPT_ROLES, deleteReceipt, getReceipt, readReceiptUpload, uploadReceipt } from '../../../../../modules/receipts/receipts.js';
 import { receiptStorage } from '../../../../../modules/receipts/storage.js';
+import { runtimeDeps } from '../../../../../modules/transaction/deps.js';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -21,7 +22,7 @@ export const GET = route(async (request, { params }) => {
 export const POST = route(async (request, { params }) => {
   const user = await canUse(request);
   const upload = await readReceiptUpload(request);
-  const result = await uploadReceipt(await getDb(), { storage: receiptStorage() }, user, params.id, upload, { ipAddress: clientIp(request) });
+  const result = await uploadReceipt(await getDb(), { storage: receiptStorage(), core: runtimeDeps().core }, user, params.id, upload, { ipAddress: clientIp(request) });
   return json(result, 201, NO_STORE);
 });
 

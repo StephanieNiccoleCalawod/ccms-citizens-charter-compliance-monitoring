@@ -6,15 +6,29 @@ import StatusBanner from '../feedback/StatusBanner.js';
 import { notify } from '../../lib/ui/notify.js';
 import { todayManila } from '../../lib/api/calendar.js';
 import { deleteReceipt, fetchReceiptImage, getReceipt, uploadReceipt } from '../../lib/api/receipts.js';
+import { getServiceDetail } from '../../lib/api/transactions.js';
 import { formatDate, formatDateTime } from '../../lib/ui/date-format.js';
 import { EMPTY_RECEIPT_FORM, RECEIPT_ACCEPT, formatAmount, receiptFailure, receiptFormErrors } from '../../lib/ui/receipts.js';
 
 const LABEL = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 
+/** S8-58: true until Core says the service has no fee (a service that could not be read keeps today's behaviour; the server still refuses). */
+function useServiceHasFee(serviceId) {
+  const [hasFee, setHasFee] = useState(true);
+  useEffect(() => {
+    if (!serviceId) return undefined;
+    let cancelled = false;
+    getServiceDetail(serviceId).then((service) => !cancelled && setHasFee(service?.has_fee !== false)).catch(() => {});
+    return () => { cancelled = true; };
+  }, [serviceId]);
+  return hasFee;
+}
+
 // CC045 proof of payment on transaction detail: Office Staff / Office Head of the office and Super Admin. Never rendered for an
 // Executive (TransactionDetail checks canSeeReceipts) and the server answers 403 regardless. The photo is fetched with the session
 // and shown from a local object URL that is released when the panel closes; nothing is cached or linked publicly.
-export default function ReceiptPanel({ transactionId }) {
+export default function ReceiptPanel({ transactionId, serviceId = null }) {
+  const hasFee = useServiceHasFee(serviceId);
   const [state, setState] = useState({ loading: true, receipt: null, message: null });
   const [form, setForm] = useState({ ...EMPTY_RECEIPT_FORM });
   const [errors, setErrors] = useState({});
@@ -98,6 +112,9 @@ export default function ReceiptPanel({ transactionId }) {
   const receipt = state.receipt;
   const field = (name) => ({ 'aria-invalid': errors[name] ? true : undefined, 'aria-describedby': errors[name] ? `receipt-${name}-error` : undefined });
   const fieldError = (name) => (errors[name] ? <p id={`receipt-${name}-error`} className="mt-1 text-xs text-red-700">{errors[name]}</p> : null);
+  // No fee, nothing attached: the proof-of-payment section is not shown at all.
+  if (!hasFee && !state.loading && !state.receipt) return null;
+
   return (
     <section className="mt-6 border-t border-line pt-4" aria-labelledby="receipt-heading" data-testid="receipt-panel">
       <h3 id="receipt-heading" className="text-sm font-semibold text-slate-700">Proof of payment</h3>

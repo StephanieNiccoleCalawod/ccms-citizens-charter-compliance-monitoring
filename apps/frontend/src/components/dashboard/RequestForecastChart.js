@@ -33,8 +33,8 @@ function ForecastTooltip({ active, payload, label }) {
   const upper    = find('upper');
   return (
     <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm shadow-md">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      {actual   != null && <p className="mt-1 text-slate-900"><span className="font-bold">{actual}</span> <span className="text-xs text-slate-500">requests (actual)</span></p>}
+      <p className="text-xs font-semibold text-slate-500">{payload[0]?.payload?.fullDate ?? label}</p>
+      {actual   != null && <p className="mt-1 text-slate-900"><span className="font-bold">{actual}</span> <span className="text-xs text-slate-500">requests (recorded)</span></p>}
       {forecast != null && (
         <>
           <p className="mt-1 text-slate-900"><span className="font-bold">{forecast}</span> <span className="text-xs text-slate-500">expected</span></p>
@@ -52,11 +52,11 @@ function ForecastTooltip({ active, payload, label }) {
  *   height?: number,
  * }} props
  */
-export default function RequestForecastChart({ data, firstForecastDate, height = 280 }) {
+export default function RequestForecastChart({ data, firstForecastDate, todayLabel = 'Today', height = 280 }) {
   if (!data?.length) return <p className="py-10 text-center text-sm text-slate-500">No data to chart.</p>;
 
   return (
-    <div role="img" aria-label="Expected request volume chart showing past daily counts and the next 5 days" style={{ width: '100%', height }}>
+    <div role="img" aria-label="Chart of recorded daily requests and the expected requests for the next 5 working days" style={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke={GRID_COLOR} />
@@ -101,14 +101,14 @@ export default function RequestForecastChart({ data, firstForecastDate, height =
               x={firstForecastDate}
               stroke={FORECAST_COLOR}
               strokeDasharray="3 3"
-              label={{ value: 'EXPECTED', position: 'insideTop', fill: FORECAST_COLOR, fontSize: 10, fontWeight: 700 }}
+              label={{ value: todayLabel, position: 'insideTop', fill: FORECAST_COLOR, fontSize: 10, fontWeight: 700 }}
             />
           )}
 
           {/* Actual history line */}
           <Line
             dataKey="actual"
-            name="Actual"
+            name="Recorded"
             stroke={ACTUAL_COLOR}
             strokeWidth={2.5}
             dot={false}

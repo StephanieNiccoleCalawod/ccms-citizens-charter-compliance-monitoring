@@ -21,7 +21,9 @@ import {
   deriveLateRiskItemMetrics,
   minutesText,
 } from '../../lib/ui/insights.js';
+import { mainReasonText } from '../../lib/ui/late-risk-reason.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
+import CalculationInfo from './CalculationInfo.js';
 
 const API = '/api/operations/analytics/late-risk';
 const percent = (value) => `${Math.round(Number(value) * 100)}%`;
@@ -519,6 +521,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
             <span className="block font-mono text-xs font-bold text-[#202938]">{row.tracking_no}</span>
           )}
           <p className="font-sans text-xs leading-snug text-[#64748B]">{row.service_name}</p>
+          <p className="font-sans text-[11px] leading-snug text-[#475569]" data-testid="late-risk-main-reason">{mainReasonText(row.main_reason_code)}</p>
         </div>
       ),
     },
@@ -531,7 +534,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
     },
     {
       key: 'consumed',
-      header: 'Charter Time Consumed',
+      header: 'Time used of promised',
       width: '25%',
       sortable: true,
       render: (row) => {
@@ -560,7 +563,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
               aria-valuenow={m.barFillPct}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label={`Charter time consumed: ${m.consumptionLabel}`}
+              aria-label={`Time used of the promised time: ${m.consumptionLabel}`}
               className="h-1.5 w-full overflow-hidden rounded-full bg-[#E2E8F0]"
             >
               <div className={`h-full rounded-full ${barTone}`} style={{ width: `${m.barFillPct}%` }} />
@@ -768,6 +771,7 @@ export default function LateRiskSection({
         data-testid="late-risk-toolbar"
         className="card flex flex-col gap-3 p-4 sm:p-5 2xl:flex-row 2xl:items-center 2xl:justify-between"
       >
+        {!embedded ? <CalculationInfo calculation={data?.calculations?.late_risk ?? null} subject="the chance of finishing late" testId="late-risk-calc" /> : null}
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1 sm:min-w-[16rem] sm:max-w-sm">
             <label htmlFor="late-risk-search" className="sr-only">Search tracking number or service</label>

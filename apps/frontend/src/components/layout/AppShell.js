@@ -14,6 +14,7 @@ import { getMe } from '../../lib/api/account.js';
 import { initials, staffAccessFrom } from '../../lib/ui/account.js';
 import Breadcrumb from '../navigation/Breadcrumb.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
+import ResultModal from '../feedback/ResultModal.js';
 import Toaster from '../feedback/Toaster.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import BrandMark from '../ui/BrandMark.js';
@@ -369,6 +370,7 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
       <ConfirmDialog {...signOutControl.dialogProps} returnFocusRef={signOutButtonRef} />
       <SessionGuard />
       <Toaster />
+      <ResultModal />
     </div>
   );
 }

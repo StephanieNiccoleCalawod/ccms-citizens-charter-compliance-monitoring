@@ -1,5 +1,6 @@
 'use client';
 
+import CalculationInfo from '../analytics/CalculationInfo.js';
 import { useMemo, useRef, useState } from 'react';
 import { getInsightsCell } from '../../lib/api/insights.js';
 import {
@@ -100,9 +101,12 @@ export default function ServiceLateRateMatrix({
       <div className="p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <h3 id="service-heatmap-title" className="font-serif text-xl font-normal leading-tight text-[#202938] sm:text-2xl">
-              Late Rate by Office &amp; Service
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 id="service-heatmap-title" className="font-serif text-xl font-normal leading-tight text-[#202938] sm:text-2xl">
+                Late Rate by Office &amp; Service
+              </h3>
+              <CalculationInfo calculation={overview?.calculations?.service_late_rates ?? null} subject="the late rate by office and service" testId="service-heatmap-calc" />
+            </div>
             <p className="mt-1 font-sans text-sm text-[#64748B]">
               Services with fewer than {minCompleted} completed transactions are marked as{' '}
               <span className="font-semibold text-[#202938]">Too few to judge</span>. Select a service to see its weekly breakdown and late transactions.

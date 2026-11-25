@@ -4,6 +4,7 @@ import { kickOutbox } from '../../lib/outbox.js';
 import { canAccessTransaction } from '../transaction/access.js';
 import { RECEIPT_MAX_BYTES } from '../../../migrations/1794900200000-Cc045TransactionReceipts.js';
 import { StorageUnavailableError } from './storage.js';
+import { assertServiceHasFee } from './fee-check.js';
 
 // =================================================================================================================
 // CC045 proof of payment: a cashier receipt photo with its official receipt (OR) number, amount and receipt date.
@@ -57,7 +58,7 @@ export function canAccessReceipts(user, transaction) {
 
 async function loadScopedTransaction(manager, user, transactionId) {
   if (!isUuid(transactionId)) throw Errors.notFound('Transaction not found', 'TRANSACTION_NOT_FOUND');
-  const [row] = await manager.query('SELECT transaction_id, tracking_no, office_id, started_by FROM transactions WHERE transaction_id = $1', [transactionId]);
+  const [row] = await manager.query('SELECT transaction_id, tracking_no, office_id, service_id, started_by FROM transactions WHERE transaction_id = $1', [transactionId]);
   if (!row) throw Errors.notFound('Transaction not found', 'TRANSACTION_NOT_FOUND');
   if (!canAccessReceipts(user, row)) throw Errors.forbidden();
   return row;
@@ -207,11 +208,12 @@ async function markDeleted(manager, attachmentId, { at, purged = false }) {
 }
 
 /** Upload (see the failure handling above). Returns { receipt }. */
-export async function uploadReceipt(dataSource, { storage, now = () => new Date() }, user, transactionId, upload, { ipAddress } = {}) {
+export async function uploadReceipt(dataSource, { storage, core = null, now = () => new Date() }, user, transactionId, upload, { ipAddress } = {}) {
   const transaction = await loadScopedTransaction(dataSource, user, transactionId);
   const contentType = checkReceiptFile(upload);
   const details = parseReceiptDetails(upload.fields, { today: toManilaDate(now()) });
   if (storage.kind === 'none') throw storageDown();
+  if (core) await assertServiceHasFee(core, transaction.service_id, toManilaDate(now()));
 
   const attachmentId = randomUUID();
   const key = `receipts/${transaction.transaction_id}/${attachmentId}`;

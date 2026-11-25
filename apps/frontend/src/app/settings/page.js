@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
 import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
 import StatusBanner from '../../components/feedback/StatusBanner.js';
@@ -18,6 +19,7 @@ import {
   showCounters,
 } from '../../lib/ui/transaction-settings.js';
 import Counters from './Counters.js';
+import OfficeBackdate from './OfficeBackdate.js';
 
 function SettingsManager({ user }) {
   const canWrite = canChangeTransactionSettings(user.role);
@@ -210,6 +212,7 @@ function SettingsManager({ user }) {
         ) : null}
       </form>
 
+      {user.role === ROLES.SUPER_ADMIN ? <OfficeBackdate /> : null}
       {showCounters(settings, user.role) ? (
         <Counters user={user} canWrite={canWrite} />
       ) : canWrite && !settings.counters_enabled ? (

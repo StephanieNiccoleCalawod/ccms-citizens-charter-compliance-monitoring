@@ -67,7 +67,11 @@ export function parseExceptionInput(body, { enabled = false, previous = null } =
   else if (description && description.length > 200) details.description = 'Description must be 200 characters or fewer';
   description = description ?? '';
 
-  const reasonCategory = body.reason_category === undefined ? previous?.reason_category : body.reason_category;
+  // S8-57: a reason is asked only for a suspension. A holiday is always a holiday proclamation, whatever the request carries.
+  const isSuspension = exceptionType === 'SUSPENSION';
+  const reasonCategory = !isSuspension && EXCEPTION_TYPES.includes(exceptionType)
+    ? 'HOLIDAY_PROCLAMATION'
+    : (body.reason_category === undefined ? previous?.reason_category : body.reason_category);
   if (!REASON_CATEGORIES.has(reasonCategory)) {
     details.reason_category = reasonCategory ? 'Choose a reason from the list' : 'Choose a reason category';
   }

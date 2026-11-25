@@ -1,6 +1,6 @@
 // Rules for the Reports page (CC029 / CC030 / CC031), as pure functions (no React, no network, no clock).
 import { ROLES } from 'ccms-shared/roles';
-import { formatDate, formatDateTime } from './date-format.js';
+import { formatDateRange, formatDateTime } from './date-format.js';
 import { queueWaitFigure } from './queue.js';
 
 export const PERIOD_TYPES = Object.freeze([
@@ -15,7 +15,7 @@ export const STATUS_LABEL = Object.freeze({ DRAFT: 'Draft', PUBLISHED: 'Publishe
 export const REASON_MAX = 500;
 
 export const periodTypeLabel = (value) => PERIOD_TYPES.find((p) => p.value === value)?.label ?? value;
-export const periodText = (report) => `${formatDate(report?.from)} to ${formatDate(report?.to)}`;
+export const periodText = (report) => formatDateRange(report?.from, report?.to) || '-';
 export const versionText = (report) => `Version ${report?.version ?? '-'}`;
 
 /** Super Admin and Office Head generate and publish; the Executive only reads (the server enforces the same). */

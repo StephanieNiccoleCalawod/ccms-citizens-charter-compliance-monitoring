@@ -18,3 +18,9 @@ export const getServiceStandardAsOf = (serviceId, asOf, fetcher = apiFetch) =>
 /** The saved records of one service that started on one Manila date (newest first). */
 export const listRecordsOnDate = ({ serviceId, date }, fetcher = apiFetch) =>
   fetcher(`${TRANSACTIONS_API}?service_id=${encodeURIComponent(serviceId)}&from=${encodeURIComponent(date)}&to=${encodeURIComponent(date)}&page_size=50`);
+
+/** The offices with their "may record past transactions" switch (S8-53), through the gateway. */
+export async function listOfficesForPast(fetcher = apiFetch) {
+  const data = await fetcher('/api/catalogue/offices');
+  return data?.items ?? [];
+}

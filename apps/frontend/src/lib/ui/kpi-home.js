@@ -57,7 +57,7 @@ export function tilesFor(bucket) {
     { key: 'late', label: 'Late', value: count(r.late_total ?? r.late), note: count(r.late_auto_closed) ? `${count(r.late_auto_closed)} closed automatically` : '' },
     { key: 'pending', label: 'Pending now', value: count(b.pending?.count), note: b.pending?.oldest_age_minutes != null ? `Oldest ${minutesText(b.pending.oldest_age_minutes)}` : '' },
     { key: 'average_time', label: 'Average time', value: minutesText(b.time?.average_minutes) },
-    { key: 'median_time', label: 'Median time', value: minutesText(b.time?.median_minutes) },
+    { key: 'median_time', label: 'Typical processing time', value: minutesText(b.time?.median_minutes) },
     { key: 'early', label: 'Early', value: count(b.early?.count), note: b.early?.average_margin_minutes != null ? `Avg margin ${minutesText(b.early.average_margin_minutes)}` : '' },
     { key: 'auto_closed', label: 'Auto-closed', value: count(b.auto_closed ?? r.late_auto_closed) },
     { key: 'cancelled', label: 'Cancelled', value: count(b.cancelled) },

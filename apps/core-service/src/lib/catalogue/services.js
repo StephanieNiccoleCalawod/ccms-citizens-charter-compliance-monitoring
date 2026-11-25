@@ -24,7 +24,7 @@ import { allocateServiceCode } from './service-codes.js';
 // One service row plus its office and the version in force today (Manila date).
 const SERVICE_SELECT = `
   SELECT s.service_id, s.office_id, o.office_code, o.office_name, s.service_code, s.service_name,
-         s.classification, s.service_scope, s.transaction_types, s.measurement_type, s.processing_steps, s.fees,
+         s.classification, s.service_scope, s.transaction_types, s.measurement_type, s.processing_steps, s.fees, s.has_fee,
          s.who_may_avail, s.allowed_client_types, s.is_active,
          s.created_at, s.updated_at,
          cs.standard_id AS cs_standard_id, cs.version_no AS cs_version_no,
@@ -52,6 +52,7 @@ export function toServiceDto(row) {
     measurement_type: row.measurement_type,
     processing_steps: row.processing_steps ?? null,
     fees: row.fees ?? null,
+    has_fee: row.has_fee !== false,
     who_may_avail: row.who_may_avail ?? null,
     // CC047: who may avail, in canonical order. The authenticated catalogue only; the public view does not carry it.
     allowed_client_types: row.allowed_client_types ?? [...CLIENT_TYPE_LIST],
@@ -167,6 +168,7 @@ export async function createService(dataSource, actor, body, { ipAddress, truste
         measurementType: 'TIMELINESS',
         processingSteps: fields.processingSteps ?? null,
         fees: fields.fees ?? null,
+        hasFee: fields.hasFee ?? true,
         whoMayAvail: fields.whoMayAvail ?? null,
         allowedClientTypes: fields.allowedClientTypes ?? [...CLIENT_TYPE_LIST],
         isActive: true,
@@ -208,6 +210,7 @@ export async function updateService(dataSource, actor, id, body, { ipAddress, tr
       const serviceNameKey = nameKey(fields.serviceName);
       const processingSteps = fields.processingSteps === undefined ? before.processing_steps : fields.processingSteps;
       const fees = fields.fees === undefined ? before.fees : fields.fees;
+      const hasFee = fields.hasFee === undefined ? before.has_fee !== false : fields.hasFee;
       const whoMayAvail = fields.whoMayAvail === undefined ? before.who_may_avail : fields.whoMayAvail;
       const allowedClientTypes = fields.allowedClientTypes === undefined ? before.allowed_client_types : fields.allowedClientTypes;
 
@@ -221,6 +224,7 @@ export async function updateService(dataSource, actor, id, body, { ipAddress, tr
         fields.transactionTypes.every((type, index) => type === before.transaction_types[index]) &&
         processingSteps === before.processing_steps &&
         fees === before.fees &&
+        hasFee === (before.has_fee !== false) &&
         whoMayAvail === before.who_may_avail &&
         allowedClientTypes.length === before.allowed_client_types.length &&
         allowedClientTypes.every((type, index) => type === before.allowed_client_types[index]);
@@ -239,6 +243,7 @@ export async function updateService(dataSource, actor, id, body, { ipAddress, tr
           transactionTypes: fields.transactionTypes,
           processingSteps,
           fees,
+          hasFee,
           whoMayAvail,
           allowedClientTypes,
         },

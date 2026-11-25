@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getRatingSummary } from '../../lib/api/ratings.js';
 import { averageText } from '../../lib/ui/ratings.js';
+import CalculationInfo from '../analytics/CalculationInfo.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 
 // CC057 / CC029 AC4: citizen ratings for the report's office and period, apart from the compliance figures (never part of them).
@@ -17,7 +18,10 @@ export default function RatingsSection({ officeId, from, to }) {
   }, [officeId, from, to]);
   return (
     <section className="mt-4" aria-label="Service ratings" data-testid="report-ratings">
-      <h3 className="font-bold text-maroon-950">Service ratings</h3>
+      <div className="flex items-center gap-2">
+        <h3 className="font-bold text-maroon-950">Service ratings</h3>
+        {state.data ? <CalculationInfo calculation={state.data.calculations?.ratings ?? null} subject="the service ratings" testId="ratings-calc" /> : null}
+      </div>
       <p className="text-xs text-slate-500">From citizens who used the code on their receipt (1 to 5 stars). Shown apart from compliance; they do not change any compliance figure.</p>
       {state.loading ? <p className="mt-2 text-sm text-slate-600">Loading…</p> : null}
       {state.failed ? <p className="mt-2 text-sm text-slate-600">Ratings are not available right now.</p> : null}

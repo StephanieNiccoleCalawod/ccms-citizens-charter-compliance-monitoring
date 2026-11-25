@@ -1,5 +1,6 @@
 'use client';
 
+import CalculationInfo from '../analytics/CalculationInfo.js';
 import { useMemo, useRef, useState } from 'react';
 import { getInsightsCell } from '../../lib/api/insights.js';
 import {
@@ -255,7 +256,10 @@ export default function ServiceCharterPanel({
       <Card id="charter" as="section" aria-label="Charter time limits by service" padding="md" className="space-y-4 sm:p-6" data-testid="insights-charter">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <h3 className="font-serif text-2xl font-normal leading-tight text-[#202938]">Charter Time Limits by Service</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-serif text-2xl font-normal leading-tight text-[#202938]">Charter Time Limits by Service</h3>
+              <CalculationInfo calculation={overview?.calculations?.charter_summary ?? null} subject="the charter time limits" testId="charter-calc" />
+            </div>
             <p className="mt-1 font-sans text-sm text-[#64748B]">
               Compares each service with its Citizen&rsquo;s Charter time limit. Services with too few completed transactions are shown but not judged.
             </p>

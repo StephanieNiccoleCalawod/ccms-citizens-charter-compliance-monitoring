@@ -13,10 +13,10 @@ import { ROLES } from 'ccms-shared/roles';
 import StatusBanner from '../feedback/StatusBanner.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import { classificationLabel } from '../../lib/api/catalogue.js';
-import { getServiceStandardAsOf, listRecordsOnDate } from '../../lib/api/backdate.js';
+import { getServiceStandardAsOf, listOfficesForPast, listRecordsOnDate } from '../../lib/api/backdate.js';
 import { getSettings, listCounters } from '../../lib/api/operations.js';
 import { getServiceDetail, getServiceStandard, listOpenTransactions, listSelectableServices, postTransaction } from '../../lib/api/transactions.js';
-import { BACKDATE_MESSAGES, BACKDATE_REASON_MAX, EMPTY_PAST, backdateErrors, isAmbiguousWrite, manilaDateOf, pastStandardMessage, withBackdate } from '../../lib/ui/backdate.js';
+import { BACKDATE_MESSAGES, BACKDATE_REASON_MAX, EMPTY_PAST, backdateErrors, isAmbiguousWrite, manilaDateOf, officeAllowsPast, pastStandardMessage, withBackdate } from '../../lib/ui/backdate.js';
 import { COMPLIANCE_LABELS, complianceState, describeElapsed, describeVariance } from '../../lib/ui/complete-transaction.js';
 import StatusBadge from '../ui/StatusBadge.js';
 import RegistryPicker from './RegistryPicker.js';
@@ -95,6 +95,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
   const [past, setPast] = useState({ ...EMPTY_PAST }); // "Record past transaction": what the person typed (Manila time)
   const [pastStandard, setPastStandard] = useState({ state: 'idle', data: null, message: null }); // the standard of the day of the typed start
   const [lock, setLock] = useState(null); // after an unclear past write: null | { checked, state, records }
+  const [offices, setOffices] = useState([]); // for the per-office switch for past transactions (S8-53)
   const latestPastStandard = useRef(0);
   const submittingRef = useRef(false); // set synchronously, so a double click cannot send two requests
   const latestService = useRef(0); // an answer for a service that is no longer chosen is ignored
@@ -105,6 +106,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     listSelectableServices()
       .then((items) => !cancelled && setServices({ loading: false, items, error: null }))
       .catch((err) => !cancelled && setServices({ loading: false, items: [], error: err.status === 403 ? 'You do not have permission to see the services.' : 'The services could not be loaded. Reload the page to try again.' }));
+    listOfficesForPast().then((items) => !cancelled && setOffices(items)).catch(() => {});
     getSettings()
       .then((data) => !cancelled && setSettings({ loaded: true, countersEnabled: data.counters_enabled === true, error: null }))
       .catch(() => !cancelled && setSettings({ loaded: false, countersEnabled: false, error: 'The counter setting could not be loaded, so a transaction cannot be started yet. Reload the page to try again.' }));
@@ -123,6 +125,11 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     [services.items],
   );
   const items = useMemo(() => requirementItems(documents.items), [documents.items]);
+  const pastAllowed = officeAllowsPast(offices.find((o) => o.office_id === selected?.office_id), user.role);
+  useEffect(() => {
+    if (!pastAllowed && past.enabled) togglePast(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pastAllowed]);
   const countersEnabled = settings.countersEnabled;
 
   // Loads what depends on the chosen service: its standard in force today, its documents and (if used) its office's counters.
@@ -531,7 +538,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
         </Section>
       ) : null}
 
-      <Section flat={embedded} title="Late entry" id="past-heading">
+      {pastAllowed ? <Section flat={embedded} title="Late entry" id="past-heading">
         <label className="flex items-start gap-3 text-sm text-slate-800">
           <input id="start-past" type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={past.enabled} onChange={(e) => togglePast(e.target.checked)} />
           <span>
@@ -569,7 +576,7 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
             </div>
           </div>
         ) : null}
-      </Section>
+      </Section> : null}
 
       {lock ? (
         <section className="card border-amber-300 p-5" aria-labelledby="lock-heading" data-testid="unclear-write">

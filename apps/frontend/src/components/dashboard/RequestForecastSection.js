@@ -6,36 +6,19 @@ import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import { ChartTableToggle, LegendItem } from '../charts/ChartCard.js';
 import { getRequestForecast, retrainRequestForecast, getForecastOffices, getForecastServices } from '../../lib/api/request-forecast.js';
-import { formatDateTime } from '../../lib/ui/date-format.js';
+import {
+  TABLE_PAGE, accuracyLine, forecastChartData, forecastCsv, forecastCsvName, forecastDayCards, forecastHeadline,
+  forecastTableRows, notEnoughHistoryMessage,
+} from '../../lib/ui/forecast.js';
 import { notify } from '../../lib/ui/notify.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
+import CalculationInfo from '../analytics/CalculationInfo.js';
 import RequestForecastChart from './RequestForecastChart.js';
 
 // CC038 — Expected request volume section. Embedded in DashboardAnalytics (or standalone).
 
 const n = (v) => (v == null ? '—' : Number(v).toLocaleString('en-PH'));
-
-/** Build chart data: 20 history rows + 5 forecast rows in a flat array for Recharts. */
-function buildChartData(history, forecast) {
-  const historical = history.map((h) => ({
-    date: h.date,
-    label: h.date ? h.date.slice(5) : '', // MM-DD
-    actual: h.count,
-    forecast: null,
-    lower: null,
-    upper: null,
-  }));
-  const projected = forecast.map((f) => ({
-    date: f.date,
-    label: f.date ? f.date.slice(5) : '',
-    actual: null,
-    forecast: f.point,
-    lower: f.lower,
-    upper: f.upper,
-  }));
-  return [...historical, ...projected];
-}
 
 function LoadingSkeleton() {
   return (
@@ -46,24 +29,77 @@ function LoadingSkeleton() {
   );
 }
 
-function AboutPanel({ run }) {
-  if (!run || run.status !== 'SUCCESS') return null;
+/** S8-48: five day cards with the expected count for each working day; a weekday the calendar closed reads "Office closed". */
+function DayCards({ cards }) {
+  if (cards.length === 0) return null;
   return (
-    <details className="mt-2">
-      <summary className="cursor-pointer text-xs font-semibold text-slate-500 hover:text-slate-700">
-        About this forecast
-      </summary>
-      <div className="mt-2 space-y-1 rounded-xl border border-slate-200 bg-transparent p-4 text-xs text-slate-600">
-        <p><span className="font-semibold">Method:</span> {run.model?.name === 'HOLT_WINTERS_ADDITIVE' ? 'Holt-Winters Additive (trend and weekly pattern)' : 'Seasonal Naive (repeats the recent weekly pattern)'}</p>
-        <p><span className="font-semibold">Average error in past tests:</span> {run.model?.mae != null ? Number(run.model.mae).toFixed(2) : '—'} requests</p>
-        <p><span className="font-semibold">Weekly pattern length:</span> 5 working days</p>
-        <p><span className="font-semibold">Past test window:</span> 5 working days</p>
-        <p><span className="font-semibold">Past working days used:</span> {run.historyWorkingDays ?? '—'}</p>
-        <p><span className="font-semibold">Past transactions counted:</span> {n(run.historicalTransactionCount)}</p>
-        <p><span className="font-semibold">Likely range:</span> 10th–90th percentile of past test errors</p>
-        <p><span className="font-semibold">Last updated:</span> {run.generatedAt ? formatDateTime(run.generatedAt) : '—'}</p>
+    <ul className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="Expected requests by day" data-testid="forecast-day-cards">
+      {cards.map((c) => (
+        <li key={c.date} className={`rounded-xl border p-3 text-center ${c.closed ? 'border-line bg-surface-muted' : 'border-[#F0DDB0] bg-[#FFFBEB]'}`} data-testid="forecast-day-card">
+          <p className="text-xs font-semibold text-ink">{c.weekday}</p>
+          <p className="text-[11px] text-ink-muted">{c.dateText}</p>
+          {c.closed ? (
+            <p className="mt-2 text-sm font-semibold text-ink-muted">Office closed</p>
+          ) : (
+            <>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-ink">{n(c.expected)}</p>
+              <p className="text-[11px] text-ink-muted">expected{c.lower != null && c.upper != null ? ` (${n(c.lower)}–${n(c.upper)})` : ''}</p>
+            </>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** S8-47: every recorded day the model used, then the expected days, with a Show more button and a CSV of the same rows. */
+function ForecastTable({ run, officeName }) {
+  const all = forecastTableRows(run);
+  const [shown, setShown] = useState(TABLE_PAGE);
+  const visible = all.slice(0, shown);
+  function download() {
+    const blob = new Blob([forecastCsv(run)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = forecastCsvName(officeName, run?.generatedAt ? run.generatedAt.slice(0, 10) : '');
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  return (
+    <div data-testid="forecast-table-view" className="space-y-3">
+      <TableShell>
+        <Table
+          label="Recorded and expected requests by day"
+          head={(
+            <tr>
+              <Th>Date</Th>
+              <Th align="right">Actual requests</Th>
+              <Th align="right">Expected requests</Th>
+              <Th align="right">Likely range</Th>
+              <Th>Type</Th>
+            </tr>
+          )}
+        >
+          {visible.map((r) => (
+            <tr key={`${r.kind}-${r.date}`} className={`tr-row ${r.kind === 'Expected' ? 'bg-[#FFFBEB]' : ''}`} data-testid="forecast-table-row">
+              <td className="td">{r.dateText}</td>
+              <td className="td text-right tabular-nums">{r.actual == null ? '-' : n(r.actual)}</td>
+              <td className="td text-right font-semibold tabular-nums">{r.expected == null ? '-' : n(r.expected)}</td>
+              <td className="td text-right tabular-nums text-ink-muted">{r.range || '-'}</td>
+              <td className="td"><span className={r.kind === 'Expected' ? 'font-semibold text-[#78350F]' : 'text-ink-muted'}>{r.kind}</span></td>
+            </tr>
+          ))}
+        </Table>
+      </TableShell>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
+        <span>Showing {visible.length} of {all.length} days</span>
+        <span className="flex gap-2">
+          {visible.length < all.length ? <button type="button" className="btn-secondary btn-sm" onClick={() => setShown((v) => v + TABLE_PAGE)}>Show more</button> : null}
+          <button type="button" className="btn-secondary btn-sm" onClick={download} data-testid="forecast-csv">Download CSV</button>
+        </span>
       </div>
-    </details>
+    </div>
   );
 }
 
@@ -183,49 +219,18 @@ export default function RequestForecastSection({
     });
   }
 
-  const chartData = activeRun?.history?.length || activeRun?.forecast?.length
-    ? buildChartData(activeRun.history ?? [], activeRun.forecast ?? [])
-    : [];
-
-  const firstForecastLabel = activeRun?.forecast?.[0]?.date?.slice(5) ?? null;
-  const histDates = activeRun?.history ?? [];
-  const fcDates = activeRun?.forecast ?? [];
-  const histRange = histDates.length >= 2
-    ? ` (${histDates[0].date?.slice(5)} – ${histDates.at(-1).date?.slice(5)})`
-    : '';
-  const fcRange = fcDates.length >= 2
-    ? ` (${fcDates[0].date?.slice(5)} – ${fcDates.at(-1).date?.slice(5)})`
-    : '';
+  const chartData = activeRun?.history?.length || activeRun?.forecast?.length ? forecastChartData(activeRun) : [];
+  const headline = forecastHeadline(activeRun);
+  const dayCards = forecastDayCards(activeRun);
+  const accuracy = accuracyLine(activeRun);
+  const emptyMessage = notEnoughHistoryMessage(activeRun);
+  const firstForecastLabel = activeRun?.forecast?.[0]?.date ?? null;
 
   const selectedOfficeName = offices.find((o) => o.office_id === officeId)?.office_name || scopeLabel || '';
   const selectedServiceName = officeServices.find((s) => s.service_id === serviceId)?.service_name || 'All services (office level)';
 
   const boxClass = embedded ? '' : 'card p-4';
-  const tableSection = activeRun?.status === 'SUCCESS' ? (
-    <div className={embedded ? '' : 'mt-3'} data-testid="forecast-table-view">
-      <TableShell>
-        <Table
-          label="Expected request volume for the next 5 days"
-          head={
-            <tr>
-              <Th>Date</Th>
-              <Th align="right">Expected</Th>
-              <Th align="right">Likely range</Th>
-            </tr>
-          }
-        >
-          {activeRun.forecast.map((f) => (
-            <tr key={f.date} className="tr-row">
-              <td className="td">{f.date}</td>
-              <td className="td text-right font-semibold">{n(f.point)}</td>
-              <td className="td text-right text-slate-500">{n(f.lower)}–{n(f.upper)}</td>
-            </tr>
-          ))}
-        </Table>
-      </TableShell>
-      <AboutPanel run={activeRun} />
-    </div>
-  ) : null;
+  const tableSection = activeRun?.status === 'SUCCESS' ? <ForecastTable run={activeRun} officeName={selectedOfficeName} /> : null;
 
   return (
     <section className={embedded ? 'card flex h-full flex-col min-w-0 p-5 space-y-3' : 'space-y-3'} aria-labelledby="request-forecast-heading" data-testid="insights-forecast">
@@ -234,16 +239,9 @@ export default function RequestForecastSection({
         <div className="min-w-[14rem] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 id="request-forecast-heading" className={embedded ? 'title-card text-[#202938]' : 'text-base font-semibold text-slate-900'}>
-              Expected Request Volume
+              Expected Requests
             </h3>
-            {activeRun?.status === 'SUCCESS' ? (
-              <span
-                data-testid="forecast-total-badge"
-                className="inline-flex items-center rounded-md border border-[#F0DDB0] bg-[#FEF3C7] px-2 py-0.5 font-mono text-[11px] font-bold text-[#78350F]"
-              >
-                {n(activeRun.weeklyTotal)} expected in next 5 days
-              </span>
-            ) : null}
+            <CalculationInfo calculation={activeRun?.calculations?.forecast ?? null} subject="the expected requests" testId="forecast-calc" />
           </div>
           {selectedOfficeName ? (
             <p className="mt-1 font-sans text-xs text-[#64748B] sm:text-sm">
@@ -305,7 +303,7 @@ export default function RequestForecastSection({
       {/* Content */}
       {!officeId && !activeLoading && (
         <div className={boxClass} data-testid="forecast-pick-office">
-          <p className="text-sm text-slate-600">Choose an office above to see its expected request volume for the next 5 days.</p>
+          <p className="text-sm text-slate-600">Choose an office above to see how many requests to expect next week.</p>
         </div>
       )}
       {activeLoading && <LoadingSkeleton />}
@@ -320,47 +318,39 @@ export default function RequestForecastSection({
             />
           )}
 
-          {activeRun.status === 'NOT_ENOUGH_HISTORY' && (
-            <div className={boxClass} data-testid="forecast-not-enough-history">
-              <p className="text-sm text-slate-700">Not enough history yet (needs 4 weeks)</p>
-              {activeRun.historyWorkingDays > 0 && (
-                <p className="mt-1 text-xs text-slate-500">{activeRun.historyWorkingDays} working day{activeRun.historyWorkingDays !== 1 ? 's' : ''} recorded so far.</p>
-              )}
-            </div>
-          )}
-
-          {activeRun.status === 'TOO_FEW' && (
-            <div className={boxClass} data-testid="forecast-too-few">
-              <p className="text-sm text-slate-700">Not enough transactions to forecast for this service (needs 40).</p>
-              <p className="mt-1 text-xs text-slate-500">Showing office-level forecast instead (if available).</p>
+          {emptyMessage && (
+            <div className={boxClass} data-testid={activeRun.status === 'TOO_FEW' ? 'forecast-too-few' : 'forecast-not-enough-history'}>
+              <p className="text-sm text-slate-700">{emptyMessage}</p>
+              {activeRun.status === 'TOO_FEW' ? <p className="mt-1 text-xs text-slate-500">Choose All services to see the office forecast.</p> : null}
             </div>
           )}
 
           {activeRun.status === 'SUCCESS' && (
             <div className={embedded ? 'flex flex-1 flex-col' : 'card p-4'} data-testid="forecast-success">
+              {headline ? (
+                <p className="mb-3 text-base font-semibold text-[#202938]" data-testid="forecast-headline">{headline.text}</p>
+              ) : null}
+              <div className="mb-3"><DayCards cards={dayCards} /></div>
               {viewMode === 'table' ? (
                 tableSection
               ) : (
                 <>
                   <ul className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1" aria-label="Forecast legend">
-                    <LegendItem color="#800000" label={`Actual${histRange}`} />
-                    <LegendItem color="#a37400" label={`Expected${fcRange}`} dashed />
+                    <LegendItem color="#800000" label="Recorded" />
+                    <LegendItem color="#a37400" label="Expected" dashed />
                     <LegendItem color="#FFDF00" label="Likely range" shape="box" />
                   </ul>
                   <RequestForecastChart
                     data={chartData}
-                    firstForecastDate={firstForecastLabel}
+                    firstForecastDate={firstForecastLabel ? chartData.find((d) => d.date === firstForecastLabel)?.label ?? null : null}
+                    todayLabel={activeRun.stale ? 'Last update' : 'Today'}
                     height={240}
                   />
-                  <AboutPanel run={activeRun} />
                 </>
               )}
 
               <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3 font-sans text-xs text-[#64748B]">
-                <span>
-                  Total expected in the next 5 days:{' '}
-                  <strong className="font-mono font-bold text-[#202938]">{n(activeRun.weeklyTotal)} requests</strong>
-                </span>
+                <span data-testid="forecast-accuracy">{accuracy ?? 'Accuracy is not measured yet.'}</span>
                 <span>
                   {!isOfficeBound ? 'Choose an office above to switch' : 'Showing your assigned office only'}
                 </span>

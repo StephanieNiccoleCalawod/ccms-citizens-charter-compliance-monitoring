@@ -353,7 +353,7 @@ describe('page rules', () => {
     const lateRisk = read('src/components/analytics/LateRiskSection.js');
     assert.doesNotMatch(lateRisk, /<StatCard|Queue Urgency Breakdown|late-risk-detail-pane/);
     assert.match(lateRisk, /Ranked Open Transactions/);
-    assert.match(lateRisk, /Charter Time Consumed/);
+    assert.match(lateRisk, /Time used of promised/);
     assert.match(lateRisk, /Model Health Diagnostics/);
     assert.match(lateRisk, /Risk Score Thresholds/);
     assert.match(lateRisk, /LateRiskDetailDrawer/);

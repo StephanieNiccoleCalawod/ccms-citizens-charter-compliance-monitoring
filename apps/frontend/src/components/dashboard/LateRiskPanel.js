@@ -64,6 +64,8 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
     <ChartCard
       id="risk"
       title="Deadline Risk Monitoring"
+      calculation={lateRisk?.calculation ?? null}
+      calculationSubject="the deadline risk"
       description={description}
       empty={state === 'ok' && !loading && categories.length === 0}
       emptyMessage="No open transactions to assess."

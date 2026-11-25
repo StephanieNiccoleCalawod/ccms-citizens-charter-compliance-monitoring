@@ -459,7 +459,7 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
           </div>
         ) : null}
         {/* CC045: proof of payment, for Office Staff / Office Head / Super Admin only; an Executive never sees it (server 403 too). */}
-        {!readOnly && canSeeReceipts(role) ? <ReceiptPanel transactionId={tx.transaction_id} /> : null}
+        {!readOnly && canSeeReceipts(role) ? <ReceiptPanel transactionId={tx.transaction_id} serviceId={tx.service_id} /> : null}
         {/* CC057: the one-time rating code of a completed transaction, for the citizen. Same roles as the receipt section. */}
         {!readOnly && canSeeReceipts(role) && tx.status === 'COMPLETED' ? <RatingCodePanel transactionId={tx.transaction_id} /> : null}
       </section>

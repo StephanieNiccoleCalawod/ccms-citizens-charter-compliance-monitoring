@@ -65,6 +65,7 @@ describe('edit request', () => {
       transaction_types: ['G2G'],
       processing_steps: null,
       fees: 'PHP 100',
+      has_fee: true,
       who_may_avail: 'Line one\n\nLine three',
       // CC047: a service read from a Core without the field allows all four types, and saving keeps that.
       allowed_client_types: ['STUDENT', 'ALUMNI', 'EMPLOYEE', 'EXTERNAL'],

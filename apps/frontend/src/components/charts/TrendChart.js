@@ -26,7 +26,7 @@ function TrendTooltip({ active, payload, label, series, unit, benchmark }) {
         </p>
       ))}
       {benchmark != null ? (
-        <p className="mt-1 text-[11px] font-medium text-emerald-700">Charter target: {benchmark}{unit}</p>
+        <p className="mt-1 text-[11px] font-medium text-emerald-700">Promised processing time: {benchmark}{unit}</p>
       ) : null}
     </div>
   );
