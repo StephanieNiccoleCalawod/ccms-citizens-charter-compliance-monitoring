@@ -8,15 +8,16 @@ const hrefs = (role) => hubGroups(role).flatMap((g) => g.links.map((l) => l.href
 
 describe('D8-20 Settings hub', () => {
   it('Super Admin reaches every setting from the hub', () => {
-    assert.deepEqual(hrefs(ROLES.SUPER_ADMIN).sort(), ['/calendar', '/offices', '/settings/roles', '/settings/security', '/settings/transactions']);
+    assert.deepEqual(hrefs(ROLES.SUPER_ADMIN).sort(), ['/access', '/calendar', '/offices', '/settings/roles', '/settings/security', '/settings/transactions']);
   });
   it('holidays and suspensions and Accounts are not in the hub', () => {
     for (const role of Object.values(ROLES)) for (const h of hrefs(role)) assert.ok(!['/accounts', '/calendar?tab=holidays'].includes(h), h);
   });
   it('other roles see only read-only links they may open, never an admin page', () => {
     for (const role of [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE]) {
-      assert.deepEqual(hrefs(role).sort(), ['/calendar', '/settings/transactions']);
-      for (const g of hubGroups(role)) for (const l of g.links) assert.equal(l.readOnly, true);
+      const asks = [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF].includes(role); // S8-52: they may also ask for access
+      assert.deepEqual(hrefs(role).sort(), asks ? ['/access', '/calendar', '/settings/transactions'] : ['/calendar', '/settings/transactions']);
+      for (const g of hubGroups(role)) for (const l of g.links) assert.equal(l.readOnly, l.href !== '/access');
     }
   });
   it('the Settings menu item shows only when the hub has something for the role', () => {

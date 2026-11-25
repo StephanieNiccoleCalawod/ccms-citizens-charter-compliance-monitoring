@@ -18,6 +18,8 @@ export const HUB_GROUPS = Object.freeze([
   ] },
   { id: 'access', title: 'Access and roles', links: [
     { label: 'Roles and permissions', hint: 'What each role may do, and the permission switches.', href: '/settings/roles', roles: ADMIN },
+    { label: 'Access requests', hint: 'Decide who gets extra access, until when, and remove it.', href: '/access', roles: ADMIN },
+    { label: 'Request access', hint: 'Ask the Super Admin for an extra permission for a limited time.', href: '/access', roles: [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF] },
   ] },
   { id: 'security', title: 'Security and sessions', links: [
     { label: 'Security and sessions', hint: 'How long a person can stay signed in.', href: '/settings/security', roles: ADMIN },
