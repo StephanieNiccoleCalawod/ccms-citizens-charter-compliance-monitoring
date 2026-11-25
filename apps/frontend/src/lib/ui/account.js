@@ -114,7 +114,9 @@ export const switchValues = (switches) => Object.fromEntries((switches ?? []).ma
 /** Which switch-gated pages an Office Staff member may open now, from GET /me ("What I can do"). Anything unclear is "no". */
 export function staffAccessFrom(me) {
   const on = (key) => (me?.what_i_can_do ?? []).some((item) => item.switch_key === key && item.switch_on === true);
-  return { reports: on('STAFF_VIEW_REPORTS'), complaints: on('STAFF_VIEW_COMPLAINTS') };
+  // S8-52: a granted "Reports per person" opens the Reports page too (the server lets that person read the people report without the switch).
+  const granted = (me?.extra_access ?? []).some((g) => g.permission_key === 'REPORTS_PER_PERSON');
+  return { reports: on('STAFF_VIEW_REPORTS') || granted, complaints: on('STAFF_VIEW_COMPLAINTS') };
 }
 
 export const ROLE_META = Object.freeze({

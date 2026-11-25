@@ -16,6 +16,9 @@ import { classificationLabel } from '../../lib/api/catalogue.js';
 import { getServiceStandardAsOf, listOfficesForPast, listRecordsOnDate } from '../../lib/api/backdate.js';
 import { getSettings, listCounters } from '../../lib/api/operations.js';
 import { getServiceDetail, getServiceStandard, listOpenTransactions, listSelectableServices, postTransaction } from '../../lib/api/transactions.js';
+import { getExtraAccessKeys } from '../../lib/api/account.js';
+import { canRequestAccess, hasExtraAccess } from '../../lib/ui/access.js';
+import LockedNotice from '../access/LockedNotice.js';
 import { BACKDATE_MESSAGES, BACKDATE_REASON_MAX, EMPTY_PAST, backdateErrors, isAmbiguousWrite, manilaDateOf, officeAllowsPast, pastStandardMessage, withBackdate } from '../../lib/ui/backdate.js';
 import { COMPLIANCE_LABELS, complianceState, describeElapsed, describeVariance } from '../../lib/ui/complete-transaction.js';
 import StatusBadge from '../ui/StatusBadge.js';
@@ -125,7 +128,11 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     [services.items],
   );
   const items = useMemo(() => requirementItems(documents.items), [documents.items]);
-  const pastAllowed = officeAllowsPast(offices.find((o) => o.office_id === selected?.office_id), user.role);
+  // S8-52: a granted "Record past transactions" opens the late-entry section even when the office setting is off (the server checks the grant for the person's own office).
+  const [grantKeys, setGrantKeys] = useState(null);
+  useEffect(() => { let alive = true; getExtraAccessKeys().then((keys) => alive && setGrantKeys(keys)); return () => { alive = false; }; }, []);
+  const hasPastGrant = hasExtraAccess(grantKeys, 'RECORD_PAST_TRANSACTIONS');
+  const pastAllowed = officeAllowsPast(offices.find((o) => o.office_id === selected?.office_id), user.role) || hasPastGrant;
   useEffect(() => {
     if (!pastAllowed && past.enabled) togglePast(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -538,6 +545,9 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
         </Section>
       ) : null}
 
+      {!pastAllowed && grantKeys !== null && canRequestAccess(user.role)
+        ? <LockedNotice permissionKey="RECORD_PAST_TRANSACTIONS" role={user.role} message="Recording a transaction that already happened is not open for your office. You don’t have access to this yet." />
+        : null}
       {pastAllowed ? <Section flat={embedded} title="Late entry" id="past-heading">
         <label className="flex items-start gap-3 text-sm text-slate-800">
           <input id="start-past" type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={past.enabled} onChange={(e) => togglePast(e.target.checked)} />

@@ -41,7 +41,7 @@ export default function NotificationPanel({ items, unreadCount, loaded, partial,
       </div>
       <div role="tablist" aria-label="Filter notifications" className="flex flex-wrap gap-1 border-b border-slate-100 px-3 pb-2">
         {TABS.map((t) => {
-          const count = t.id === 'all' || t.id === 'unread' ? ` (${items.filter(t.pick).length})` : '';
+          const count = ` (${items.filter(t.pick).length})`;
           return (
             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
               className={`rounded-full px-3 py-1 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 ${tab === t.id ? 'bg-maroon-800 text-white' : 'text-slate-600 hover:bg-maroon-50'}`}>

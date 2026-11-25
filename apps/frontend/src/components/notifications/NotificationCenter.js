@@ -65,7 +65,7 @@ export default function NotificationCenter() {
   const counts = useMemo(() => noticeCounts(state.items), [state.items]);
   const shown = useMemo(() => filterNotices(state.items, tab, query), [state.items, tab, query]);
   const unread = unreadItems(state.items);
-  const tabCount = (t) => (t.id === 'all' || t.id === 'unread' ? ` (${state.items.filter(t.pick).length})` : '');
+  const tabCount = (t) => ` (${state.items.filter(t.pick).length})`;
 
   return (
     <div className="space-y-5" data-testid="notification-center">

@@ -8,7 +8,9 @@ import {
   PEOPLE_HEADINGS, SEED_NOTE, buildPeopleQuery, complaintsNote, peopleCsv, peopleFailureMessage, peopleRows, peopleScopeText, reportCsvName, scopesFor,
 } from '../../lib/ui/people-report.js';
 import { ROLES } from 'ccms-shared/roles';
+import LockedNotice from '../access/LockedNotice.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
+import { canRequestAccess } from '../../lib/ui/access.js';
 import DateHint from '../forms/DateHint.js';
 import Button from '../ui/Button.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
@@ -27,7 +29,7 @@ export default function PeopleReport({ user, offices }) {
   const [from, setFrom] = useState(`${today.slice(0, 8)}01`);
   const [to, setTo] = useState(today);
   const [people, setPeople] = useState([]); // the roster for the person picker, read with the "every staff member" scope
-  const [state, setState] = useState({ loading: false, report: null, error: '' });
+  const [state, setState] = useState({ loading: false, report: null, error: '', locked: false });
 
   const officeName = useMemo(() => offices.find((o) => o.office_id === (user.role === ROLES.SUPER_ADMIN ? officeId : user.officeId))?.office_name ?? '', [offices, officeId, user]);
 
@@ -51,7 +53,7 @@ export default function PeopleReport({ user, offices }) {
     try {
       setState({ loading: false, report: await getPeopleReport(query), error: '' });
     } catch (failure) {
-      setState({ loading: false, report: null, error: peopleFailureMessage(failure) });
+      setState({ loading: false, report: null, error: peopleFailureMessage(failure), locked: failure?.status === 403 });
     }
   }
 
@@ -114,7 +116,9 @@ export default function PeopleReport({ user, offices }) {
         </div>
         <Button type="submit" loading={state.loading} loadingLabel="Loading…" data-testid="people-run">Show report</Button>
       </form>
-      <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: '' }))} />
+      {state.locked && canRequestAccess(user.role)
+        ? <LockedNotice permissionKey="REPORTS_PER_PERSON" role={user.role} />
+        : <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: '' }))} />}
       {report ? (
         <>
           <div className="flex flex-wrap gap-2 print:hidden">

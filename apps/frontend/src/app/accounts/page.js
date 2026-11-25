@@ -21,6 +21,8 @@ import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import Modal from '../../components/modals/Modal.js';
 import RowActionMenu from '../../components/ui/RowActionMenu.js';
+import AccountAccessModal from '../../components/access/AccountAccessModal.js';
+import { listAccessGrants } from '../../lib/api/access.js';
 import StatusBadge from '../../components/ui/StatusBadge.js';
 import RoleBadge from '../../components/ui/RoleBadge.js';
 import TableState from '../../components/ui/TableState.js';
@@ -56,6 +58,11 @@ function AccountsManager() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(null); // { type: 'deactivate' | 'reset', account }
+  const [grants, setGrants] = useState([]); // S8-52: the extra access of every account, to show "Extra access" and Remove on the row
+  const [accessFor, setAccessFor] = useState(null);
+  const loadGrants = useCallback(() => listAccessGrants().then((data) => setGrants(data.items ?? [])).catch(() => {}), []);
+  useEffect(() => { loadGrants(); }, [loadGrants]);
+  const grantsOf = (account) => grants.filter((g) => g.account_id === account.account_id);
   const formDirty = useFormDirty(form);
 
   // Fallback focus. The control that started an action (a row's "⋮" button, or Add Account) is
@@ -324,10 +331,12 @@ function AccountsManager() {
                               ? [
                                   { label: 'Edit', onSelect: () => openForm(account) },
                                   { label: 'Reset password', onSelect: () => askConfirm('reset', account) },
+                                  ...(grantsOf(account).length ? [{ label: `Extra access (${grantsOf(account).length})`, onSelect: () => setAccessFor(account) }] : []),
                                   { label: 'Deactivate', danger: true, onSelect: () => askConfirm('deactivate', account) },
                                 ]
                               : [
                                   { label: 'Edit', onSelect: () => openForm(account) },
+                                  ...(grantsOf(account).length ? [{ label: `Extra access (${grantsOf(account).length})`, onSelect: () => setAccessFor(account) }] : []),
                                   { label: 'Reactivate', disabled: busy, onSelect: () => reactivate(account) },
                                 ]
                           }
@@ -429,6 +438,7 @@ function AccountsManager() {
         ) : null}
       </Modal>
 
+      {accessFor ? <AccountAccessModal account={accessFor} grants={grantsOf(accessFor)} onClose={() => setAccessFor(null)} onChanged={loadGrants} /> : null}
       <ConfirmDialog
         open={confirm !== null}
         title={confirm?.type === 'reset' ? 'Send password reset link?' : 'Deactivate account?'}

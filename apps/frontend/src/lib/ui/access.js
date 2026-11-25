@@ -54,3 +54,10 @@ export function accessFailureMessage(failure) {
 export const REQUEST_SENT = Object.freeze({ title: 'Request sent', message: 'The Super Admin will decide. You will see the answer in your notifications.' });
 export const LOCKED_HINT = 'You don’t have access to this yet.';
 export const accessLink = (permissionKey) => `/access${permissionKey ? `?permission=${encodeURIComponent(permissionKey)}` : ''}`;
+
+/** The permission keys a person holds right now, from GET /me ("extra_access"). Anything unclear is "none". */
+export const extraAccessKeys = (me) => (Array.isArray(me?.extra_access) ? me.extra_access.map((g) => g.permission_key).filter(Boolean) : []);
+export const hasExtraAccess = (keys, permissionKey) => (keys ?? []).includes(permissionKey);
+/** The "Request access" notice for a locked feature, or null for a role that cannot ask (the Super Admin, the Executive). */
+export const lockedNotice = (permissionKey, role, message = LOCKED_HINT) => (canRequestAccess(role) ? { message, action: 'Request access', href: accessLink(permissionKey) } : null);
+

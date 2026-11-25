@@ -45,7 +45,7 @@ describe('S8-04 /me sign_in', () => {
   it('the existing parts of the answer are unchanged and no secret is added', async () => {
     const account = await seedAccount(ds, { role: ROLES.OFFICE_STAFF });
     const body = await (await me(account)).json();
-    assert.deepEqual(Object.keys(body), ['account', 'what_i_can_do', 'sign_in', 'session_policy']); // S8-33 added session_policy
+    assert.deepEqual(Object.keys(body), ['account', 'what_i_can_do', 'extra_access', 'sign_in', 'session_policy']); // S8-33 added session_policy, S8-52 extra_access
     assert.equal(body.account.account_id, account.accountId);
     assert.ok(Array.isArray(body.what_i_can_do));
     assert.ok(!JSON.stringify(body).includes(account.passwordHash));

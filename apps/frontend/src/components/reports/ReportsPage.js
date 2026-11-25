@@ -20,6 +20,8 @@ import StatusBanner from '../feedback/StatusBanner.js';
 import DataTable from '../ui/DataTable.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 import RatingsSection from '../ratings/RatingsSection.js';
+import LockedNotice from '../access/LockedNotice.js';
+import { canRequestAccess } from '../../lib/ui/access.js';
 import PeopleReport from './PeopleReport.js';
 import TermPeriodOptions, { useTerms } from '../forms/TermPeriodOptions.js';
 import { TERMS_NOT_AVAILABLE, isTermChoice } from '../../lib/ui/term-period.js';
@@ -54,6 +56,7 @@ function FiguresTable({ report }) {
 function ReportDetail({ report, role, generatedBy, onBack, onOpen, onChanged }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [locked, setLocked] = useState(false); // the CSV download was refused for lack of access (S8-52)
   const [notice, setNotice] = useState('');
   const [confirm, setConfirm] = useState(null); // 'publish' | 'correct'
   const [reason, setReason] = useState('');
@@ -63,8 +66,8 @@ function ReportDetail({ report, role, generatedBy, onBack, onOpen, onChanged }) 
   const manage = canManageReports(role);
 
   async function run(kind, task, done) {
-    setBusy(kind); setError('');
-    try { const result = await task(); setConfirm(null); done(result); } catch (failure) { setError(failureMessage(failure)); setConfirm(null); } finally { setBusy(''); }
+    setBusy(kind); setError(''); setLocked(false);
+    try { const result = await task(); setConfirm(null); done(result); } catch (failure) { setError(failureMessage(failure)); setLocked(kind === 'csv' && failure?.status === 403); setConfirm(null); } finally { setBusy(''); }
   }
   const doPublish = () => run('publish', () => publishReport(report.report_id), (r) => { setNotice(`Version ${r.version} is now published.`); onChanged(r); });
   const doCorrect = () => {
@@ -91,7 +94,9 @@ function ReportDetail({ report, role, generatedBy, onBack, onOpen, onChanged }) 
           {actions.print ? <Button variant="secondary" onClick={() => window.print()} data-testid="report-print">Print / Save as PDF</Button> : null}
         </div>
       </div>
-      <ErrorBanner message={error} onDismiss={() => setError('')} />
+      {locked && canRequestAccess(role)
+        ? <LockedNotice permissionKey="EXPORT_CSV" role={role} message="You don’t have access to download CSV yet." />
+        : <ErrorBanner message={error} onDismiss={() => setError('')} />}
       {notice ? <StatusBanner variant="success" message={notice} onDismiss={() => setNotice('')} dismissAriaLabel="Dismiss message" /> : null}
       {banner ? (
         <div className="card flex flex-wrap items-center justify-between gap-2 border-amber-300 bg-amber-50 p-3 text-sm print:hidden" role="status" data-testid="report-version-banner">

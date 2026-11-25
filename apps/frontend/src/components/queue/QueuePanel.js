@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ROLES } from 'ccms-shared/roles';
+import LockedNotice from '../access/LockedNotice.js';
+import { canRequestAccess } from '../../lib/ui/access.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import Button from '../ui/Button.js';
@@ -37,6 +39,8 @@ const PRIORITY_GROUPS_ONLY = PRIORITY_OPTIONS.filter((o) => Boolean(o.value));
  * - State B (Active Office Queue Console): Waiting / Called / Served summary KPI cards, Queue Operations & Ticket Issuance bar,
  *   side-by-side Called / Now Serving and Waiting, in call order panels, and collapsible Recently Served & Skipped No-Show Log.
  */
+const QUEUE_DENIED = 'You do not have access to this office queue.';
+
 export default function QueuePanel({ user }) {
   const isSuperAdmin = user.role === ROLES.SUPER_ADMIN;
   const [officeId, setOfficeId] = useState(isSuperAdmin ? '' : user.officeId ?? '');
@@ -134,7 +138,7 @@ export default function QueuePanel({ user }) {
       setNow(Date.now());
     } catch (err) {
       const message = err?.status === 403
-        ? 'You do not have access to this office queue.'
+        ? QUEUE_DENIED
         : 'The queue could not be loaded. It will try again shortly.';
       setBoard((b) => (
         b.officeId === officeId
@@ -801,7 +805,9 @@ export default function QueuePanel({ user }) {
 
       {/* Error & Loading States */}
       {officeId && !isDemoActive && current && board.message ? (
-        <StatusBanner variant="error" message={board.message} />
+        board.message === QUEUE_DENIED && canRequestAccess(user.role)
+          ? <LockedNotice permissionKey="VIEW_OFFICE_QUEUE" role={user.role} message="You don’t have access to this office queue yet." />
+          : <StatusBanner variant="error" message={board.message} />
       ) : null}
       {officeId && !current ? (
         <LoadingState>Loading the queue…</LoadingState>

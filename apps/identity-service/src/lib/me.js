@@ -1,7 +1,8 @@
-import { Errors, ROLE_LABELS, capabilitiesFor, recordAudit } from 'ccms-shared';
+import { Errors, ROLES, ROLE_LABELS, capabilitiesFor, recordAudit } from 'ccms-shared';
 import { Account } from './entities/index.js';
 import { toAccountDto } from './accounts.js';
 import { NO_PASSWORD_MARKER } from './accounts.js';
+import { activeGrantsFor } from './access-requests.js';
 import { readSwitchValues } from './permission-switches.js';
 import { kickOutbox } from './outbox.js';
 import { hashPassword, passwordProblem, verifyPassword } from './passwords.js';
@@ -17,6 +18,10 @@ export async function getMe(db, user) {
   const dto = toAccountDto(account);
   const [login] = rowsOf(await db.query('SELECT last_login_at FROM account_last_login WHERE account_id = $1', [user.id]));
   const switches = await readSwitchValues(db);
+  // S8-52: the extra access the Super Admin granted, so the screens open what the server will now allow. Only Office Head and Office Staff can have any.
+  const extraAccess = dto.role === ROLES.OFFICE_HEAD || dto.role === ROLES.OFFICE_STAFF
+    ? (await activeGrantsFor(db, user.id)).grants.map(({ permission_key: key, ends_on: endsOn }) => ({ permission_key: key, ends_on: endsOn }))
+    : [];
   return {
     account: {
       account_id: dto.account_id, employee_no: dto.employee_no, full_name: dto.full_name, email: dto.email, role: dto.role,
@@ -24,6 +29,7 @@ export async function getMe(db, user) {
       last_login_at: login?.last_login_at ?? null,
     },
     what_i_can_do: capabilitiesFor(dto.role, switches).map(({ key, group, label, access, switchKey, switchOn }) => ({ key, group, label, access, switch_key: switchKey, switch_on: switchOn })),
+    extra_access: extraAccess,
     sign_in: await signInMethods(db, account),
     session_policy: policyForRole(dto.role),
   };
