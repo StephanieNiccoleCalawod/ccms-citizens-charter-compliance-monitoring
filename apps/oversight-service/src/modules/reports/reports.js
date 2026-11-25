@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AppError, Errors, ROLES, assertOfficeAccess, isUuid } from 'ccms-shared';
 import { loadKpis } from '../analytics/kpi.js';
 import { resolvePeriod } from '../analytics/period.js';
+import { resolveTermQuery } from '../analytics/term-period.js';
 import { loadNames } from './names.js';
 
 // CC029 / CC030 / CC031: an office's accomplishment report for a period.
@@ -74,11 +75,20 @@ function parseGenerate(body) {
 }
 
 /** POST /reports: creates the draft for the office and period, or refreshes the one that exists. */
-export async function generateReport(db, actor, body, { authorization, now = new Date() } = {}) {
+export async function generateReport(db, actor, body, { authorization, now = new Date(), env, fetchImpl } = {}) {
+  // S8-64: a term or a school year becomes custom dates plus a label that is kept inside the report's figures.
+  let periodLabel = null;
+  const termChoice = body?.term ?? body?.term_code ?? body?.schoolYear ?? body?.school_year;
+  if (termChoice) {
+    const resolved = await resolveTermQuery({ term: body.term ?? body.term_code, school_year: body.schoolYear ?? body.school_year }, { authorization, env, fetchImpl });
+    periodLabel = resolved.label;
+    body = { officeId: body.officeId ?? body.office_id, periodType: 'custom', from: resolved.query.from, to: resolved.query.to };
+  }
   const { officeId, query } = parseGenerate(body);
   assertMayManage(actor, officeId);
   const period = resolvePeriod(query, now);
   const generated = await buildFigures(db, { officeId, period, now, authorization });
+  if (periodLabel) generated.figures = { ...generated.figures, period_label: periodLabel };
   return db.transaction(async (manager) => {
     const key = [officeId, period.type, period.from, period.to];
     const [draft] = rowsOf(await manager.query(`SELECT report_id FROM reports WHERE office_id = $1 AND period_type = $2 AND period_from = $3 AND period_to = $4 AND status = 'DRAFT' FOR UPDATE`, key));

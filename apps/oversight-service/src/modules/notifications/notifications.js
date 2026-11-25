@@ -1,5 +1,6 @@
 import { Errors, ROLES } from 'ccms-shared';
 import { requireStaffSwitch } from '../../lib/switches.js';
+import { readVolumeNotices } from './volume.js';
 
 // Sprint 7 CC055: the Oversight half of the notification bell, worked out each time it is asked for (nothing is stored but the read marks).
 //   COMPLAINT  a complaint of the person's office was acknowledged or resolved in the last 7 days (the reference only: never the citizen's name)
@@ -49,6 +50,9 @@ export async function listNotifications(db, actor, { now = new Date() } = {}) {
     const date = entry.exception_date ?? entry.date ?? null;
     items.push({ key: `calendar:${row.audit_id}`, kind: 'CALENDAR', text: `Calendar: ${word(entry.exception_type) || 'an entry'} ${CALENDAR_VERB[row.action] ?? 'changed'}${date ? ` for ${date}` : ''}${row.office_id ? '' : ' (whole campus)'}.`, at: iso(row.occurred_at), office_id: row.office_id ?? null, href: '/calendar' });
   }
+
+  // S8-50 (b): only the Office Head (own office) and the Super Admin hear about an unusually busy day.
+  if (actor.role === ROLES.OFFICE_HEAD || actor.role === ROLES.SUPER_ADMIN) items.push(...(await readVolumeNotices(db, { officeId: office, now })));
 
   items.sort((a, b) => b.at.localeCompare(a.at) || a.key.localeCompare(b.key));
   const read = rowsOf(await db.query(

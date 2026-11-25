@@ -9,13 +9,15 @@ import { readLateRisk } from '../analytics/late-risk.js';
 // A person sees only the transactions they may open (Office Staff: their own; Office Head: the office). The Super Admin has no office of
 // their own, so gets notices only when an officeId is given. The Executive has no bell. Read marks are kept by Oversight.
 export const DEADLINE_SHARE = 0.8;
+// S8-50 (c): many likely-late at once. N is the D-AC-3 value (proposed 5); the Office Head and the Super Admin get one notice for the office.
+export const MANY_HIGH_RISK = 5;
 const TEXT = {
   overdue: (i) => `${i.tracking_no} (${i.service_name}) has used all of its time limit.`,
   deadline: (i) => `${i.tracking_no} (${i.service_name}) has used ${Math.round(i.share_used * 100)}% of its time limit.`,
   high_risk: (i) => `${i.tracking_no} (${i.service_name}) is at high risk of being late.`,
 };
 
-export function notificationsFromRisk(items, { now = new Date() } = {}) {
+export function notificationsFromRisk(items, { now = new Date(), role = null, manyHighRisk = MANY_HIGH_RISK } = {}) {
   const out = [];
   for (const item of items) {
     if (item.can_open === false) continue;
@@ -25,7 +27,12 @@ export function notificationsFromRisk(items, { now = new Date() } = {}) {
     else if (typeof item.share_used === 'number' && item.share_used >= DEADLINE_SHARE) add('deadline');
     if (item.level === 'HIGH' && item.working_minutes_left !== 0) add('high_risk');
   }
-  const rank = { OVERDUE: 0, DEADLINE: 1, HIGH_RISK: 2 };
+  const high = items.filter((i) => i.level === 'HIGH' && i.working_minutes_left !== 0 && i.can_open !== false).length;
+  if ((role === ROLES.OFFICE_HEAD || role === ROLES.SUPER_ADMIN) && high >= manyHighRisk) {
+    out.push({ office_scope: 'OFFICE', key: 'many_high_risk:office', kind: 'MANY_HIGH_RISK', href: '/late-risk', at: now.toISOString(), count: high,
+      text: `${high} open requests are likely to be late today. Check the Chance of finishing late list, remind the assigned staff, or move work to another counter.` });
+  }
+  const rank = { MANY_HIGH_RISK: -1, OVERDUE: 0, DEADLINE: 1, HIGH_RISK: 2 };
   return out.sort((a, b) => rank[a.kind] - rank[b.kind] || a.key.localeCompare(b.key));
 }
 
@@ -37,5 +44,5 @@ export async function listOperationsNotifications(db, actor, { officeId = null, 
   if (!office) return { items: [], generated_at: now.toISOString() };
   office = String(office).toLowerCase();
   const risk = await readRisk(db, office, actor, { now });
-  return { items: notificationsFromRisk(risk.items, { now }), generated_at: now.toISOString() };
+  return { items: notificationsFromRisk(risk.items, { now, role: actor.role }), generated_at: now.toISOString() };
 }

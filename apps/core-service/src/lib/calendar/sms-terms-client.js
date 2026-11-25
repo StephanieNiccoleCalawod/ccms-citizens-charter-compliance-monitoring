@@ -45,6 +45,7 @@ export function toTermRow(term) {
   return {
     term_code: term.termCode,
     term_name: term.displayLabel || term.termCode,
+    academic_year: term.academicYear ?? null, // S8-64: lets a report or dashboard pick a whole school year
     start_date: term.startDate,
     end_date: term.endDate,
     status: term.status,
