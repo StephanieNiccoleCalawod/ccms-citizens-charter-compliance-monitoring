@@ -13,6 +13,9 @@ export const SCOPES = Object.freeze([
 
 export const SEED_NOTE = 'Practice data added for the demo is left out of these figures.';
 export const COMPLAINTS_NOTE = 'Complaints linked to each person are not available yet.';
+export const COMPLAINTS_LINKED_NOTE = 'Complaints are counted when they name the tracking number of a transaction the person started.';
+/** The note under the table: the real rule when Oversight answered, the "not available" line when it did not. */
+export const complaintsNote = (report) => (report?.totals?.linked_complaints == null ? COMPLAINTS_NOTE : COMPLAINTS_LINKED_NOTE);
 
 /** The scopes this role may ask for. Office Staff only ever get their own report. */
 export function scopesFor(role) {

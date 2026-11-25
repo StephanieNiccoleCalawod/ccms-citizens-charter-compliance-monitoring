@@ -5,7 +5,7 @@ import { getPeopleReport } from '../../lib/api/reports.js';
 import { todayManila } from '../../lib/api/calendar.js';
 import { formatDateRange, formatDateTime } from '../../lib/ui/date-format.js';
 import {
-  COMPLAINTS_NOTE, PEOPLE_HEADINGS, SEED_NOTE, buildPeopleQuery, peopleCsv, peopleFailureMessage, peopleRows, peopleScopeText, reportCsvName, scopesFor,
+  PEOPLE_HEADINGS, SEED_NOTE, buildPeopleQuery, complaintsNote, peopleCsv, peopleFailureMessage, peopleRows, peopleScopeText, reportCsvName, scopesFor,
 } from '../../lib/ui/people-report.js';
 import { ROLES } from 'ccms-shared/roles';
 import ErrorBanner from '../feedback/ErrorBanner.js';
@@ -144,7 +144,7 @@ export default function PeopleReport({ user, offices }) {
             </TableShell>
             <p className="text-xs text-ink-muted">{SEED_NOTE}{report.excluded_seed_count > 0 ? ` (${report.excluded_seed_count.toLocaleString('en-PH')} left out.)` : ''}</p>
             <p className="text-xs text-ink-muted">{report.basis}</p>
-            <p className="text-xs text-ink-muted">{COMPLAINTS_NOTE}</p>
+            <p className="text-xs text-ink-muted">{complaintsNote(report)}</p>
           </article>
         </>
       ) : null}
