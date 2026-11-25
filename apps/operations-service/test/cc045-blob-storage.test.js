@@ -8,7 +8,7 @@ import { GET as imageRoute } from '../src/app/api/transactions/[id]/receipt/imag
 import { GET as cleanupRoute } from '../src/app/api/jobs/receipt-storage-cleanup/route.js';
 import { RECEIPT_MAX_BYTES } from '../migrations/1794900200000-Cc045TransactionReceipts.js';
 import { StorageUnavailableError, blobStoreConnected, createVercelBlobStorage, setReceiptStorage, storageFromEnv } from '../src/modules/receipts/storage.js';
-import { USERS, call, ctx, insertTransaction, req, resetData, setupTestEnv, tokens } from './helpers.js';
+import { USERS, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
 
 const STORE_HOST = 'https://abc123storeid.private.blob.vercel-storage.com';
 const JPEG = (size = 2048) => { const b = Buffer.alloc(size, 0x33); b.set([0xff, 0xd8, 0xff, 0xe0]); return b; };
@@ -105,6 +105,7 @@ describe('receipts through the routes with the private Blob adapter', () => {
   let tx;
   before(async () => {
     env = await setupTestEnv();
+    seedCoreServices(env.core); // S8-58: the receipt upload asks Core whether the service has a fee
     process.env.CRON_SECRET = 'test-cron-secret-0123456789abcdef';
   });
   after(async () => {

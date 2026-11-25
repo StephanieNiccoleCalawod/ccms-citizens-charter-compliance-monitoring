@@ -10,7 +10,7 @@ import { GET as cleanupRoute } from '../src/app/api/jobs/receipt-storage-cleanup
 import { RECEIPT_MAX_BYTES } from '../migrations/1794900200000-Cc045TransactionReceipts.js';
 import { STALE_PENDING_MS, checkReceiptFile, normaliseAmount, runReceiptStorageCleanup, sniffImageType } from '../src/modules/receipts/receipts.js';
 import { createMemoryStorage, setReceiptStorage, storageFromEnv } from '../src/modules/receipts/storage.js';
-import { USERS, call, ctx, insertTransaction, req, resetData, setupTestEnv, tokens, OFFICE_A } from './helpers.js';
+import { USERS, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens, OFFICE_A } from './helpers.js';
 
 const JPEG = (size = 1024) => { const b = Buffer.alloc(size, 0x11); b.set([0xff, 0xd8, 0xff, 0xe0]); return b; };
 const PNG = (size = 1024) => { const b = Buffer.alloc(size, 0x22); b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); return b; };
@@ -23,6 +23,7 @@ let storage;
 let tx;
 before(async () => {
   env = await setupTestEnv();
+  seedCoreServices(env.core); // S8-58: the receipt upload asks Core whether the service has a fee
   process.env.CRON_SECRET = 'test-cron-secret-0123456789abcdef';
 });
 after(async () => {
