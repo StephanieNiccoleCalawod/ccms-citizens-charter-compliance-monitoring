@@ -29,10 +29,11 @@ export const READ_BATCH = 200; // the read endpoint accepts 1 to 200 keys per ca
  * pendingReadKeys: keys marked read on this screen whose save is not yet confirmed by Oversight, so a poll that lands in between
  * does not turn them back into unread.
  */
-export function mergeNotifications({ oversight, operations }, { pendingReadKeys = [] } = {}) {
+export function mergeNotifications({ oversight, operations }, { pendingReadKeys = [], pendingDeletedKeys = [] } = {}) {
+  const gone = new Set([...(oversight?.status === 'fulfilled' ? oversight.value?.deleted_keys ?? [] : []), ...pendingDeletedKeys]);
   const readKeys = new Set([...(oversight?.status === 'fulfilled' ? oversight.value?.read_keys ?? [] : []), ...pendingReadKeys]);
-  const ops = operations?.status === 'fulfilled' ? (operations.value?.items ?? []).map((i) => ({ ...i, read: readKeys.has(i.key) })) : [];
-  const over = oversight?.status === 'fulfilled' ? (oversight.value?.items ?? []).map((i) => ({ ...i, read: Boolean(i.read) || readKeys.has(i.key) })) : [];
+  const ops = operations?.status === 'fulfilled' ? (operations.value?.items ?? []).filter((i) => !gone.has(i.key)).map((i) => ({ ...i, read: readKeys.has(i.key) })) : [];
+  const over = oversight?.status === 'fulfilled' ? (oversight.value?.items ?? []).filter((i) => !gone.has(i.key)).map((i) => ({ ...i, read: Boolean(i.read) || readKeys.has(i.key) })) : [];
   ops.sort((a, b) => (RANK[a.kind] ?? 9) - (RANK[b.kind] ?? 9) || a.key.localeCompare(b.key));
   over.sort((a, b) => String(b.at).localeCompare(String(a.at)) || a.key.localeCompare(b.key));
   return {
@@ -65,6 +66,7 @@ export const unavailableMessage = (failed = []) => {
 export const chunkKeys = (keys, size = READ_BATCH) => { const out = []; for (let i = 0; i < keys.length; i += size) out.push(keys.slice(i, i + size)); return out; };
 export const unreadItems = (items) => items.filter((i) => !i.read);
 export const badgeText = (count) => (count > 99 ? '99+' : String(count));
+export const withoutKeys = (items, keys) => { const set = new Set(keys); return items.filter((i) => !set.has(i.key)); };
 export const markedAsRead = (items, keys) => { const set = new Set(keys); return items.map((i) => (set.has(i.key) ? { ...i, read: true } : i)); };
 
 // S8-50: the "Needs attention" list on the Dashboard for the Office Head and the Super Admin. Only the office-level notices of the unusual-case

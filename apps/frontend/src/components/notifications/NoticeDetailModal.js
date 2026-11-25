@@ -16,7 +16,7 @@ const ICONS = {
 const SHOWS_TIME = ['COMPLAINT', 'CALENDAR', 'ACCESS']; // the other notices are worked out at the moment of the request, so a time would mislead
 
 /** What one notice says, opened from "View details" in the bell and in the Notification Center. The notice is already marked read when this opens. */
-export default function NoticeDetailModal({ item, onClose }) {
+export default function NoticeDetailModal({ item, onClose, onDelete }) {
   if (!item) return null;
   const look = kindStyle(item.kind);
   const page = noticePage(item);
@@ -25,6 +25,7 @@ export default function NoticeDetailModal({ item, onClose }) {
     <Modal open title={look.label} onClose={onClose} hideHeader flushBody widthClass="max-w-xl"
       footer={(
         <>
+          {onDelete ? <Button variant="danger" onClick={() => onDelete(item)} data-testid="notice-delete" className="mr-auto">Delete</Button> : null}
           <Button variant="secondary" onClick={onClose} data-testid="notice-close">Close</Button>
           {page ? <Button href={page.href} onClick={onClose} data-testid="notice-open-page">Open {page.label}</Button> : null}
         </>

@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getNotificationFeeds, markNotificationsRead } from '../../lib/api/notifications.js';
+import { getNotificationFeeds, markNotificationsRead, deleteNotifications } from '../../lib/api/notifications.js';
 import { createPoller } from '../../lib/ui/analytics.js';
-import { FEEDS, badgeText, chunkKeys, markedAsRead, mergeNotifications, unreadItems, withLastGood } from '../../lib/ui/notifications.js';
+import { FEEDS, badgeText, chunkKeys, markedAsRead, withoutKeys, mergeNotifications, unreadItems, withLastGood } from '../../lib/ui/notifications.js';
 import IconButton from '../ui/IconButton.js';
+import { confirmDelete } from '../../lib/ui/notice-delete.js';
 import NoticeDetailModal from './NoticeDetailModal.js';
 import NotificationPanel from './NotificationPanel.js';
 
@@ -19,6 +20,7 @@ export default function NotificationBell() {
   const button = useRef(null);
   const lastGood = useRef({}); // last good answer of each feed, kept while that feed is down
   const pending = useRef(new Set()); // keys marked read here whose save Oversight has not confirmed yet
+  const pendingDeleted = useRef(new Set()); // keys deleted here whose save Oversight has not confirmed yet
 
   useEffect(() => {
     poller.current = createPoller({
@@ -27,8 +29,9 @@ export default function NotificationBell() {
       onSuccess: (feeds) => {
         const { feeds: effective, failed, good } = withLastGood(feeds, lastGood.current);
         lastGood.current = good;
-        const merged = mergeNotifications(effective, { pendingReadKeys: pending.current });
+        const merged = mergeNotifications(effective, { pendingReadKeys: pending.current, pendingDeletedKeys: pendingDeleted.current });
         if (feeds.oversight?.status === 'fulfilled') for (const key of feeds.oversight.value?.read_keys ?? []) pending.current.delete(key);
+        if (feeds.oversight?.status === 'fulfilled') for (const key of feeds.oversight.value?.deleted_keys ?? []) pendingDeleted.current.delete(key);
         setState({ items: merged.items, failed, partial: failed.length > 0, loaded: true });
       },
       onError: () => setState((s) => ({ ...s, failed: [...FEEDS], partial: true, loaded: true })),
@@ -49,6 +52,15 @@ export default function NotificationBell() {
   }, [open]);
 
   const unread = useMemo(() => unreadItems(state.items), [state.items]);
+  // Delete: ask first. The notice leaves the list at once; if the server does not confirm, it comes back and the person is told.
+  const remove = useCallback((item) => confirmDelete({
+    run: async () => {
+      pendingDeleted.current.add(item.key);
+      setState((s) => ({ ...s, items: withoutKeys(s.items, [item.key]) }));
+      try { await deleteNotifications([item.key]); } catch (error) { pendingDeleted.current.delete(item.key); poller.current?.refresh(); throw error; }
+    },
+  }), []);
+
   const mark = useCallback(async (keys) => {
     if (keys.length === 0) return;
     keys.forEach((key) => pending.current.add(key));
@@ -75,7 +87,7 @@ export default function NotificationBell() {
         <NotificationPanel items={state.items} unreadCount={unread.length} loaded={state.loaded} partial={state.partial} failed={state.failed}
           onMarkAll={() => mark(unread.map((i) => i.key))} onOpenItem={(item) => { mark([item.key]); setDetail(item); setOpen(false); }} onNavigate={() => setOpen(false)} />
       ) : null}
-      <NoticeDetailModal item={detail} onClose={() => setDetail(null)} />
+      <NoticeDetailModal item={detail} onClose={() => setDetail(null)} onDelete={(item) => { setDetail(null); remove(item); }} />
     </div>
   );
 }

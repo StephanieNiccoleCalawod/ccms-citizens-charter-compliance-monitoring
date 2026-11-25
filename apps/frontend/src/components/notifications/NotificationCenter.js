@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getNotificationFeeds, markNotificationsRead } from '../../lib/api/notifications.js';
+import { getNotificationFeeds, markNotificationsRead, deleteNotifications } from '../../lib/api/notifications.js';
 import { createPoller } from '../../lib/ui/analytics.js';
-import { FEEDS, NOTICE_TABS, chunkKeys, filterNotices, kindStyle, markedAsRead, mergeNotifications, noticeCounts, unavailableMessage, unreadItems, withLastGood } from '../../lib/ui/notifications.js';
+import { FEEDS, NOTICE_TABS, chunkKeys, filterNotices, kindStyle, markedAsRead, withoutKeys, mergeNotifications, noticeCounts, unavailableMessage, unreadItems, withLastGood } from '../../lib/ui/notifications.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
+import { confirmDelete } from '../../lib/ui/notice-delete.js';
 import NoticeDetailModal from './NoticeDetailModal.js';
 import StatCard from '../ui/StatCard.js';
 import Button from '../ui/Button.js';
@@ -23,7 +24,7 @@ const Icon = ({ name, className = 'h-5 w-5' }) => (
 );
 const statIcon = (name, color) => <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}1A`, color }}><Icon name={name} className="h-4 w-4" /></span>;
 
-/** The full list behind the bell (Settings > Notification Center). Reads the same two feeds and saves read marks the same way; nothing is deleted here. */
+/** The full list behind the bell (Settings > Notification Center). Reads the same two feeds and saves read marks the same way. A notice can be deleted (after asking), for this person only. */
 export default function NotificationCenter() {
   const [state, setState] = useState({ items: [], failed: [], loaded: false });
   const [tab, setTab] = useState('all');
@@ -32,6 +33,7 @@ export default function NotificationCenter() {
   const poller = useRef(null);
   const lastGood = useRef({});
   const pending = useRef(new Set()); // keys marked read here whose save Oversight has not confirmed yet
+  const pendingDeleted = useRef(new Set()); // keys deleted here whose save Oversight has not confirmed yet
 
   useEffect(() => {
     poller.current = createPoller({
@@ -40,8 +42,9 @@ export default function NotificationCenter() {
       onSuccess: (feeds) => {
         const { feeds: effective, failed, good } = withLastGood(feeds, lastGood.current);
         lastGood.current = good;
-        const merged = mergeNotifications(effective, { pendingReadKeys: pending.current });
+        const merged = mergeNotifications(effective, { pendingReadKeys: pending.current, pendingDeletedKeys: pendingDeleted.current });
         if (feeds.oversight?.status === 'fulfilled') for (const key of feeds.oversight.value?.read_keys ?? []) pending.current.delete(key);
+        if (feeds.oversight?.status === 'fulfilled') for (const key of feeds.oversight.value?.deleted_keys ?? []) pendingDeleted.current.delete(key);
         setState({ items: merged.items, failed, loaded: true });
       },
       onError: () => setState((s) => ({ ...s, failed: [...FEEDS], loaded: true })),
@@ -49,6 +52,15 @@ export default function NotificationCenter() {
     poller.current.start();
     return () => poller.current?.stop();
   }, []);
+
+  // Delete: ask first. The notice leaves the list at once; if the server does not confirm, it comes back and the person is told.
+  const remove = useCallback((item) => confirmDelete({
+    run: async () => {
+      pendingDeleted.current.add(item.key);
+      setState((s) => ({ ...s, items: withoutKeys(s.items, [item.key]) }));
+      try { await deleteNotifications([item.key]); } catch (error) { pendingDeleted.current.delete(item.key); poller.current?.refresh(); throw error; }
+    },
+  }), []);
 
   const mark = useCallback(async (keys) => {
     if (keys.length === 0) return;
@@ -107,7 +119,7 @@ export default function NotificationCenter() {
               const look = kindStyle(item.kind);
               const when = item.kind === 'COMPLAINT' || item.kind === 'CALENDAR' ? formatDateTime(item.at) : null;
               return (
-                <li key={item.key}>
+                <li key={item.key} className="relative">
                   <button type="button" onClick={() => { mark([item.key]); setDetail(item); }} data-testid="nc-item"
                     className={`flex w-full items-start gap-4 rounded-xl text-left border p-4 hover:border-maroon-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 ${item.read ? 'border-line bg-white' : 'border-maroon-100 bg-maroon-50/60'}`}>
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border" style={{ backgroundColor: `${look.color}1A`, borderColor: `${look.color}40`, color: look.color }} aria-hidden="true"><Icon name={look.icon} /></span>
@@ -119,7 +131,11 @@ export default function NotificationCenter() {
                       <span className="mt-0.5 block text-sm text-slate-600">{item.text}</span>
                       {when ? <span className="mt-1.5 block text-xs text-slate-400">{when}</span> : null}
                     </span>
-                    <span className="shrink-0 self-center text-xs font-semibold" style={{ color: look.text }}>View details →</span>
+                    <span className="shrink-0 self-center pr-9 text-xs font-semibold" style={{ color: look.text }}>View details →</span>
+                  </button>
+                  <button type="button" onClick={() => remove(item)} aria-label={`Delete notification: ${look.label}`} title="Delete" data-testid="nc-delete"
+                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>
                   </button>
                 </li>
               );
@@ -127,7 +143,7 @@ export default function NotificationCenter() {
           </ul>
         )}
       </section>
-      <NoticeDetailModal item={detail} onClose={() => setDetail(null)} />
+      <NoticeDetailModal item={detail} onClose={() => setDetail(null)} onDelete={(item) => { setDetail(null); remove(item); }} />
     </div>
   );
 }

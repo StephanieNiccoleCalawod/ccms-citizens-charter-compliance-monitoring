@@ -86,6 +86,6 @@ describe('Notice details window', () => {
     assert.doesNotMatch(read('src/components/notifications/NotificationCenter.js'), /href=\{item\.href/);
     const modal = read('src/components/notifications/NoticeDetailModal.js');
     assert.match(modal, /Open \{page\.label\}/);
-    assert.doesNotMatch(modal, /Delete/);
+    assert.match(modal, /data-testid="notice-delete"/); // the person asked for Delete: it always asks first (see notice-delete.test.js)
   });
 });
