@@ -24,7 +24,7 @@ describe('S8-53 past transactions per office', () => {
   });
 
   it('has a Settings switch for the Super Admin that saves through the office route and says the result', () => {
-    const settings = read('app/settings/page.js');
+    const settings = read('app/settings/transactions/page.js');
     assert.match(settings, /user\.role === ROLES\.SUPER_ADMIN \? <OfficeBackdate \/>/);
     const panel = read('app/settings/OfficeBackdate.js');
     assert.match(panel, /method: 'PATCH', body: \{ allow_backdated_transactions: on \}/);

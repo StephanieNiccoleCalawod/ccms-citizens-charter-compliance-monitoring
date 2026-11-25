@@ -4,19 +4,18 @@ import { navForRole } from 'ccms-shared/nav';
 import { ROLES } from 'ccms-shared/roles';
 import { queueNav } from '../ui/queue.js';
 import { clerkEnabled } from './provider.js';
+import { hubHasItems } from '../ui/settings-hub.js';
 
 export { landingForRole, navForRole } from 'ccms-shared/nav';
 export { ROLE_LABELS } from 'ccms-shared/roles';
 
 /**
- * Transaction Settings is a settings icon in the header of the Transactions page, so Super Admin, Office Head and Office Staff
- * get no sidebar item for it. Executive keeps the item with the reference pages: their Transactions page is read-only (CC027 / K14)
- * and they reach the settings, read-only, from the sidebar as before. Every role can open /settings (read-only unless Super Admin;
- * the Operations service enforces that).
+ * The Settings item (D8-20): shown to a role only when the Settings hub has something for it. Every role has at least the read-only
+ * transaction settings, so each role gets it; the item sits with the reference pages. The header icon on the Transactions page opens
+ * the transaction settings directly (/settings/transactions).
  */
 export function transactionSettingsNav(role) {
-  if (role === ROLES.SUPER_ADMIN || role === ROLES.OFFICE_HEAD || role === ROLES.OFFICE_STAFF) return null;
-  return { section: 'Reference', label: 'Transaction Settings', href: '/settings' };
+  return hubHasItems(role) ? { section: 'Reference', label: 'Settings', href: '/settings' } : null;
 }
 
 /** The audit log is for Super Admin only: nobody else gets the menu item (the Logs service also answers 403 to Office Staff and Executive). */

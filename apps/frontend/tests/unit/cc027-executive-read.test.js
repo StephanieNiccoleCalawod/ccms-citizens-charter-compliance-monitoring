@@ -27,7 +27,7 @@ describe('navigation and page roles', () => {
     for (const role of OPERATORS) {
       const nav = appNavForRole(role);
       assert.ok(nav.some((i) => i.href === '/transactions'), role);
-      assert.ok(!nav.some((i) => i.href === '/settings'), `${role}: settings stays the header icon`);
+      assert.ok(nav.some((i) => i.href === '/settings'), `${role}: the Settings hub has links for this role`);
       assert.equal(isTransactionReadOnly(role), false, role);
     }
     assert.equal(isTransactionReadOnly(ROLES.EXECUTIVE), true);
