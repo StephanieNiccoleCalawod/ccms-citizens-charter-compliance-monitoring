@@ -5,6 +5,7 @@ import { getNotificationFeeds, markNotificationsRead } from '../../lib/api/notif
 import { createPoller } from '../../lib/ui/analytics.js';
 import { FEEDS, badgeText, chunkKeys, markedAsRead, mergeNotifications, unreadItems, withLastGood } from '../../lib/ui/notifications.js';
 import IconButton from '../ui/IconButton.js';
+import NoticeDetailModal from './NoticeDetailModal.js';
 import NotificationPanel from './NotificationPanel.js';
 
 // Notification bell (CC055): the count of unread notices and a list. Worked out by the services on each request and refreshed every
@@ -12,6 +13,7 @@ import NotificationPanel from './NotificationPanel.js';
 export default function NotificationBell() {
   const [state, setState] = useState({ items: [], failed: [], partial: false, loaded: false });
   const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState(null); // the notice whose details are open
   const box = useRef(null);
   const poller = useRef(null);
   const button = useRef(null);
@@ -71,8 +73,9 @@ export default function NotificationBell() {
       </IconButton>
       {open ? (
         <NotificationPanel items={state.items} unreadCount={unread.length} loaded={state.loaded} partial={state.partial} failed={state.failed}
-          onMarkAll={() => mark(unread.map((i) => i.key))} onOpenItem={(key) => { mark([key]); setOpen(false); }} onNavigate={() => setOpen(false)} />
+          onMarkAll={() => mark(unread.map((i) => i.key))} onOpenItem={(item) => { mark([item.key]); setDetail(item); setOpen(false); }} onNavigate={() => setOpen(false)} />
       ) : null}
+      <NoticeDetailModal item={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }

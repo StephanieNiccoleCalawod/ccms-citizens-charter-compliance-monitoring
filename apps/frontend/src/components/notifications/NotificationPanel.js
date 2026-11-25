@@ -58,7 +58,7 @@ export default function NotificationPanel({ items, unreadCount, loaded, partial,
           return (
             <li key={item.key} className="relative border-b border-slate-100 last:border-b-0">
               {item.read ? null : <span className="absolute left-1.5 top-5 h-2 w-2 rounded-full bg-maroon-700" aria-hidden="true" />}
-              <Link href={item.href || '/'} onClick={() => onOpenItem(item.key)} className={`flex gap-3 py-3 pl-5 pr-4 text-sm hover:bg-maroon-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-maroon-700 ${item.read ? '' : 'bg-maroon-50/60'}`}>
+              <button type="button" onClick={() => onOpenItem(item)} data-testid="bell-item" className={`flex w-full gap-3 text-left py-3 pl-5 pr-4 text-sm hover:bg-maroon-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-maroon-700 ${item.read ? '' : 'bg-maroon-50/60'}`}>
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border" style={{ backgroundColor: `${look.color}1A`, borderColor: `${look.color}40`, color: look.color }} aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">{ICONS[look.icon] ?? ICONS.bell}</svg>
                 </span>
@@ -70,7 +70,7 @@ export default function NotificationPanel({ items, unreadCount, loaded, partial,
                     <span className="font-semibold" style={{ color: look.text }}>View details →</span>
                   </span>
                 </span>
-              </Link>
+              </button>
             </li>
           );
         })}

@@ -3,7 +3,7 @@ import { ROLES } from 'ccms-shared/roles';
 
 export const BELL_ROLES = Object.freeze([ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]); // the Executive has no bell
 export const hasBell = (role) => BELL_ROLES.includes(role);
-export const KIND_LABEL = Object.freeze({ OVERDUE: 'Overdue', DEADLINE: 'Deadline near', HIGH_RISK: 'High risk', COMPLAINT: 'Complaint', CALENDAR: 'Calendar', MANY_HIGH_RISK: 'Many likely late', VOLUME: 'Busy day' });
+export const KIND_LABEL = Object.freeze({ OVERDUE: 'Overdue', DEADLINE: 'Deadline near', HIGH_RISK: 'High risk', COMPLAINT: 'Complaint', CALENDAR: 'Calendar', MANY_HIGH_RISK: 'Many likely late', VOLUME: 'Busy day', ACCESS: 'Access' });
 const RANK = { MANY_HIGH_RISK: -1, OVERDUE: 0, DEADLINE: 1, HIGH_RISK: 2 };
 
 // How each kind looks on the bell: the left bar / icon colour (color), a darker shade for the label text (text) and the icon name.
@@ -15,6 +15,7 @@ export const KIND_STYLE = Object.freeze({
   CALENDAR: Object.freeze({ label: 'Calendar Notification', color: '#8B5CF6', text: '#6D28D9', icon: 'calendar' }),
   MANY_HIGH_RISK: Object.freeze({ label: 'Many Likely Late Notification', color: '#F97316', text: '#C2410C', icon: 'flag' }),
   VOLUME: Object.freeze({ label: 'Busy Day Notification', color: '#3B82F6', text: '#1D4ED8', icon: 'alert' }),
+  ACCESS: Object.freeze({ label: 'Access Notification', color: '#8B5CF6', text: '#6D28D9', icon: 'check' }),
 });
 const OTHER_STYLE = Object.freeze({ color: '#64748B', text: '#334155', icon: 'bell' });
 export const kindStyle = (kind) => KIND_STYLE[kind] ?? { ...OTHER_STYLE, label: KIND_LABEL[kind] ?? String(kind) };
@@ -103,4 +104,33 @@ export function noticeCounts(items) {
     deadlines: items.filter((i) => DEADLINE_KINDS.includes(i.kind)).length,
     updates: items.filter((i) => !DEADLINE_KINDS.includes(i.kind)).length,
   };
+}
+
+// "View details" on a notice opens a small detail window. These work out what it says from the notice itself; nothing more is fetched.
+const STATUS = Object.freeze({ OVERDUE: 'Time limit used up', DEADLINE: 'Near its deadline', HIGH_RISK: 'Likely to finish late', MANY_HIGH_RISK: 'Many likely late', VOLUME: 'Busy day', CALENDAR: 'Calendar changed', ACCESS: 'Access request update' });
+const COMPLAINT_STATUS = Object.freeze({ ACKNOWLEDGED: 'Acknowledged', RESOLVED: 'Resolved' });
+
+/** The page a notice belongs to, for the "Open ..." button. Null when the notice has no link. */
+export function noticePage(item) {
+  const href = item?.href;
+  if (!href) return null;
+  if (href.startsWith('/transactions/')) return { href, label: 'Transaction' };
+  const label = { '/complaints': 'Complaints', '/calendar': 'Calendar', '/access': 'Access', '/late-risk': 'Chance of finishing late', '/transactions': 'Transactions' }[href];
+  return { href, label: label ?? 'Page' };
+}
+
+/** The rows of the detail window: only the ones this notice has. [{ label, value, mono? }] */
+export function noticeDetails(item) {
+  const text = String(item?.text ?? '');
+  const rows = [{ label: 'Notice', value: kindStyle(item?.kind).label }];
+  const status = item?.kind === 'COMPLAINT' ? COMPLAINT_STATUS[String(item.key).split(':').pop()] : STATUS[item?.kind];
+  if (status) rows.push({ label: 'Status', value: status });
+  const reference = item?.kind === 'COMPLAINT' ? text.match(/^Complaint (\S+)/)?.[1] : DEADLINE_KINDS.includes(item?.kind) ? text.match(/^(\S+) \(/)?.[1] : null;
+  if (reference) rows.push({ label: item.kind === 'COMPLAINT' ? 'Complaint reference' : 'Tracking number', value: reference, mono: true });
+  const service = DEADLINE_KINDS.includes(item?.kind) ? text.match(/^\S+ \((.+?)\) /)?.[1] : null;
+  if (service) rows.push({ label: 'Service', value: service });
+  if (item?.kind === 'MANY_HIGH_RISK' && Number.isFinite(item.count)) rows.push({ label: 'Requests likely late', value: String(item.count) });
+  const page = noticePage(item);
+  if (page) rows.push({ label: 'Where to see it', value: page.label });
+  return rows;
 }

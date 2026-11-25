@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { getNotificationFeeds, markNotificationsRead } from '../../lib/api/notifications.js';
 import { createPoller } from '../../lib/ui/analytics.js';
 import { FEEDS, NOTICE_TABS, chunkKeys, filterNotices, kindStyle, markedAsRead, mergeNotifications, noticeCounts, unavailableMessage, unreadItems, withLastGood } from '../../lib/ui/notifications.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
+import NoticeDetailModal from './NoticeDetailModal.js';
 import RoleBadge from '../ui/RoleBadge.js';
 import StatCard from '../ui/StatCard.js';
 import Button from '../ui/Button.js';
@@ -29,6 +29,7 @@ export default function NotificationCenter({ user }) {
   const [state, setState] = useState({ items: [], failed: [], loaded: false });
   const [tab, setTab] = useState('all');
   const [query, setQuery] = useState('');
+  const [detail, setDetail] = useState(null); // the notice whose details are open
   const poller = useRef(null);
   const lastGood = useRef({});
   const pending = useRef(new Set()); // keys marked read here whose save Oversight has not confirmed yet
@@ -114,8 +115,8 @@ export default function NotificationCenter({ user }) {
               const when = item.kind === 'COMPLAINT' || item.kind === 'CALENDAR' ? formatDateTime(item.at) : null;
               return (
                 <li key={item.key}>
-                  <Link href={item.href || '/'} onClick={() => mark([item.key])} data-testid="nc-item"
-                    className={`flex items-start gap-4 rounded-xl border p-4 hover:border-maroon-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 ${item.read ? 'border-line bg-white' : 'border-maroon-100 bg-maroon-50/60'}`}>
+                  <button type="button" onClick={() => { mark([item.key]); setDetail(item); }} data-testid="nc-item"
+                    className={`flex w-full items-start gap-4 rounded-xl text-left border p-4 hover:border-maroon-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 ${item.read ? 'border-line bg-white' : 'border-maroon-100 bg-maroon-50/60'}`}>
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border" style={{ backgroundColor: `${look.color}1A`, borderColor: `${look.color}40`, color: look.color }} aria-hidden="true"><Icon name={look.icon} /></span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
@@ -126,13 +127,14 @@ export default function NotificationCenter({ user }) {
                       {when ? <span className="mt-1.5 block text-xs text-slate-400">{when}</span> : null}
                     </span>
                     <span className="shrink-0 self-center text-xs font-semibold" style={{ color: look.text }}>View details →</span>
-                  </Link>
+                  </button>
                 </li>
               );
             })}
           </ul>
         )}
       </section>
+      <NoticeDetailModal item={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }
