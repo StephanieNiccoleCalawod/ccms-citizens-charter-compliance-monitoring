@@ -11,7 +11,7 @@ export const NOT_DELETED = 'The notification could not be deleted. Please try ag
 /** Opens "Are you sure?"; only on Delete does it call run() (which must throw when the server did not confirm), then shows Success or Failed. */
 export function confirmDelete({ count = 1, run }) {
   return notify.result({
-    variant: 'confirm', title: DELETE_TITLE, message: deleteQuestion(count), confirmLabel: 'Delete', cancelLabel: 'Cancel',
+    variant: 'confirm', title: DELETE_TITLE, message: deleteQuestion(count), confirmLabel: 'Delete', cancelLabel: 'Cancel', danger: true,
     onConfirm: async () => {
       try {
         await run();

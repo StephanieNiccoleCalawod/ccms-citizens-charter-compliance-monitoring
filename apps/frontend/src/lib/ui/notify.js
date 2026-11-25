@@ -43,7 +43,7 @@ export const RESULT_TITLES = { success: 'Success', warning: 'Warning', error: 'F
 let current = null;
 let nextResultId = 1;
 
-function result({ variant = 'success', title, message, confirmLabel, cancelLabel, onConfirm } = {}) {
+function result({ variant = 'success', title, message, confirmLabel, cancelLabel, onConfirm, danger = false } = {}) {
   const text = typeof message === 'string' ? message.trim() : '';
   if (!text) return null;
   const kind = RESULT_VARIANTS.includes(variant) ? variant : 'error';
@@ -55,6 +55,7 @@ function result({ variant = 'success', title, message, confirmLabel, cancelLabel
     confirmLabel: confirmLabel || (kind === 'confirm' ? 'Confirm' : 'OK'),
     cancelLabel: cancelLabel || 'Cancel',
     onConfirm: kind === 'confirm' && typeof onConfirm === 'function' ? onConfirm : null,
+    danger: kind === 'confirm' && danger === true,
   };
   emit();
   return current.id;

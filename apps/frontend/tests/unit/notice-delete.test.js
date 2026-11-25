@@ -1,5 +1,6 @@
 // Deleting a notification: ask first, say it is done, and never show a deleted notice again.
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, it } from 'node:test';
 import { deleteNotifications } from '../../src/lib/api/notifications.js';
 import { mergeNotifications, withoutKeys } from '../../src/lib/ui/notifications.js';
@@ -61,5 +62,21 @@ describe('api', () => {
     const calls = [];
     await deleteNotifications(['calendar:1'], async (url, init) => { calls.push([url, init]); return { deleted: 1 }; });
     assert.deepEqual(calls, [['/api/logs/analytics/notifications/delete', { method: 'POST', body: { keys: ['calendar:1'] } }]]);
+  });
+});
+
+describe('Notification Center: select, then delete', () => {
+  const src = readFileSync(new URL('../../src/components/notifications/NotificationCenter.js', import.meta.url), 'utf8');
+  it('has Select all and Delete selected, and no delete icon on each row', () => {
+    assert.match(src, /data-testid="nc-select-all"/);
+    assert.match(src, /data-testid="nc-delete-selected"/);
+    assert.match(src, /data-testid="nc-select"/);
+    assert.doesNotMatch(src, /data-testid="nc-delete"/);
+  });
+  it('the confirm for several notices counts them, and is red', () => {
+    assert.match(deleteQuestion(3), /delete these 3 notifications/);
+    assert.equal(deletedMessage(3), '3 notifications were deleted.');
+    confirmDelete({ count: 3, run: async () => {} });
+    assert.equal(getResult().danger, true);
   });
 });

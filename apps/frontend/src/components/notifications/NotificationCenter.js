@@ -30,6 +30,7 @@ export default function NotificationCenter() {
   const [tab, setTab] = useState('all');
   const [query, setQuery] = useState('');
   const [detail, setDetail] = useState(null); // the notice whose details are open
+  const [selected, setSelected] = useState(() => new Set()); // keys ticked for Delete selected
   const poller = useRef(null);
   const lastGood = useRef({});
   const pending = useRef(new Set()); // keys marked read here whose save Oversight has not confirmed yet
@@ -53,12 +54,20 @@ export default function NotificationCenter() {
     return () => poller.current?.stop();
   }, []);
 
-  // Delete: ask first. The notice leaves the list at once; if the server does not confirm, it comes back and the person is told.
-  const remove = useCallback((item) => confirmDelete({
+  // Delete: ask first. The notices leave the list at once; if the server does not confirm, they come back and the person is told.
+  const removeKeys = useCallback((keys) => confirmDelete({
+    count: keys.length,
     run: async () => {
-      pendingDeleted.current.add(item.key);
-      setState((s) => ({ ...s, items: withoutKeys(s.items, [item.key]) }));
-      try { await deleteNotifications([item.key]); } catch (error) { pendingDeleted.current.delete(item.key); poller.current?.refresh(); throw error; }
+      keys.forEach((key) => pendingDeleted.current.add(key));
+      setState((s) => ({ ...s, items: withoutKeys(s.items, keys) }));
+      setSelected(new Set());
+      try {
+        for (const batch of chunkKeys(keys)) await deleteNotifications(batch);
+      } catch (error) {
+        keys.forEach((key) => pendingDeleted.current.delete(key));
+        poller.current?.refresh();
+        throw error;
+      }
     },
   }), []);
 
@@ -77,6 +86,10 @@ export default function NotificationCenter() {
   const counts = useMemo(() => noticeCounts(state.items), [state.items]);
   const shown = useMemo(() => filterNotices(state.items, tab, query), [state.items, tab, query]);
   const unread = unreadItems(state.items);
+  const chosen = shown.filter((i) => selected.has(i.key)).map((i) => i.key); // only what is on screen counts
+  const allChosen = shown.length > 0 && chosen.length === shown.length;
+  const toggle = (key) => setSelected((cur) => { const next = new Set(cur); if (next.has(key)) next.delete(key); else next.add(key); return next; });
+  const toggleAll = () => setSelected(allChosen ? new Set() : new Set(shown.map((i) => i.key)));
   const tabCount = (t) => ` (${state.items.filter(t.pick).length})`;
 
   return (
@@ -111,6 +124,15 @@ export default function NotificationCenter() {
           <h2 id="nc-list-title" className="flex items-center gap-2 text-sm font-bold text-slate-900"><Icon name="bell" className="h-4 w-4 text-maroon-800" />Notices</h2>
           <p className="text-xs text-ink-muted" data-testid="nc-showing">Showing {shown.length} of {state.items.length} notices</p>
         </div>
+        {shown.length > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-slate-50 px-5 py-2.5" data-testid="nc-select-bar">
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm font-semibold text-slate-700">
+              <input type="checkbox" checked={allChosen} onChange={toggleAll} className="h-4 w-4 rounded border-slate-300 accent-maroon-800" data-testid="nc-select-all" />
+              {chosen.length ? `${chosen.length} selected` : 'Select all'}
+            </label>
+            <Button variant="danger" size="sm" disabled={chosen.length === 0} onClick={() => removeKeys(chosen)} data-testid="nc-delete-selected">Delete selected{chosen.length ? ` (${chosen.length})` : ''}</Button>
+          </div>
+        ) : null}
         {shown.length === 0 ? (
           <div className="p-6">{state.loaded ? <EmptyState role="status" title={state.items.length ? 'No notices match' : 'No notifications'}>{state.items.length ? 'Try another word or filter.' : 'New notices will appear here.'}</EmptyState> : <p className="text-sm text-slate-600">Loading…</p>}</div>
         ) : (
@@ -119,9 +141,12 @@ export default function NotificationCenter() {
               const look = kindStyle(item.kind);
               const when = item.kind === 'COMPLAINT' || item.kind === 'CALENDAR' ? formatDateTime(item.at) : null;
               return (
-                <li key={item.key} className="relative">
+                <li key={item.key} className="flex items-stretch gap-3">
+                  <label className="flex shrink-0 cursor-pointer items-center pl-1" aria-label={`Select notification: ${look.label}`}>
+                    <input type="checkbox" checked={selected.has(item.key)} onChange={() => toggle(item.key)} className="h-4 w-4 rounded border-slate-300 accent-maroon-800" data-testid="nc-select" />
+                  </label>
                   <button type="button" onClick={() => { mark([item.key]); setDetail(item); }} data-testid="nc-item"
-                    className={`flex w-full items-start gap-4 rounded-xl text-left border p-4 hover:border-maroon-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 ${item.read ? 'border-line bg-white' : 'border-maroon-100 bg-maroon-50/60'}`}>
+                    className={`flex min-w-0 flex-1 items-start gap-4 rounded-xl text-left border p-4 hover:border-maroon-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 ${item.read ? 'border-line bg-white' : 'border-maroon-100 bg-maroon-50/60'}`}>
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border" style={{ backgroundColor: `${look.color}1A`, borderColor: `${look.color}40`, color: look.color }} aria-hidden="true"><Icon name={look.icon} /></span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
@@ -131,11 +156,7 @@ export default function NotificationCenter() {
                       <span className="mt-0.5 block text-sm text-slate-600">{item.text}</span>
                       {when ? <span className="mt-1.5 block text-xs text-slate-400">{when}</span> : null}
                     </span>
-                    <span className="shrink-0 self-center pr-9 text-xs font-semibold" style={{ color: look.text }}>View details →</span>
-                  </button>
-                  <button type="button" onClick={() => remove(item)} aria-label={`Delete notification: ${look.label}`} title="Delete" data-testid="nc-delete"
-                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>
+                    <span className="shrink-0 self-center text-xs font-semibold" style={{ color: look.text }}>View details →</span>
                   </button>
                 </li>
               );
@@ -143,7 +164,7 @@ export default function NotificationCenter() {
           </ul>
         )}
       </section>
-      <NoticeDetailModal item={detail} onClose={() => setDetail(null)} onDelete={(item) => { setDetail(null); remove(item); }} />
+      <NoticeDetailModal item={detail} onClose={() => setDetail(null)} onDelete={(item) => { setDetail(null); removeKeys([item.key]); }} />
     </div>
   );
 }
