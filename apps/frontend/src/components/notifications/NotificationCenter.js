@@ -6,7 +6,6 @@ import { createPoller } from '../../lib/ui/analytics.js';
 import { FEEDS, NOTICE_TABS, chunkKeys, filterNotices, kindStyle, markedAsRead, mergeNotifications, noticeCounts, unavailableMessage, unreadItems, withLastGood } from '../../lib/ui/notifications.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 import NoticeDetailModal from './NoticeDetailModal.js';
-import RoleBadge from '../ui/RoleBadge.js';
 import StatCard from '../ui/StatCard.js';
 import Button from '../ui/Button.js';
 import EmptyState from '../ui/EmptyState.js';
@@ -25,7 +24,7 @@ const Icon = ({ name, className = 'h-5 w-5' }) => (
 const statIcon = (name, color) => <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}1A`, color }}><Icon name={name} className="h-4 w-4" /></span>;
 
 /** The full list behind the bell (Settings > Notification Center). Reads the same two feeds and saves read marks the same way; nothing is deleted here. */
-export default function NotificationCenter({ user }) {
+export default function NotificationCenter() {
   const [state, setState] = useState({ items: [], failed: [], loaded: false });
   const [tab, setTab] = useState('all');
   const [query, setQuery] = useState('');
@@ -75,12 +74,6 @@ export default function NotificationCenter({ user }) {
         <StatCard label="Unread" value={counts.unread} tone={counts.unread ? 'brand' : 'default'} icon={statIcon('flag', '#B91C1C')} testId="nc-unread" />
         <StatCard label="Deadlines and late risk" value={counts.deadlines} tone={counts.deadlines ? 'warning' : 'default'} icon={statIcon('clock', '#C2410C')} testId="nc-deadlines" />
         <StatCard label="Complaints and calendar" value={counts.updates} tone="success" icon={statIcon('calendar', '#15803D')} testId="nc-updates" />
-      </div>
-
-      <div className="card flex items-center gap-2.5 px-5 py-3 text-sm">
-        <span className="h-2 w-2 rounded-full bg-maroon-700" aria-hidden="true" />
-        <span className="font-semibold text-slate-900">Signed in as</span>
-        <RoleBadge role={user.role} />
       </div>
 
       <div className="card flex flex-wrap items-center gap-3 p-4">

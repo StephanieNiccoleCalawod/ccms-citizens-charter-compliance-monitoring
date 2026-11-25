@@ -9,7 +9,7 @@ export default function NotificationCenterPage() {
   return (
     <AppShell title="Notification Center" subtitle="Every notice from the bell in one place. Search, filter and mark them as read." allowedRoles={BELL_ROLES}
       breadcrumb={[{ label: 'Settings', href: '/settings' }, { label: 'Notification Center' }]}>
-      {(user) => <NotificationCenter user={user} />}
+      {() => <NotificationCenter />}
     </AppShell>
   );
 }
