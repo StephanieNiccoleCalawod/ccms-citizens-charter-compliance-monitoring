@@ -1,5 +1,6 @@
 'use client';
 
+import PublicFooter from '../layout/PublicFooter.js';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -82,6 +83,7 @@ export default function LandingHero() {
           <p className="mt-5 max-w-md text-sm text-white/85">Every service shows its requirements, steps, and processing time.</p>
         </div>
       </main>
+      <PublicFooter />
     </div>
   );
 }

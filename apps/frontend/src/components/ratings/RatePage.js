@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { submitRating } from '../../lib/api/ratings.js';
 import { STAR_LABEL, STAR_VALUES, cleanCode, codeFromHash, ratingErrors, ratingFailure, showCode } from '../../lib/ui/ratings.js';
 import PublicHeader from '../layout/PublicHeader.js';
+import PublicFooter from '../layout/PublicFooter.js';
 
 // Public rating page (CC057): no sign-in, a code from the receipt, 1 to 5 stars, once per code. No name, no comment, nothing about the person.
 export default function RatePage() {
@@ -71,6 +72,7 @@ export default function RatePage() {
           </form>
         )}
       </main>
+      <PublicFooter />
     </>
   );
 }

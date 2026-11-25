@@ -9,7 +9,7 @@ import Pager from '../navigation/Pager.js';
 import PublicServiceView from '../service/PublicServiceView.js';
 import { PUBLIC_SERVICES_API } from '../../lib/api/catalogue.js';
 import { publicFetch } from '../../lib/api/client.js';
-import { BRAND } from '../../lib/constants/brand.js';
+import PublicFooter from '../layout/PublicFooter.js';
 import { clampPage, pageOf } from '../../lib/ui/public-catalogue.js';
 import { DIRECTORY_PAGE_SIZE, TIME_FILTERS, filterByTime, officeCounts, sequenceLabel, showingRange, sortByName } from '../../lib/ui/public-directory.js';
 
@@ -199,10 +199,8 @@ export default function PublicDirectory({ catalogue }) {
           ) : null}
         </section>
 
-        <footer className="mt-12 border-t pt-5 text-center text-sm" style={{ borderColor: DIVIDER, color: MUTED }}>
-          {BRAND.campus} &middot; {BRAND.fullName}
-        </footer>
       </main>
+      <PublicFooter />
 
       <Modal open={selected !== null} title="Service requirements" widthClass="max-w-4xl" hideHeader fullScreenOnMobile onClose={() => setSelected(null)}>
         {selected ? <RequirementsBody key={selected.service_id} service={selected} onClose={() => setSelected(null)} /> : null}

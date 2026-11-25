@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import PublicHeader from '../layout/PublicHeader.js';
+import PublicFooter from '../layout/PublicFooter.js';
 import { checkTrackingNumber, fileComplaint } from '../../lib/api/complaints.js';
 import { CATEGORIES, EMPTY_FORM, LIMITS, TRACKING_NOT_FOUND, TRACKING_REQUIRED, describeFailure, formErrors, foundLine, privacyNoticeUrl, remaining } from '../../lib/ui/complaints.js';
 
@@ -153,6 +154,7 @@ export default function ComplaintForm() {
           </div>
         )}
       </main>
+      <PublicFooter />
     </div>
   );
 }
