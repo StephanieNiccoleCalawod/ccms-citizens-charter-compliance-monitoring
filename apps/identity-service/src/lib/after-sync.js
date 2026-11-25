@@ -1,7 +1,9 @@
 import { migrateSprint5Identity } from './migrations/sprint5.js';
+import { migrateSprint8Identity } from './migrations/sprint8.js';
 // Runs after TypeORM has created the tables. Everything here is idempotent.
 export async function afterSync(dataSource) {
   await migrateSprint5Identity(dataSource);
+  await migrateSprint8Identity(dataSource);
   // One account per email, regardless of letter case (TypeORM cannot declare an expression index).
   await dataSource.query('CREATE UNIQUE INDEX IF NOT EXISTS accounts_email_lower_uq ON accounts (lower(email))');
   // CC056 (keep identical to migrations/sql/1794650000000-Cc056PermissionSwitches.up.sql): only the four switches exist, all off at first.

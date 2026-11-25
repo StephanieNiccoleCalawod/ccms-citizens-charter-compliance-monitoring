@@ -1,4 +1,4 @@
-import { Errors, ROLES } from 'ccms-shared';
+import { Errors, GRANTABLE, ROLES } from 'ccms-shared';
 import { requireStaffSwitch } from '../../lib/switches.js';
 import { readVolumeNotices } from './volume.js';
 
@@ -15,6 +15,16 @@ const rowsOf = (result) => (Array.isArray(result) && Array.isArray(result[0]) ? 
 const bound = (actor) => actor.role === ROLES.OFFICE_HEAD || actor.role === ROLES.OFFICE_STAFF;
 const iso = (v) => (v instanceof Date ? v.toISOString() : new Date(v).toISOString());
 const word = (v) => String(v ?? '').toLowerCase().replaceAll('_', ' ');
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** 'December 24, 2026' from a YYYY-MM-DD date. */
+export const writtenDate = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? `${MONTHS[Number(d.slice(5, 7)) - 1]} ${Number(d.slice(8, 10))}, ${d.slice(0, 4)}` : '');
+export const ACCESS_TEXT = Object.freeze({
+  ACCESS_GRANTED: (what, v) => `Your request for \u201c${what}\u201d was approved${v?.ends_on ? ` until ${writtenDate(v.ends_on)}` : ''}.`,
+  ACCESS_DENIED: (what) => `Your request for \u201c${what}\u201d was not approved.`,
+  ACCESS_REVOKED: (what) => `Your access to \u201c${what}\u201d was removed by the Super Admin.`,
+  ACCESS_EXPIRED: (what) => `Your access to \u201c${what}\u201d has ended.`,
+});
 
 const CALENDAR_VERB = { CALENDAR_EXCEPTION_ADDED: 'added', CALENDAR_EXCEPTION_UPDATED: 'changed', CALENDAR_EXCEPTION_REMOVED: 'removed' };
 
@@ -53,6 +63,18 @@ export async function listNotifications(db, actor, { now = new Date() } = {}) {
 
   // S8-50 (b): only the Office Head (own office) and the Super Admin hear about an unusually busy day.
   if (actor.role === ROLES.OFFICE_HEAD || actor.role === ROLES.SUPER_ADMIN) items.push(...(await readVolumeNotices(db, { officeId: office, now })));
+
+  // S8-52: what happened to this person's access requests (granted, not approved, removed, ended), from the audit trail. Only to the person.
+  if (actor.role === ROLES.OFFICE_HEAD || actor.role === ROLES.OFFICE_STAFF) {
+    const access = rowsOf(await db.query(
+      `SELECT audit_id, action, after_value, occurred_at FROM audit_log
+        WHERE entity_type = 'access_request' AND action = ANY($3::text[]) AND occurred_at >= $2 AND after_value->>'account_id' = $1::text
+        ORDER BY occurred_at DESC LIMIT ${MAX_PER_KIND}`, [actor.id, since, Object.keys(ACCESS_TEXT)]));
+    for (const row of access) {
+      const what = GRANTABLE[row.after_value?.permission_key]?.label ?? 'an extra permission';
+      items.push({ key: `access:${row.audit_id}`, kind: 'ACCESS', text: ACCESS_TEXT[row.action](what, row.after_value), at: iso(row.occurred_at), office_id: actor.officeId ?? null, href: '/access' });
+    }
+  }
 
   items.sort((a, b) => b.at.localeCompare(a.at) || a.key.localeCompare(b.key));
   const read = rowsOf(await db.query(

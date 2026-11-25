@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Errors, assertOfficeAccess, isUniqueViolation, isUuid, readAllowedClientTypes, recordAudit, toManilaDate } from 'ccms-shared';
+import { Errors, assertOfficeAccess, isUniqueViolation, isUuid, readAllowedClientTypes, recordAudit, toManilaDate, ROLES, hasGrant } from 'ccms-shared';
 import { kickAcknowledgements, kickAnalytics, kickOutbox, kickReceipts } from '../../lib/outbox.js';
 import { parseRegistryChoice, resolveRegistryChoice } from '../registry/lookup.js';
 import { QUEUE_LINK_MESSAGES, lockTicketForStart, markTicketServed, parseQueueTicketChoice } from '../queue/link.js';
@@ -140,7 +140,7 @@ export async function startTransaction(dataSource, { core, identity = null, now 
   const requestTime = now();
   const input = parseStartInput(body, { now: requestTime });
   const backdated = input.startedAt !== null;
-  if (backdated) await requireStaffSwitch(user, 'STAFF_BACKDATE'); // CC056
+  if (backdated && !(user.role === ROLES.OFFICE_STAFF && await hasGrant(user, 'RECORD_PAST_TRANSACTIONS'))) await requireStaffSwitch(user, 'STAFF_BACKDATE'); // CC056; S8-52: the granted permission replaces the switch
   const startedAt = input.startedAt ?? requestTime;
   const manilaDate = toManilaDate(startedAt);
 

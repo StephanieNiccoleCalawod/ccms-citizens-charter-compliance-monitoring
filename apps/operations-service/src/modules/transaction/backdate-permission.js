@@ -1,10 +1,12 @@
-import { Errors, ROLES } from 'ccms-shared';
+import { Errors, ROLES, hasGrant } from 'ccms-shared';
 
 export const OFFICE_BACKDATE_DENIED = 'This office is not allowed to record past transactions. Please ask the Super Admin.';
 
 // D-AC-5: Super Admin is exempt. Everyone else needs an explicit permission from Core, not caller input.
 export async function assertOfficeBackdateAllowed(core, user, officeId) {
   if (user.role === ROLES.SUPER_ADMIN) return;
+  // S8-52: a person with the granted permission "Record past transactions" may do it in their own office, whatever the office setting.
+  if (String(officeId).toLowerCase() === String(user.officeId ?? '').toLowerCase() && await hasGrant(user, 'RECORD_PAST_TRANSACTIONS')) return;
   let office;
   try {
     office = await core.office(officeId);

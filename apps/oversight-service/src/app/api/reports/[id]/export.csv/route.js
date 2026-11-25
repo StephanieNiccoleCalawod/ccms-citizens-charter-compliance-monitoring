@@ -1,4 +1,4 @@
-import { ROLES, requirePermission, route } from 'ccms-shared';
+import { ROLES, hasGrant, requirePermission, route } from 'ccms-shared';
 import { requireStaffSwitch } from '../../../../../lib/switches.js';
 import { getDb } from '../../../../../lib/data-source.js';
 import { reportCsvFilename, reportToCsv } from '../../../../../modules/reports/csv.js';
@@ -10,7 +10,8 @@ const canRead = requirePermission([ROLES.SUPER_ADMIN, ROLES.EXECUTIVE, ROLES.OFF
 // GET /reports/:id/export.csv: UTF-8 with a byte-order mark, one row per service plus a total row, MM/DD/YYYY.
 export const GET = route(async (request, { params }) => {
   const user = await canRead(request);
-  await requireStaffSwitch(user, 'STAFF_VIEW_REPORTS');
+  // S8-52: an Office Staff member with the granted permission "Export reports to CSV" may download without the staff switch.
+  if (!(user.role === ROLES.OFFICE_STAFF && await hasGrant(user, 'EXPORT_CSV'))) await requireStaffSwitch(user, 'STAFF_VIEW_REPORTS');
   const report = await fetchReport(await getDb(), user, params.id);
   const name = reportCsvFilename(report);
   return new Response(reportToCsv(report), {

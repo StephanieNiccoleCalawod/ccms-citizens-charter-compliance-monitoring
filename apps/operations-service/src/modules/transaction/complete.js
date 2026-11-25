@@ -1,4 +1,4 @@
-import { Errors, recordAudit } from 'ccms-shared';
+import { Errors, recordAudit, ROLES, hasGrant } from 'ccms-shared';
 import { kickAnalytics, kickOutbox, kickReceipts } from '../../lib/outbox.js';
 import { recordAnalytics } from '../analytics/producer.js';
 import { DISAPPROVAL_REASON_MAX, MSG, OUTCOMES, STATUS, SYSTEM_ACTOR } from './constants.js';
@@ -106,7 +106,7 @@ export async function completeTransaction(dataSource, { core, now = () => new Da
   const backdate = parseBackdate(body ?? {}, { now: requestTime, storedStart: existing.started_at, allowStart: false });
   const endedAt = backdate.endedAt ?? requestTime;
   const backdated = backdate.endedAt !== null;
-  if (backdated) await requireStaffSwitch(user, 'STAFF_BACKDATE'); // CC056
+  if (backdated && !(user.role === ROLES.OFFICE_STAFF && await hasGrant(user, 'RECORD_PAST_TRANSACTIONS'))) await requireStaffSwitch(user, 'STAFF_BACKDATE'); // CC056; S8-52: the granted permission replaces the switch
   if (backdated) await assertOfficeBackdateAllowed(core, user, existing.office_id);
 
   const completed = await dataSource.transaction(async (manager) => {
