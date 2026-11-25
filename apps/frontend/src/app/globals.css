@@ -310,4 +310,28 @@
   .report-print-area tr {
     break-inside: avoid;
   }
+  /* S8-55: the table headings repeat on every printed page, and a heading never sits alone at the bottom. */
+  .report-print-area thead {
+    display: table-header-group;
+  }
+  .report-print-area tfoot {
+    display: table-footer-group;
+  }
+  .report-print-area h2,
+  .report-print-area h3 {
+    break-after: avoid;
+  }
+  .report-print-area {
+    page: report;
+  }
+}
+
+/* S8-55: one layout for A4 and Letter (the paper size is the printer's choice; the margins and the page numbers are ours). */
+@page report {
+  margin: 16mm 14mm 18mm;
+  @bottom-center {
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 9pt;
+    color: #475569;
+  }
 }

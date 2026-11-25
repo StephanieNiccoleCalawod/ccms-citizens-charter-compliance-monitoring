@@ -20,6 +20,8 @@ import StatusBanner from '../feedback/StatusBanner.js';
 import DataTable from '../ui/DataTable.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 import RatingsSection from '../ratings/RatingsSection.js';
+import PeopleReport from './PeopleReport.js';
+import { canSeePeopleReport } from '../../lib/ui/people-report.js';
 
 // Reports (CC029 / CC030 / CC031). Office Head and Super Admin generate, publish and correct; the Executive reads published reports
 // of every office. Print to PDF prints the report only (see .report-print-area in globals.css).
@@ -47,7 +49,7 @@ function FiguresTable({ report }) {
   );
 }
 
-function ReportDetail({ report, role, onBack, onOpen, onChanged }) {
+function ReportDetail({ report, role, generatedBy, onBack, onOpen, onChanged }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -105,6 +107,7 @@ function ReportDetail({ report, role, onBack, onOpen, onChanged }) {
           <div><dt className="inline font-semibold">Period: </dt><dd className="inline">{periodTypeLabel(report.period_type)}, {periodText(report)}</dd></div>
           <div><dt className="inline font-semibold">Version: </dt><dd className="inline">{versionText(report).replace('Version ', '')} ({STATUS_LABEL[report.status] ?? report.status})</dd></div>
           <div><dt className="inline font-semibold">Generated: </dt><dd className="inline">{formatDateTime(report.generated_at)}</dd></div>
+          {generatedBy ? <div><dt className="inline font-semibold">Printed by: </dt><dd className="inline">{generatedBy}</dd></div> : null}
           {report.published_at ? <div><dt className="inline font-semibold">Published: </dt><dd className="inline" data-testid="report-published-by">{manage ? publishedByText(report) : formatDateTime(report.published_at)}</dd></div> : null}
           {report.status === 'DRAFT' ? <div className="sm:col-span-2 font-semibold text-amber-800">Draft: the figures are not official until the report is published.</div> : null}
           {report.supersede_reason ? <div className="sm:col-span-2"><dt className="inline font-semibold">Reason for this version: </dt><dd className="inline">{report.supersede_reason}</dd></div> : null}
@@ -180,7 +183,7 @@ export default function ReportsPage({ user }) {
   }
 
   if (report) {
-    return <ReportDetail key={report.report_id} report={report} role={user.role} onBack={() => { setReport(null); load(); }} onOpen={open} onChanged={(r) => { setReport(r); }} />;
+    return <ReportDetail key={report.report_id} report={report} role={user.role} generatedBy={user.fullName} onBack={() => { setReport(null); load(); }} onOpen={open} onChanged={(r) => { setReport(r); }} />;
   }
 
   const columns = [
@@ -237,6 +240,7 @@ export default function ReportsPage({ user }) {
       <DataTable label="Reports" columns={columns} data={list.items} keyExtractor={(r) => r.report_id} loading={list.loading} error={list.error || null}
         emptyMessage={manage ? 'No reports yet. Generate one above.' : 'No published reports yet.'} minWidth="44rem"
         pagination={{ page, pageSize, total: list.total, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }} />
+      {canSeePeopleReport(user.role) ? <PeopleReport user={user} offices={offices} /> : null}
     </div>
   );
 }

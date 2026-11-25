@@ -28,3 +28,7 @@ export async function downloadReportCsv(id, { fetchImpl = fetch, token } = {}) {
   const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? 'report.csv';
   return { blob: await response.blob(), filename };
 }
+
+/** S8-54: GET /api/operations/reports/people?scope=&office_id=&person_id=&from=&to= (the figures per office, person or every staff member). */
+export const getPeopleReport = ({ scope, officeId, personId, from, to }, fetcher = apiFetch) =>
+  fetcher(`/api/operations/reports/people${toQuery({ scope, office_id: officeId, person_id: personId, from, to })}`);
