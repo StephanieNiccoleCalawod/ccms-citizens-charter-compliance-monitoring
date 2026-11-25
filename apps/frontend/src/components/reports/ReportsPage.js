@@ -8,7 +8,7 @@ import { downloadReportCsv, generateReport, getReport, listReports, publishRepor
 import { formatDate, formatDateTime } from '../../lib/ui/date-format.js';
 import {
   PERIOD_TYPES, REASON_MAX, STATUS_LABEL, buildGenerateBody, canManageReports, failureMessage, figureRows,
-  periodText, periodTypeLabel, publishedByText, reasonError, reportActions, versionBanner, versionText,
+  periodSentence, periodText, periodTypeLabel, publishedByText, reasonError, reportActions, versionBanner, versionText,
 } from '../../lib/ui/reports.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
@@ -21,6 +21,8 @@ import DataTable from '../ui/DataTable.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 import RatingsSection from '../ratings/RatingsSection.js';
 import PeopleReport from './PeopleReport.js';
+import TermPeriodOptions, { useTerms } from '../forms/TermPeriodOptions.js';
+import { TERMS_NOT_AVAILABLE, isTermChoice } from '../../lib/ui/term-period.js';
 import { canSeePeopleReport } from '../../lib/ui/people-report.js';
 
 // Reports (CC029 / CC030 / CC031). Office Head and Super Admin generate, publish and correct; the Executive reads published reports
@@ -104,7 +106,7 @@ function ReportDetail({ report, role, generatedBy, onBack, onOpen, onChanged }) 
           <p className="text-sm font-semibold">{report.office_name ?? 'Office'}</p>
         </header>
         <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-          <div><dt className="inline font-semibold">Period: </dt><dd className="inline">{periodTypeLabel(report.period_type)}, {periodText(report)}</dd></div>
+          <div><dt className="inline font-semibold">Period: </dt><dd className="inline">{periodSentence(report)}</dd></div>
           <div><dt className="inline font-semibold">Version: </dt><dd className="inline">{versionText(report).replace('Version ', '')} ({STATUS_LABEL[report.status] ?? report.status})</dd></div>
           <div><dt className="inline font-semibold">Generated: </dt><dd className="inline">{formatDateTime(report.generated_at)}</dd></div>
           {generatedBy ? <div><dt className="inline font-semibold">Printed by: </dt><dd className="inline">{generatedBy}</dd></div> : null}
@@ -140,6 +142,7 @@ export default function ReportsPage({ user }) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const reload = useRef(0);
+  const termState = useTerms();
 
   useEffect(() => { apiFetch(OFFICES_API).then(({ items }) => setOffices(items ?? [])).catch(() => {}); }, []);
   const officeName = useMemo(() => new Map(offices.map((o) => [o.office_id, o.office_name])), [offices]);
@@ -147,7 +150,8 @@ export default function ReportsPage({ user }) {
   const load = useCallback(() => {
     const ticket = ++reload.current;
     setList((l) => ({ ...l, loading: true, error: '' }));
-    listReports({ ...filters, page, pageSize })
+    // A term or school year is a way to generate a report; the list is filtered by the stored period type only.
+    listReports({ ...filters, periodType: isTermChoice(filters.periodType) ? '' : filters.periodType, page, pageSize })
       .then((data) => { if (ticket === reload.current) setList({ items: data.items ?? [], total: data.total ?? 0, loading: false, error: '' }); })
       .catch((failure) => { if (ticket === reload.current) setList({ items: [], total: 0, loading: false, error: failureMessage(failure) }); });
   }, [filters, page, pageSize]);
@@ -220,7 +224,9 @@ export default function ReportsPage({ user }) {
           <select id="rf-period" className="input select-chevron" value={filters.periodType} onChange={setFilter('periodType')}>
             <option value="">All periods</option>
             {PERIOD_TYPES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select></div>
+            {manage ? <TermPeriodOptions terms={termState.terms} /> : null}
+          </select>
+          {manage && termState.loaded && termState.terms.length === 0 ? <p className="mt-1 text-xs text-slate-500" data-testid="terms-unavailable">{TERMS_NOT_AVAILABLE}</p> : null}</div>
         {manage && filters.periodType === 'monthly' ? (
           <div className="w-full sm:w-56">
             <label htmlFor="rf-monthly-date" className="label">Date in report month (optional)</label>

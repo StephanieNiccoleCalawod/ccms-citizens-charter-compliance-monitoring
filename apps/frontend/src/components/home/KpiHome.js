@@ -10,6 +10,8 @@ import ErrorBanner from '../feedback/ErrorBanner.js';
 import DataTable from '../ui/DataTable.js';
 import StatCard from '../ui/StatCard.js';
 import StatusBadge from '../ui/StatusBadge.js';
+import TermPeriodOptions, { useTerms } from '../forms/TermPeriodOptions.js';
+import { TERMS_NOT_AVAILABLE, termPeriodText } from '../../lib/ui/term-period.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 import TableState from '../ui/TableState.js';
 
@@ -18,6 +20,7 @@ import TableState from '../ui/TableState.js';
 export default function KpiHome({ user }) {
   const executive = user.role === ROLES.EXECUTIVE;
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
+  const termState = useTerms();
   const [state, setState] = useState({ status: 'loading', answer: null, error: '' });
   const [totals, setTotals] = useState(null);
   const [names, setNames] = useState(new Map());
@@ -92,7 +95,7 @@ export default function KpiHome({ user }) {
   const sortedOfficeRows = useMemo(() => sortOfficeRows(baseOfficeRows, officeSort), [baseOfficeRows, officeSort]);
   const rows = useMemo(() => (executive ? [] : staffRows(state.answer?.groups, names)), [executive, state.answer, names]);
   const loading = state.status === 'loading';
-  const label = periodLabel(state.answer);
+  const label = termPeriodText(period, termState.terms) ?? periodLabel(state.answer);
 
   const toggleOfficeSort = (key) => setOfficeSort((current) => (
     current?.key === key
@@ -139,7 +142,9 @@ export default function KpiHome({ user }) {
           <label htmlFor="kpi-period" className="label">Period</label>
           <select id="kpi-period" className="input select-chevron" value={period} onChange={(event) => setPeriod(event.target.value)}>
             {PERIOD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            <TermPeriodOptions terms={termState.terms} />
           </select>
+          {termState.loaded && termState.terms.length === 0 ? <p className="mt-1 text-xs text-slate-500" data-testid="terms-unavailable">{TERMS_NOT_AVAILABLE}</p> : null}
         </div>
         <div className="flex items-center gap-4">
           {label ? <p className="text-xs text-slate-500" data-testid="kpi-period-range">{label}</p> : null}

@@ -4,12 +4,13 @@
 // Late-risk and forecast live in Operations and need one office; each call can fail on its own and the page shows "not available".
 import { apiFetch } from '../auth/session.js';
 import { toQuery } from './client.js';
+import { periodParams } from '../ui/term-period.js';
 
 export const INSIGHTS_API = '/api/logs/analytics/insights';
 export const OPERATIONS_ANALYTICS_API = '/api/operations/analytics';
 
 export const getInsightsOverview = ({ period, officeId } = {}, fetcher = apiFetch) =>
-  fetcher(`${INSIGHTS_API}/overview${toQuery({ period, office_id: officeId })}`);
+  fetcher(`${INSIGHTS_API}/overview${toQuery({ ...periodParams(period), office_id: officeId })}`);
 export const getInsightsCell = ({ officeId, serviceId, period } = {}, fetcher = apiFetch) =>
   fetcher(`${INSIGHTS_API}/cell${toQuery({ office_id: officeId, service_id: serviceId, period })}`);
 export const getOfficeLateRisk = (officeId, fetcher = apiFetch) => fetcher(`${OPERATIONS_ANALYTICS_API}/late-risk${toQuery({ officeId })}`);

@@ -16,6 +16,11 @@ export const REASON_MAX = 500;
 
 export const periodTypeLabel = (value) => PERIOD_TYPES.find((p) => p.value === value)?.label ?? value;
 export const periodText = (report) => formatDateRange(report?.from, report?.to) || '-';
+/** The period as the report sheet writes it: the term or school year with its dates when it was chosen that way (S8-64). */
+export const periodSentence = (report) => {
+  const label = report?.figures?.period_label;
+  return label ? `${String(label).replace(/(\d{4})-(\d{4})/, '$1–$2')} (${periodText(report)})` : `${periodTypeLabel(report?.period_type)}, ${periodText(report)}`;
+};
 export const versionText = (report) => `Version ${report?.version ?? '-'}`;
 
 /** Super Admin and Office Head generate and publish; the Executive only reads (the server enforces the same). */
@@ -25,6 +30,9 @@ export const publishedByText = (report) => (report?.published_by_name ? `${repor
 
 /** The body of POST /reports from the form. Dates are sent only for a custom period. */
 export function buildGenerateBody({ officeId, periodType, from, to, date }) {
+  // S8-64: a term or a school year ("term:<code>", "year:<yyyy-yyyy>") goes as term / schoolYear; the server turns it into dates.
+  if (typeof periodType === 'string' && periodType.startsWith('term:')) return { officeId, term: periodType.slice(5) };
+  if (typeof periodType === 'string' && periodType.startsWith('year:')) return { officeId, schoolYear: periodType.slice(5) };
   const body = { officeId, periodType: periodType || DEFAULT_PERIOD_TYPE };
   if (body.periodType === 'custom') { body.from = from; body.to = to; } else if (date) body.date = date;
   return body;

@@ -5,6 +5,7 @@
 import { apiFetch } from '../auth/session.js';
 import { oldestFirstPending } from '../ui/kpi-home.js';
 import { fetchAllPages, toQuery } from './client.js';
+import { periodParams } from '../ui/term-period.js';
 import { OFFICES_API } from './catalogue.js';
 import { listComplaintsForStaff } from './complaint-handling.js';
 import { ACCOUNTS_API } from './identity.js';
@@ -13,7 +14,7 @@ import { listPendingTransactionsPage } from './transactions.js';
 export const KPIS_API = '/api/logs/analytics/kpis'; // the gateway maps /api/logs/* to Oversight's /api/*
 
 export const getKpis = ({ period, date, from, to, officeId, serviceId, groupBy } = {}, fetcher = apiFetch) =>
-  fetcher(`${KPIS_API}${toQuery({ period, date, from, to, office_id: officeId, service_id: serviceId, group_by: groupBy })}`);
+  fetcher(`${KPIS_API}${toQuery({ ...periodParams(period), date, from, to, office_id: officeId, service_id: serviceId, group_by: groupBy })}`);
 
 /** office_id -> office name for every active office, for the Executive's per-office table. */
 export async function getOfficeNames(fetcher = apiFetch) {

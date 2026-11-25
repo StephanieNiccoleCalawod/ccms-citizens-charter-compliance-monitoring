@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import StatusBanner from '../feedback/StatusBanner.js';
 import { getTransaction } from '../../lib/api/transactions.js';
-import { acknowledgementSlip } from '../../lib/ui/acknowledgement.js';
+import { ackEmailNotice, acknowledgementSlip } from '../../lib/ui/acknowledgement.js';
 
 function Row({ label, children, testId }) {
   return (
@@ -41,12 +41,14 @@ export default function AcknowledgementSlip({ id }) {
   if (state.status === 'failed') return <StatusBanner variant="error" message={state.message} />;
 
   const slip = acknowledgementSlip(state.tx);
+  const mailNotice = ackEmailNotice(state.tx);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 print:hidden">
         <button type="button" className="btn-primary" onClick={() => window.print()}>Print</button>
         <Link href={`/transactions/${id}`} className="btn-secondary">Back to the transaction</Link>
       </div>
+      {mailNotice ? <div className="print:hidden" data-testid="ack-email-notice"><StatusBanner variant={mailNotice.tone} message={mailNotice.text} /></div> : null}
       <article className="ack-print-area card mx-auto max-w-xl p-8" aria-labelledby="ack-title" data-testid="acknowledgement-slip">
         <header className="flex items-center gap-4 border-b border-slate-300 pb-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -15,6 +15,9 @@ import { getInsightsOverview } from '../../lib/api/insights.js';
 import { apiFetch } from '../../lib/auth/session.js';
 import { canViewInsights, insightsScope } from '../../lib/ui/analytics.js';
 import { PERIODS, buildDashboardTabs, dashboardAuditCounts } from '../../lib/ui/insights.js';
+import NeedsAttention from './NeedsAttention.js';
+import TermPeriodOptions, { useTerms } from '../forms/TermPeriodOptions.js';
+import { TERMS_NOT_AVAILABLE, termPeriodText } from '../../lib/ui/term-period.js';
 import { useAnalytics } from '../../lib/ui/useAnalytics.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import FilterBar from '../forms/FilterBar.js';
@@ -74,6 +77,8 @@ function LiveDashboardAnalytics({ user }) {
   const isCampusRole = scope.kind === 'campus';
 
   const [period, setPeriod] = useState('monthly');
+  const termState = useTerms();
+  const termText = termPeriodText(period, termState.terms);
   const [selectedOfficeId, setSelectedOfficeId] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [offices, setOffices] = useState([]);
@@ -259,6 +264,7 @@ function LiveDashboardAnalytics({ user }) {
         if (id && ANCHOR_TO_TAB[id]) navigateAnchor(id);
       }}
     >
+      <NeedsAttention role={user.role} />
       <FilterBar label="Dashboard analytics filters">
         <div className="w-full sm:w-48">
           <label htmlFor="dashboard-period" className="label">Period</label>
@@ -270,7 +276,10 @@ function LiveDashboardAnalytics({ user }) {
             data-testid="dashboard-period"
           >
             {PERIODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            <TermPeriodOptions terms={termState.terms} />
           </select>
+          {termState.loaded && termState.terms.length === 0 ? <p className="mt-1 text-xs text-slate-500" data-testid="terms-unavailable">{TERMS_NOT_AVAILABLE}</p> : null}
+          {termText ? <p className="mt-1 text-xs text-slate-500" data-testid="term-period-text">{termText}</p> : null}
         </div>
         {isCampusRole ? (
           <div className="w-full sm:w-72">

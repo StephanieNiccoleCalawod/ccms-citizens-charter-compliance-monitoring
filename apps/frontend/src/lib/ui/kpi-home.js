@@ -1,3 +1,4 @@
+import { formatDateRange } from './date-format.js';
 // Rules for the Office Home (CC036) and Campus Home (CC037) tiles, as pure functions (no React, no network, no clock).
 // Every figure comes straight from the KPI module's answer, so a tile always equals the report figure for the same period.
 
@@ -139,7 +140,7 @@ export function oldestFirstPending(items = []) {
 /** What each role asks for: Executive per office (never per staff), Office Head per staff, Office Staff per staff (own row). */
 export const groupByFor = (role) => (role === ROLES.EXECUTIVE ? 'office' : 'staff');
 
-export const periodLabel = (answer) => (answer?.from && answer?.to ? `${answer.from} to ${answer.to}` : '');
+export const periodLabel = (answer) => (answer?.from && answer?.to ? formatDateRange(answer.from, answer.to) : '');
 
 /** The words for a failed request. */
 export function failureMessage(error) {
