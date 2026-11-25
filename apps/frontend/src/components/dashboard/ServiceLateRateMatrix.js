@@ -204,12 +204,12 @@ export default function ServiceLateRateMatrix({
                           data-testid="heat-cell"
                           data-risk={card.risk}
                           title={`${card.service_name} (${card.completed} completed, ${card.late} late)`}
-                          aria-label={`${card.service_name} (${card.service_code}): ${card.label}, ${card.completed} completed`}
+                          aria-label={`${card.service_name}: ${card.label}, ${card.completed} completed`}
                           className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] focus-visible:ring-offset-1 ${style.card} ${isSelected ? 'border-[#800000] ring-2 ring-[#FFDF00] ring-offset-1' : ''
                             }`}
                         >
-                          <span className={`truncate font-mono text-xs font-medium uppercase tracking-wide ${style.codeText}`}>
-                            {card.service_code}
+                          <span className={`min-w-0 font-sans text-xs font-medium leading-snug ${style.codeText}`}>
+                            {card.service_name || 'Service'}
                           </span>
                           <span className={`shrink-0 font-sans text-xs font-semibold tabular-nums ${style.valueText}`}>
                             {card.label}
@@ -293,7 +293,7 @@ export default function ServiceLateRateMatrix({
                         <li
                           key={`${s.office_id}-${s.service_id}`}
                           data-testid="no-activity-chip"
-                          title={s.office_name ? `${s.service_name} (${s.service_code}) — ${s.office_name}` : s.service_name}
+                          title={s.office_name ? `${s.service_name} — ${s.office_name}` : s.service_name}
                           className="flex items-center justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 font-sans text-xs text-[#202938]"
                         >
                           <span className="truncate font-medium">{s.service_name}</span>

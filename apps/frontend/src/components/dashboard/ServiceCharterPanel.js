@@ -152,9 +152,6 @@ export default function ServiceCharterPanel({
               <span className="block font-sans text-sm font-semibold leading-snug text-[#202938]">{svcName}</span>
             )}
             <p className="font-sans text-xs text-[#64748B]">
-              {r.service_code && r.service_code !== svcName ? (
-                <span className="mr-1.5 font-mono text-[11px] uppercase text-[#64748B]">{r.service_code} ·</span>
-              ) : null}
               <span>{officeName}</span>
             </p>
           </div>

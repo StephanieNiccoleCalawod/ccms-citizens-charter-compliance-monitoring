@@ -26,7 +26,6 @@ export default function ServiceCellDetail({
         <div className="min-w-0">
           <h4 className="font-sans text-sm font-bold text-[#202938]">
             {cell.service_name}{' '}
-            {cell.service_code ? <span className="font-mono text-xs font-medium text-[#64748B]">({cell.service_code})</span> : null}{' '}
             · {cell.office_name}
           </h4>
           <p className="mt-1 font-sans text-xs text-[#64748B]" data-testid={summaryTestId}>
