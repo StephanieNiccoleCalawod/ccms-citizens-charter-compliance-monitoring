@@ -58,20 +58,27 @@ describe('Notification Center wiring', () => {
 describe('Notice details window', () => {
   it('works out the rows from the notice itself', async () => {
     const { noticeDetails, noticePage } = await import('../../src/lib/ui/notifications.js');
-    const complaint = { key: 'complaint:1:RESOLVED', kind: 'COMPLAINT', text: 'Complaint CMP-20261119-J7KQ9T was resolved.', href: '/complaints' };
+    const complaint = { key: 'complaint:0b6c7c2e-3f0e-4c0a-9d58-2f1f6f6d8a11:RESOLVED', kind: 'COMPLAINT', text: 'Complaint CMP-20261119-J7KQ9T was resolved.', href: '/complaints' };
     assert.deepEqual(noticeDetails(complaint), [
       { label: 'Notice', value: 'Complaint Notification' }, { label: 'Status', value: 'Resolved' },
-      { label: 'Complaint reference', value: 'CMP-20261119-J7KQ9T', mono: true }, { label: 'Where to see it', value: 'Complaints' },
+      { label: 'Complaint reference', value: 'CMP-20261119-J7KQ9T', mono: true }, { label: 'Where to see it', value: 'Complaint' },
     ]);
     const late = { key: 'overdue:t1', kind: 'OVERDUE', text: 'TX-0001 (Enrollment) has used all of its time limit.', href: '/transactions/t1' };
     const rows = noticeDetails(late);
     assert.deepEqual(rows.map((r) => r.label), ['Notice', 'Status', 'Tracking number', 'Service', 'Where to see it']);
     assert.equal(rows.find((r) => r.label === 'Service').value, 'Enrollment');
     assert.deepEqual(noticePage(late), { href: '/transactions/t1', label: 'Transaction' });
+    assert.deepEqual(noticePage(complaint), { href: '/complaints?open=0b6c7c2e-3f0e-4c0a-9d58-2f1f6f6d8a11', label: 'Complaint' });
+    assert.deepEqual(noticePage({ key: 'complaint:not-an-id:RESOLVED', kind: 'COMPLAINT', href: '/complaints' }), { href: '/complaints', label: 'Complaints' });
+    assert.deepEqual(noticePage({ key: 'calendar:9', kind: 'CALENDAR', href: '/calendar' }), { href: '/calendar?tab=holidays', label: 'Holidays and suspensions' });
     assert.deepEqual(noticePage({ href: '/late-risk' }), { href: '/late-risk', label: 'Chance of finishing late' });
     assert.equal(noticePage({}), null);
     assert.ok(noticeDetails({ key: 'access:1', kind: 'ACCESS', text: 'x', href: '/access' }).some((r) => r.value === 'Access Notification'));
     assert.equal(noticeDetails({ key: 'k', kind: 'WHAT', text: 'x' }).length, 1); // an unknown kind still opens, with no page button
+  });
+  it('the Complaints and Calendar pages open what a notice points at', () => {
+    assert.match(read('src/components/complaints/ComplaintsPage.js'), /get\('open'\)/);
+    assert.match(read('src/app/calendar/page.js'), /get\('tab'\)/);
   });
   it('the bell and the Notification Center open it instead of leaving the page', () => {
     for (const f of ['NotificationBell', 'NotificationCenter']) assert.match(read(`src/components/notifications/${f}.js`), /<NoticeDetailModal item=\{detail\}/);

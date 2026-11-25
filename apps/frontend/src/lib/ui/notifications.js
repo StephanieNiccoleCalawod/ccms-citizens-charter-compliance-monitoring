@@ -110,10 +110,20 @@ export function noticeCounts(items) {
 const STATUS = Object.freeze({ OVERDUE: 'Time limit used up', DEADLINE: 'Near its deadline', HIGH_RISK: 'Likely to finish late', MANY_HIGH_RISK: 'Many likely late', VOLUME: 'Busy day', CALENDAR: 'Calendar changed', ACCESS: 'Access request update' });
 const COMPLAINT_STATUS = Object.freeze({ ACKNOWLEDGED: 'Acknowledged', RESOLVED: 'Resolved' });
 
-/** The page a notice belongs to, for the "Open ..." button. Null when the notice has no link. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Where the "Open ..." button of a notice goes: as close to the thing itself as the page allows.
+ * A complaint notice opens that complaint (/complaints?open=<id>), a deadline notice opens its transaction, a calendar notice opens the
+ * Holidays and suspensions tab. Null when the notice has no link.
+ */
 export function noticePage(item) {
   const href = item?.href;
   if (!href) return null;
+  if (item.kind === 'COMPLAINT') {
+    const id = String(item.key ?? '').split(':')[1];
+    if (UUID.test(id)) return { href: `/complaints?open=${id}`, label: 'Complaint' };
+  }
+  if (item.kind === 'CALENDAR') return { href: '/calendar?tab=holidays', label: 'Holidays and suspensions' };
   if (href.startsWith('/transactions/')) return { href, label: 'Transaction' };
   const label = { '/complaints': 'Complaints', '/calendar': 'Calendar', '/access': 'Access', '/late-risk': 'Chance of finishing late', '/transactions': 'Transactions' }[href];
   return { href, label: label ?? 'Page' };

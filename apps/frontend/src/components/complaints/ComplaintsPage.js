@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ROLES } from 'ccms-shared/roles';
 import { apiFetch } from '../../lib/auth/session.js';
 import { OFFICES_API } from '../../lib/api/catalogue.js';
@@ -96,6 +97,8 @@ export default function ComplaintsPage({ user }) {
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState('');
   const reload = useRef(0);
+  const router = useRouter();
+  const openId = useSearchParams().get('open'); // a notice opens its complaint straight away: /complaints?open=<id>
   const ownOffice = user.role === ROLES.OFFICE_HEAD || user.role === ROLES.OFFICE_STAFF;
 
   useEffect(() => { if (!ownOffice) apiFetch(OFFICES_API).then(({ items }) => setOffices(items ?? [])).catch(() => {}); }, [ownOffice]);
@@ -115,6 +118,8 @@ export default function ComplaintsPage({ user }) {
     setOpening(true); setError('');
     try { setComplaint(await getComplaintForStaff(target.complaint_id)); } catch (failure) { setError(failureMessage(failure)); } finally { setOpening(false); }
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- open the complaint a notice pointed at, then clear the address so the same notice can open it again
+  useEffect(() => { if (openId && /^[0-9a-f-]{36}$/i.test(openId)) { router.replace('/complaints'); open({ complaint_id: openId }); } }, [openId]);
   const setFilter = (key) => (event) => { setPage(1); setFilters((f) => ({ ...f, [key]: event.target.value })); };
 
   if (complaint) return <Detail key={complaint.complaint_id} complaint={complaint} role={user.role} onBack={() => { setComplaint(null); load(); }} onChanged={setComplaint} />;

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
 import Tabs, { tabPanelProps } from '../../components/ui/Tabs.js';
@@ -34,8 +35,9 @@ function CalendarManager({ user, tab, setTab }) {
   );
 }
 
-export default function CalendarPage() {
-  const [tab, setTab] = useState('hours');
+function CalendarContent() {
+  const wanted = useSearchParams().get('tab'); // a calendar notice opens /calendar?tab=holidays
+  const [tab, setTab] = useState(TABS.some((t) => t.id === wanted) ? wanted : 'hours');
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
   return (
     <AppShell
@@ -46,4 +48,8 @@ export default function CalendarPage() {
       {(user) => <CalendarManager user={user} tab={tab} setTab={setTab} />}
     </AppShell>
   );
+}
+
+export default function CalendarPage() {
+  return <Suspense fallback={null}><CalendarContent /></Suspense>;
 }
