@@ -5,10 +5,14 @@ import { ROLES } from 'ccms-shared/roles';
 
 const ALL = [ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE];
 const ADMIN = [ROLES.SUPER_ADMIN];
+const BELL = [ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]; // the Executive has no notification bell
 
 export const HUB_GROUPS = Object.freeze([
   { id: 'general', title: 'General', links: [
     { label: 'Offices', hint: 'The offices of the campus and their codes.', href: '/offices', roles: ADMIN },
+  ] },
+  { id: 'notifications', title: 'Notifications', links: [
+    { label: 'Notification Center', hint: 'Every notice from the bell in one list: search, filter and mark as read.', href: '/settings/notifications', roles: BELL },
   ] },
   { id: 'transactions', title: 'Transactions', links: [
     { label: 'Transaction settings', hint: 'Hold, counters, automatic closing and which offices may record past transactions.', href: '/settings/transactions', roles: ALL, readOnlyFor: [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE] },

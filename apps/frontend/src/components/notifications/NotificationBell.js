@@ -71,7 +71,7 @@ export default function NotificationBell() {
       </IconButton>
       {open ? (
         <NotificationPanel items={state.items} unreadCount={unread.length} loaded={state.loaded} partial={state.partial} failed={state.failed}
-          onMarkAll={() => mark(unread.map((i) => i.key))} onOpenItem={(key) => { mark([key]); setOpen(false); }} />
+          onMarkAll={() => mark(unread.map((i) => i.key))} onOpenItem={(key) => { mark([key]); setOpen(false); }} onNavigate={() => setOpen(false)} />
       ) : null}
     </div>
   );

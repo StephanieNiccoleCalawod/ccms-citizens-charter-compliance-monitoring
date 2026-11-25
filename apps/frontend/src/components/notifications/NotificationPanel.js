@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { kindStyle, unavailableMessage } from '../../lib/ui/notifications.js';
+import { FULL_CENTER_HREF, NOTICE_TABS, kindStyle, unavailableMessage } from '../../lib/ui/notifications.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 
 const ICONS = {
@@ -15,17 +15,11 @@ const ICONS = {
 };
 
 // The tabs only filter what is already loaded; nothing is fetched or saved from here.
-const DEADLINE_KINDS = ['OVERDUE', 'DEADLINE', 'HIGH_RISK'];
-const TABS = [
-  { id: 'all', label: 'All', pick: () => true },
-  { id: 'unread', label: 'Unread', pick: (i) => !i.read },
-  { id: 'deadlines', label: 'Deadlines', pick: (i) => DEADLINE_KINDS.includes(i.kind) },
-  { id: 'updates', label: 'Updates', pick: (i) => !DEADLINE_KINDS.includes(i.kind) },
-];
+const TABS = NOTICE_TABS;
 const EMPTY = { unread: 'No unread notifications.' };
 
 /** The panel of the notification bell (CC055): header, filter tabs and one row per notice. Presentation only; the bell owns the data. */
-export default function NotificationPanel({ items, unreadCount, loaded, partial, failed, onMarkAll, onOpenItem }) {
+export default function NotificationPanel({ items, unreadCount, loaded, partial, failed, onMarkAll, onOpenItem, onNavigate }) {
   const [tab, setTab] = useState('all');
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
   const shown = items.filter(active.pick);
@@ -81,6 +75,12 @@ export default function NotificationPanel({ items, unreadCount, loaded, partial,
           );
         })}
       </ul>
+      <div className="border-t border-slate-100 bg-slate-50 p-3">
+        <Link href={FULL_CENTER_HREF} onClick={onNavigate} className="flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-maroon-50 hover:text-maroon-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700" data-testid="bell-open-center">
+          Open Full Notification Center
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        </Link>
+      </div>
     </div>
   );
 }

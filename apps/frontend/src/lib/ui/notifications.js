@@ -79,3 +79,28 @@ export function attentionItems(items, role) {
   if (!canSeeAttention(role)) return [];
   return (items ?? []).filter((i) => ATTENTION_KINDS[i.kind]).map((i) => ({ key: i.key, kind: i.kind, text: i.text, ...ATTENTION_KINDS[i.kind] }));
 }
+
+// The full Notification Center (Settings > Notification Center): the same notices as the bell, with a search box and the same filter tabs.
+export const FULL_CENTER_HREF = '/settings/notifications';
+const DEADLINE_KINDS = ['OVERDUE', 'DEADLINE', 'HIGH_RISK'];
+export const NOTICE_TABS = Object.freeze([
+  { id: 'all', label: 'All', pick: () => true },
+  { id: 'unread', label: 'Unread', pick: (i) => !i.read },
+  { id: 'deadlines', label: 'Deadlines', pick: (i) => DEADLINE_KINDS.includes(i.kind) },
+  { id: 'updates', label: 'Updates', pick: (i) => !DEADLINE_KINDS.includes(i.kind) },
+]);
+/** The notices a tab and a search show. The search looks at the title, the sentence and the key, ignoring case. Nothing is fetched or saved. */
+export function filterNotices(items, tabId = 'all', query = '') {
+  const tab = NOTICE_TABS.find((t) => t.id === tabId) ?? NOTICE_TABS[0];
+  const q = String(query ?? '').trim().toLowerCase();
+  return items.filter(tab.pick).filter((i) => !q || [kindStyle(i.kind).label, i.text, i.key].some((v) => String(v ?? '').toLowerCase().includes(q)));
+}
+/** The four figures on top of the Notification Center. */
+export function noticeCounts(items) {
+  return {
+    total: items.length,
+    unread: items.filter((i) => !i.read).length,
+    deadlines: items.filter((i) => DEADLINE_KINDS.includes(i.kind)).length,
+    updates: items.filter((i) => !DEADLINE_KINDS.includes(i.kind)).length,
+  };
+}
