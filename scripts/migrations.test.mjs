@@ -106,6 +106,17 @@ function revertAfterIdentityCc046(url) {
   }
 }
 
+function revertAfterOperationsCc043(url) {
+  for (const migration of ['S850TrainingExclusions1795478400000', 'Cc057ServiceRatings1795000100000',
+    'Cc045TransactionReceipts1794900200000', 'Cc040QueueTicketLink1794900100000', 'Cc039QueueTickets1794900000000',
+    'Cc052LateRisk1794531600000', 'Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000',
+    'Cc044RegistryAtStart1794528100000']) {
+    const reverted = cli('operations', url, ['revert']);
+    assert.equal(reverted.code, 0, reverted.out);
+    assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);
+  }
+}
+
 function syncDb(service, url, extraEnv = {}) {
   const env = { ...process.env, DATABASE_URL: url, DATABASE_ADMIN_URL: '', DB_TARGET: '', ...extraEnv };
   const result = spawnSync(process.execPath, ['scripts/sync-db.js'], { cwd: appDir(service), env, encoding: 'utf8' });
@@ -380,9 +391,7 @@ describe('Sprint 5 numbered migrations', () => {
     const all = ['disapproval_notice_given', 'disapproval_reason', 'outcome', 'started_by_name', 'started_by_position', 'started_outside_hours'];
     assert.equal(cli('operations', db.url, ['run']).code, 0);
     assert.deepEqual(await columns(db.url, 'transactions', all), all);
-    for (const migration of ['Cc057ServiceRatings1795000100000', 'Cc045TransactionReceipts1794900200000', 'Cc040QueueTicketLink1794900100000', 'Cc039QueueTickets1794900000000', 'Cc052LateRisk1794531600000', 'Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000']) {
-      assert.ok(cli('operations', db.url, ['revert']).out.includes(`Reverted: ${migration}`));
-    }
+    revertAfterOperationsCc043(db.url);
     assert.match(cli('operations', db.url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
     assert.match(cli('operations', db.url, ['revert']).out, /Reverted: Tt2AnalyticsOutbox1794355200000/);
     assert.deepEqual(await columns(db.url, 'transactions', ['analytics_event_version']), []);
@@ -449,11 +458,15 @@ describe('Sprint 5 numbered migrations', () => {
       // Verify the legacy-to-TT2 upgrade at that migration boundary.
       if (service === 'identity') revertAfterIdentityCc046(db.url);
       if (service === 'operations') {
-        for (const migration of ['Cc057ServiceRatings1795000100000', 'Cc045TransactionReceipts1794900200000', 'Cc040QueueTicketLink1794900100000', 'Cc039QueueTickets1794900000000', 'Cc052LateRisk1794531600000', 'Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000', 'Cc043Registry1794441600000']) {
-          assert.ok(cli(service, db.url, ['revert']).out.includes(`Reverted: ${migration}`));
-        }
+        revertAfterOperationsCc043(db.url);
+        assert.match(cli(service, db.url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
       }
       if (service === 'core') {
+        // The sample office triggers the drop guard. Only the new test migration's column is being removed.
+        const migration = 'S853OfficeBackdatePermission1795478500000';
+        const reverted = cli(service, db.url, ['revert'], { CCMS_ALLOW_DATA_LOSS: migration });
+        assert.equal(reverted.code, 0, reverted.out);
+        assert.ok(reverted.out.includes(`Reverted: ${migration}`), reverted.out);
         assert.match(cli(service, db.url, ['revert']).out, /Reverted: Cc047AllowedClientTypes1794528000000/);
         assert.match(cli(service, db.url, ['revert']).out, /Reverted: Cc058CalendarReasons1794441700000/);
       }

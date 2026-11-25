@@ -29,6 +29,7 @@ export const Office = new EntitySchema({
     officeId: { name: 'office_id', type: 'uuid', primary: true },
     officeCode: { name: 'office_code', type: 'text' },
     officeName: { name: 'office_name', type: 'text' },
+    allowBackdatedTransactions: { name: 'allow_backdated_transactions', type: 'boolean', default: false },
     isActive: { name: 'is_active', type: 'boolean', default: true },
     createdAt: { name: 'created_at', type: 'timestamptz', createDate: true },
     updatedAt: { name: 'updated_at', type: 'timestamptz', updateDate: true },

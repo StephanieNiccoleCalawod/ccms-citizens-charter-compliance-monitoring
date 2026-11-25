@@ -114,7 +114,12 @@ describe('summary', () => {
     assert.ok(!JSON.stringify(all.body).match(/complian|variance|late/i));
   });
   it('is empty with no ratings, and filters by date', async () => {
-    assert.deepEqual((await summary(tokens.superAdmin)).body, { items: [], total_count: 0, average: null });
+    const empty = await summary(tokens.superAdmin);
+    assert.equal(empty.status, 200);
+    const { items, total_count, average, calculations } = empty.body;
+    assert.deepEqual({ items, total_count, average }, { items: [], total_count: 0, average: null });
+    const { record_count, period_from, period_to } = calculations.ratings.data_used;
+    assert.deepEqual({ record_count, period_from, period_to }, { record_count: 0, period_from: null, period_to: null });
     assert.equal((await summary(tokens.superAdmin, '?from=bad')).status, 400);
     const t = await finished();
     await rate({ code: await codeOf(t.transaction_id), stars: 3 });

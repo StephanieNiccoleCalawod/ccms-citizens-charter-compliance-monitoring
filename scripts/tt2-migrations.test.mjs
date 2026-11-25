@@ -53,7 +53,7 @@ const fingerprint = (url) => q(url, 'SELECT 1').then(async () => {
 const OPS = 'Tt2AnalyticsOutbox1794355200000';
 const OVS = 'Tt2AnalyticsTransactions1794355300000';
 function revertAfterOperationsTt2(url) {
-  for (const migration of ['Cc057ServiceRatings1795000100000', 'Cc045TransactionReceipts1794900200000', 'Cc040QueueTicketLink1794900100000', 'Cc039QueueTickets1794900000000',
+  for (const migration of ['S850TrainingExclusions1795478400000', 'Cc057ServiceRatings1795000100000', 'Cc045TransactionReceipts1794900200000', 'Cc040QueueTicketLink1794900100000', 'Cc039QueueTickets1794900000000',
     'Cc052LateRisk1794531600000', 'Tt1SeedProvenance1794528300000', 'Cc049TransactionEmails1794528200000', 'Cc044RegistryAtStart1794528100000',
     'Cc043Registry1794441600000']) {
     const reverted = cli('operations', url, ['revert']);

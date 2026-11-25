@@ -14,6 +14,7 @@ import { computeAndStoreResult } from './complete.js';
 import { readSettingsRow } from './settings.js';
 import { parseBackdate, usDate } from './time.js';
 import { requireStaffSwitch } from './switches.js';
+import { assertOfficeBackdateAllowed } from './backdate-permission.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -150,6 +151,7 @@ export async function startTransaction(dataSource, { core, identity = null, now 
 
   const standard = await lookUpStandard(core, input.serviceId, manilaDate, { backdated });
   assertOfficeAccess(user, standard.office_id);
+  if (backdated) await assertOfficeBackdateAllowed(core, user, standard.office_id);
   assertClientTypeAllowed(standard, input.clientType);
 
   // CC044: resolved by the server against the current registry and the Manila date of the submission, before any lock.

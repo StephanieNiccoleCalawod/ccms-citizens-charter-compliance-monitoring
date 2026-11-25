@@ -9,6 +9,8 @@
 //              "not enough data"                  fewer than 20 completed (no flag is given)
 //   unusual    elapsed above Q3 + 3 x IQR of the service, only when the service has at least 20 completed.
 // Thresholds from the backlog (CC054, B-10, B-11). Percentiles are nearest-rank, like the KPI module.
+import { calculation, toManilaDate } from 'ccms-shared';
+
 export const MIN_COMPLETED = 20;
 export const LATE_RATE_FLAG = 0.20;
 export const P90_SHARE_FLAG = 0.25;
@@ -36,7 +38,7 @@ function quantile(sorted, q) {
 const usable = (row) => row.status === 'COMPLETED' && Number.isInteger(row.elapsed_working_minutes) && Number.isInteger(row.variance_minutes) && typeof row.is_compliant === 'boolean';
 
 /** Rows must already be the completed-in-period rows of the people the caller may see. */
-export function charterCheck(rows) {
+export function charterCheck(rows, { from, to, now = new Date() } = {}) {
   const byService = Map.groupBy(rows.filter(usable), (row) => `${row.office_id}|${row.service_id}`);
   const services = [];
   const unusual = [];
@@ -54,6 +56,18 @@ export function charterCheck(rows) {
       p90_share_of_limit: limit > 0 ? oneDecimal((percentile(times, 90) / limit) * 100) : null,
       flags: [],
     };
+    const dates = group.filter((r) => r.ended_at).map((r) => toManilaDate(r.ended_at)).sort();
+    entry.calculations = { charter: calculation({ shows: 'How recorded processing times compare with the service limit, including unusually long cases.',
+      steps: ['Use completed requests with integer elapsed and variance minutes and a computed compliance result.',
+        'Compute the median time, nearest-rank 90th percentile and late percentage; recover each limit as elapsed minus variance and take its median.',
+        'With at least 20 completions, flag late rates above 20% or a 90th percentile below 25% of the limit.',
+        'For unusual cases, interpolate Q1 and Q3; flag elapsed time strictly above Q3 + 3 × (Q3 − Q1).'],
+      count: completed, from: from ?? dates[0] ?? null, to: to ?? dates.at(-1) ?? null,
+      basis: 'Completed requests in this office and service by Manila end date; excludes missing results.',
+      source: 'analytics_transactions', method: 'median, nearest-rank percentile and IQR fence', at: now,
+      parameters: { minimum_completed: MIN_COMPLETED, iqr_factor: OUTLIER_IQR_FACTOR,
+        late_rate_percent: LATE_RATE_FLAG * 100, p90_share_percent: P90_SHARE_FLAG * 100 },
+    }) };
     if (completed < MIN_COMPLETED) {
       entry.flags.push(FLAG_NOT_ENOUGH);
     } else {
@@ -62,12 +76,15 @@ export function charterCheck(rows) {
       const q1 = quantile(times, 0.25);
       const q3 = quantile(times, 0.75);
       const fence = q3 + OUTLIER_IQR_FACTOR * (q3 - q1);
+      Object.assign(entry.calculations.charter.parameters, { q1_minutes: q1, q3_minutes: q3,
+        iqr_minutes: q3 - q1, fence_minutes: fence });
       for (const r of group) {
         if (r.elapsed_working_minutes > fence) {
           unusual.push({
             transaction_id: r.transaction_id, tracking_no: r.tracking_no, office_id: officeId, service_id: serviceId, service_code: serviceCode,
             elapsed_minutes: r.elapsed_working_minutes, limit_minutes: limit, fence_minutes: oneDecimal(fence),
             ended_at: r.ended_at, is_compliant: r.is_compliant,
+            calculations: entry.calculations,
           });
         }
       }
@@ -76,5 +93,13 @@ export function charterCheck(rows) {
   }
   services.sort((a, b) => b.late_rate - a.late_rate || b.completed - a.completed || String(a.service_code).localeCompare(String(b.service_code)));
   unusual.sort((a, b) => b.elapsed_minutes / (b.fence_minutes || 1) - a.elapsed_minutes / (a.fence_minutes || 1) || String(a.tracking_no).localeCompare(String(b.tracking_no)));
-  return { thresholds: { min_completed: MIN_COMPLETED, late_rate_percent: LATE_RATE_FLAG * 100, p90_share_percent: P90_SHARE_FLAG * 100, iqr_factor: OUTLIER_IQR_FACTOR }, services, unusual };
+  return { thresholds: { min_completed: MIN_COMPLETED, late_rate_percent: LATE_RATE_FLAG * 100, p90_share_percent: P90_SHARE_FLAG * 100, iqr_factor: OUTLIER_IQR_FACTOR }, services, unusual,
+    calculations: { charter: calculation({ shows: 'Service limits and unusually long completed requests in the selection.',
+      steps: ['Group usable completed results by office and service; use each group’s own comparison sample.',
+        'Compute medians and nearest-rank 90th percentiles; with at least 20 records, apply the limit checks and the Q3 + 3 × IQR unusual-case fence.'],
+      count: services.reduce((sum, s) => sum + s.completed, 0), from: from ?? null, to: to ?? null, at: now,
+      source: 'analytics_transactions', basis: 'Usable completed results by Manila end date; comparisons are per office and service, never pooled.',
+      method: 'per-service descriptive statistics and IQR', parameters: { minimum_completed: MIN_COMPLETED, iqr_factor: OUTLIER_IQR_FACTOR },
+    }) },
+  };
 }

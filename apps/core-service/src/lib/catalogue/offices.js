@@ -13,6 +13,7 @@ export function toOfficeDto(office) {
     office_code: office.officeCode,
     office_name: office.officeName,
     is_active: office.isActive,
+    allow_backdated_transactions: office.allowBackdatedTransactions === true,
     created_at: office.createdAt,
     updated_at: office.updatedAt,
   };
@@ -182,4 +183,27 @@ export async function getOffice(dataSource, id, viewer) {
     throw Errors.notFound('Office not found', 'OFFICE_NOT_FOUND');
   }
   return toOfficeDto(office);
+}
+
+/** D-AC-5: only Super Admin may change this per-office permission. Save and audit atomically. */
+export async function setOfficeBackdatePermission(dataSource, actor, id, input, { ipAddress } = {}) {
+  if (actor.role !== ROLES.SUPER_ADMIN) throw Errors.forbidden();
+  if (!input || typeof input.allow_backdated_transactions !== 'boolean' ||
+      Object.keys(input).some((key) => key !== 'allow_backdated_transactions')) {
+    throw Errors.validation('Provide allow_backdated_transactions as true or false', {
+      allow_backdated_transactions: 'Only a boolean permission value is accepted',
+    });
+  }
+  const dto = await dataSource.transaction(async (manager) => {
+    await manager.query('SELECT office_id FROM offices WHERE office_id = $1 FOR UPDATE', [id]);
+    const existing = await findOrFail(manager, id);
+    const before = toOfficeDto(existing);
+    if (before.allow_backdated_transactions === input.allow_backdated_transactions) return before;
+    await manager.getRepository(Office).update({ officeId: id }, { allowBackdatedTransactions: input.allow_backdated_transactions });
+    const after = toOfficeDto(await findOrFail(manager, id));
+    await audit(manager, actor, 'OFFICE_BACKDATE_PERMISSION_CHANGED', before, after, ipAddress);
+    return after;
+  });
+  kickOutbox();
+  return dto;
 }

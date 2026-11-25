@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, describe, it } from 'node:test';
+import { calculation } from 'ccms-shared';
 import { listOperationsNotifications } from '../src/modules/notifications/notifications.js';
 import { OFFICE_A, OFFICE_B, USERS, head, setupTestEnv, staff } from './helpers.js';
 
@@ -19,10 +20,23 @@ const row = (startedBy, over = {}) => ({ transaction_id: randomUUID(), tracking_
   working_minutes_left: 0, share_used: 1, started_by: startedBy, probability: 0.93, staff_name: 'Secret Staff Name', ...over });
 
 async function seedCache(officeId, items) {
-  // A fresh cached score (younger than the one-minute cache) for a database with no trained model, so the real read path is used.
+  // A cache entry needs calculation metadata and reason codes to qualify as fresh.
+  const reasonCodes = { LOW: 'TIME_SHARE_LOW', HIGH: 'TIME_SHARE_HIGH' };
+  const payload = {
+    model: { method: 'rule-based' },
+    items: items.map((item) => ({ ...item, main_reason_code: reasonCodes[item.level] })),
+    calculations: {
+      late_risk: calculation({
+        shows: 'Late-risk scores for open requests.',
+        steps: ['Apply the allowed working-time share rule.'],
+        count: items.length, basis: 'Open requests', source: 'transactions',
+        method: 'allowed-time-share rule', at: NOW,
+      }),
+    },
+  };
   await env.ds.query(`INSERT INTO late_risk_score_cache (office_id, scored_at, run_id, payload) VALUES ($1,$2,NULL,$3::jsonb)
     ON CONFLICT (office_id) DO UPDATE SET scored_at = EXCLUDED.scored_at, run_id = NULL, payload = EXCLUDED.payload`,
-  [officeId, NOW, JSON.stringify({ model: { method: 'rule-based' }, items })]);
+  [officeId, NOW, JSON.stringify(payload)]);
 }
 
 describe('S8-42 recipients', () => {
@@ -48,6 +62,7 @@ describe('S8-42 re-polling and content', () => {
     await seedCache(OFFICE_A, [row(USERS.staffA), row(USERS.staffA, { working_minutes_left: 20, share_used: 0.85, level: 'HIGH' })]);
     const first = (await listOperationsNotifications(env.ds, head(USERS.headA), { now: NOW })).items.map((n) => n.key);
     const second = (await listOperationsNotifications(env.ds, head(USERS.headA), { now: new Date(NOW.getTime() + 30_000) })).items.map((n) => n.key);
+    assert.equal(first.length, 3);
     assert.deepEqual(second, first);
     assert.equal(new Set(first).size, first.length);
   });

@@ -1,6 +1,6 @@
 import { ROLES, ROLE_LIST, Errors, clientIp, hasValidServiceKey, isUuid, json, readJson, requirePermission, route } from 'ccms-shared';
 import { getDb } from '../../../../lib/data-source.js';
-import { getOffice, updateOffice } from '../../../../lib/catalogue/offices.js';
+import { getOffice, setOfficeBackdatePermission, updateOffice } from '../../../../lib/catalogue/offices.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,5 +25,13 @@ export const PUT = route(async (request, { params }) => {
   const id = officeId(params);
   const user = await canWrite(request);
   const office = await updateOffice(await getDb(), user, id, await readJson(request), { ipAddress: clientIp(request) });
+  return json({ office });
+});
+
+// PATCH /offices/:id { allow_backdated_transactions: boolean } - Super Admin only.
+export const PATCH = route(async (request, { params }) => {
+  const id = officeId(params);
+  const user = await canWrite(request);
+  const office = await setOfficeBackdatePermission(await getDb(), user, id, await readJson(request), { ipAddress: clientIp(request) });
   return json({ office });
 });

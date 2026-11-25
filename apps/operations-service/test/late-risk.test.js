@@ -144,6 +144,8 @@ describe('CC052 late-risk scoring, caching, batching & RBAC (DB)', () => {
       ['PUP-OSAS-20261006-0001', 'LOW', true],
     ]);
     assert.equal(first.items[0].reason, '85% of the time limit used');
+    assert.equal(first.items[0].main_reason_code, 'TIME_SHARE_HIGH');
+    assert.equal(first.items[1].main_reason_code, 'TIME_SHARE_LOW');
     assert.equal(first.items[0].working_minutes_left, 15);
     assert.equal(t1.batches.length, 1);
 
@@ -153,6 +155,7 @@ describe('CC052 late-risk scoring, caching, batching & RBAC (DB)', () => {
     const cached = await readLateRisk(env.ds, OFFICE_A, { id: USERS.headA, role: ROLES.OFFICE_HEAD, officeId: OFFICE_A }, { now: new Date(atT0.getTime() + 30_000), timing: t2.timing });
     assert.equal(t2.batches.length, 0);
     assert.equal(cached.items[1].level, 'LOW');
+    assert.equal(cached.items[1].main_reason_code, 'TIME_SHARE_LOW');
 
     // After 60s cache expires: recomputes and moves 0001 from LOW (40%) to HIGH (90%).
     const t3 = fakeTiming(shares);
@@ -165,6 +168,7 @@ describe('CC052 late-risk scoring, caching, batching & RBAC (DB)', () => {
     const stale = await readLateRisk(env.ds, OFFICE_A, { id: USERS.headA, role: ROLES.OFFICE_HEAD, officeId: OFFICE_A }, { now: new Date(atT0.getTime() + 130_000), timing: tDown.timing });
     assert.equal(stale.stale, true);
     assert.equal(stale.as_of, new Date(atT0.getTime() + 61_000).toISOString());
+    assert.equal(stale.items[0].main_reason_code, 'TIME_SHARE_HIGH');
   });
 
   it('batches Core calls in chunks of at most 60', async () => {
@@ -215,6 +219,8 @@ describe('CC052 late-risk scoring, caching, batching & RBAC (DB)', () => {
     assert.equal(exec.model.method, 'trained');
     assert.equal(exec.items[0].probability, undefined);
     assert.equal(exec.items[0].can_open, true);
+    assert.equal(typeof exec.items[0].main_reason_code, 'string');
+    assert.notEqual(exec.items[0].main_reason_code, 'MAIN_REASON_UNAVAILABLE');
     const serialized = JSON.stringify(exec);
     assert.ok(!serialized.includes('Secret Staff Name'));
     assert.ok(!serialized.includes('secret@example.test'));

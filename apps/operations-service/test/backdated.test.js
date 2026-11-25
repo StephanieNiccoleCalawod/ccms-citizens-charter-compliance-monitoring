@@ -13,6 +13,7 @@ before(async () => {
 after(async () => env?.teardown());
 beforeEach(async () => {
   env.core.reset();
+  for (const office of env.core.state.offices.values()) office.allow_backdated_transactions = true;
   await resetData(env.ds);
 });
 
@@ -21,6 +22,39 @@ const body = (over = {}) => ({ service_id: SERVICE_A, client_type: 'STUDENT', ..
 const start = (over = {}, token = tokens.officeStaffA) => call(startRoute, req('POST', '/transactions', { token, body: body(over) }));
 const complete = (id, payload, token = tokens.officeStaffA) => call(completeRoute, req('POST', `/transactions/${id}/complete`, { token, body: payload }), ctx(id));
 const audits = (action) => env.ds.query(`SELECT payload FROM audit_outbox WHERE payload->>'action' = $1 ORDER BY created_at`, [action]);
+
+describe('S8-53 office permission', () => {
+  it('refuses disabled-office backdating even with a forged permission, while live Start is unaffected', async () => {
+    env.core.state.offices.get(OFFICE_A).allow_backdated_transactions = false;
+    const denied = await start({ started_at: iso('2026-10-06', '10:00'), backdate_reason: 'Outage', allow_backdated_transactions: true });
+    assert.equal(denied.status, 403);
+    assert.equal(denied.body.error.message, 'This office is not allowed to record past transactions. Please ask the Super Admin.');
+    assert.equal((await env.ds.query('SELECT count(*)::int AS n FROM transactions'))[0].n, 0);
+    assert.equal((await audits('TRANSACTION_STARTED')).length, 0);
+    assert.equal((await start()).status, 201);
+  });
+  it('allows Super Admin when the office is off, still requiring a reason and recording the flag', async () => {
+    env.core.state.offices.get(OFFICE_A).allow_backdated_transactions = false;
+    assert.equal((await start({ started_at: iso('2026-10-06', '10:00') }, tokens.superAdmin)).status, 400);
+    const result = await start({ started_at: iso('2026-10-06', '10:00'), backdate_reason: 'Approved late entry' }, tokens.superAdmin);
+    assert.equal(result.status, 201);
+    assert.equal(result.body.is_backdated, true);
+    assert.equal((await audits('TRANSACTION_BACKDATED')).length, 1);
+  });
+  it('fails closed when office permission cannot be checked and keeps live entry working', async () => {
+    env.core.override(`GET /offices/${OFFICE_A}`, () => ({ status: 503, body: {} }));
+    const result = await start({ started_at: iso('2026-10-06', '10:00'), backdate_reason: 'Outage' });
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, 'OFFICE_BACKDATE_PERMISSION_UNAVAILABLE');
+    assert.equal((await start()).status, 201);
+  });
+  it('also blocks a manually backdated end before any completion is saved', async () => {
+    env.core.state.offices.get(OFFICE_A).allow_backdated_transactions = false;
+    const row = await insertTransaction(env.ds, { started_by: USERS.staffA, started_at: new Date(at('2026-10-06', '10:00')) });
+    assert.equal((await complete(row.transaction_id, { ended_at: iso('2026-10-09', '18:00'), backdate_reason: 'Late entry' })).status, 403);
+    assert.equal((await env.ds.query('SELECT status FROM transactions WHERE transaction_id=$1', [row.transaction_id]))[0].status, 'IN_PROGRESS');
+  });
+});
 
 describe('CC026 backdated start', () => {
   it('AC1/AC2: a supplied start needs a reason; the entry is flagged backdated and audited with the field, value and reason', async () => {
