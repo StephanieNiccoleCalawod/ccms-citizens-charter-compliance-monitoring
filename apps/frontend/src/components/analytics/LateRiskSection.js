@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ROLES } from 'ccms-shared/roles';
-import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import Modal from '../modals/Modal.js';
@@ -217,7 +216,7 @@ function RiskScorePill({ row, showProbability }) {
 /**
  * Centered modal dialog for Escalate (high-risk / overdue) and Inspect (within time limit / review) actions.
  * Uses the shared CCCMS <Modal> component to display Detail Header, Citizen's Charter Service card,
- * Time Limit Used card, Processing Milestones timeline, and confirmation-gated Escalate / transaction detail actions.
+ * Time Limit Used card, Processing Milestones timeline, and the one real action: open the transaction record (no Escalate button: nothing stores an escalation).
  */
 export function LateRiskDetailDrawer({
   item,
@@ -227,10 +226,8 @@ export function LateRiskDetailDrawer({
   showProbability = false,
   isExecutive = false,
   onClose,
-  onEscalateConfirmed,
 }) {
   const router = useRouter();
-  const [confirmEscalate, setConfirmEscalate] = useState(false);
 
   if (!item) return null;
 
@@ -486,39 +483,17 @@ export function LateRiskDetailDrawer({
           {item.can_open ? (
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#E2E8F0] bg-[#F8FAFC] px-5 py-3.5">
               <Button
-                variant={isEscalateMode ? 'secondary' : 'primary'}
+                variant="primary"
                 size="sm"
                 data-testid="late-risk-drawer-open-record"
                 onClick={() => router.push(`/transactions/${encodeURIComponent(item.transaction_id)}`)}
               >
                 Open Transaction Record
               </Button>
-              {isEscalateMode && !isExecutive ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  data-testid="late-risk-drawer-escalate-btn"
-                  onClick={() => setConfirmEscalate(true)}
-                >
-                  Confirm Escalation
-                </Button>
-              ) : null}
             </div>
           ) : null}
         </div>
       </Modal>
-
-      <ConfirmDialog
-        open={confirmEscalate}
-        title="Escalate high-risk transaction?"
-        message={`Flag ${item.tracking_no} (${item.service_name}) for immediate supervisory follow-up and open its transaction record?`}
-        confirmLabel="Confirm Escalation"
-        onConfirm={() => {
-          setConfirmEscalate(false);
-          onEscalateConfirmed?.(item);
-        }}
-        onCancel={() => setConfirmEscalate(false)}
-      />
     </>
   );
 }
@@ -570,7 +545,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
           <div className="space-y-1.5 whitespace-normal">
             <div className="flex flex-wrap items-center justify-between gap-1.5 font-sans text-xs">
               <span className="font-mono font-semibold text-[#202938]">
-                {m.pctUsed !== null ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% used` : row.reason}
+                {m.overdueText ?? (m.pctUsed !== null ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% used` : row.reason)}
               </span>
               {m.isOverLimit ? (
                 <span className="rounded bg-[#FDF2F2] px-1.5 py-0.2 font-sans text-[10px] font-bold uppercase text-[#800000]">
@@ -636,7 +611,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
               : 'border-[#E2E8F0] bg-white text-[#202938] hover:bg-[#F8FAFC]'
               }`}
           >
-            <span>{isHigh ? 'Escalate' : 'Inspect'}</span>
+            <span>{isHigh ? 'Review now' : 'Inspect'}</span>
             <span aria-hidden="true">&rsaquo;</span>
           </button>
         );
@@ -910,7 +885,7 @@ export default function LateRiskSection({
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3 font-sans text-xs text-[#64748B]">
               <span>Working-time calculations automatically pause outside official campus hours &amp; holidays.</span>
-              <span>Click Escalate or Inspect to view milestones</span>
+              <span>Click Review now or Inspect to view milestones</span>
             </div>
           </section>
 
@@ -948,10 +923,6 @@ export default function LateRiskSection({
         showProbability={isAdmin}
         isExecutive={isExecutive}
         onClose={() => setDetailTarget(null)}
-        onEscalateConfirmed={(item) => {
-          setNotice(`Escalation logged for ${item.tracking_no}. Follow-up notification queued.`);
-          setDetailTarget(null);
-        }}
       />
     </div>
   );

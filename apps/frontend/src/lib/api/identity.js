@@ -13,3 +13,5 @@ export const PASSWORD_RESET_CONFIRM_API = `${IDENTITY_API}/auth/password-reset/c
 export const ME_API = `${IDENTITY_API}/me`;
 export const MY_PASSWORD_API = `${IDENTITY_API}/me/password`;
 export const PERMISSION_SWITCHES_API = `${IDENTITY_API}/permission-switches`;
+// S8-34 — GET /api/identity/session-policy (Super Admin, read-only) -> { enforced, applies_to, roles: [{ role, role_label, idle_minutes, absolute_minutes }] }
+export const SESSION_POLICY_API = `${IDENTITY_API}/session-policy`;

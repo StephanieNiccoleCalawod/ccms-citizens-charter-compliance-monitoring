@@ -41,8 +41,8 @@ export const PUBLIC_API = {
   identity: ['/api/auth/', '/api/health'],
   catalogue: ['/api/public/', '/api/health'],
   calendar: ['/api/health'],
-  // CC032/CC033: a citizen files a complaint and checks its status without an account. Exactly these two paths; the service rate limits them.
-  logs: ['/api/complaints', '/api/complaints/status', '/api/health'],
+  // CC032/CC033: a citizen files a complaint and checks its status without an account. Exactly these paths (file, status, and S8-56 tracking-number check); the service rate limits them.
+  logs: ['/api/complaints', '/api/complaints/status', '/api/complaints/tracking-check', '/api/health'],
   analytics: ['/api/health'],
   reports: ['/api/health'],
   // CC039: a walk-in takes a queue ticket without an account. Exactly this path; Operations rate limits it per client address.

@@ -45,10 +45,26 @@ describe('S8-04 /me sign_in', () => {
   it('the existing parts of the answer are unchanged and no secret is added', async () => {
     const account = await seedAccount(ds, { role: ROLES.OFFICE_STAFF });
     const body = await (await me(account)).json();
-    assert.deepEqual(Object.keys(body), ['account', 'what_i_can_do', 'sign_in']);
+    assert.deepEqual(Object.keys(body), ['account', 'what_i_can_do', 'sign_in', 'session_policy']); // S8-33 added session_policy
     assert.equal(body.account.account_id, account.accountId);
     assert.ok(Array.isArray(body.what_i_can_do));
     assert.ok(!JSON.stringify(body).includes(account.passwordHash));
+  });
+
+  it('S8-33: /me carries only the caller\'s own role limits and whether they are enforced', async () => {
+    const staff = await seedAccount(ds, { role: ROLES.OFFICE_STAFF });
+    assert.deepEqual((await (await me(staff)).json()).session_policy, { enforced: false, idle_minutes: 30, absolute_minutes: 480 });
+    process.env.SESSION_POLICY_ENABLED = 'true';
+    try {
+      const admin = await seedAccount(ds, { role: ROLES.SUPER_ADMIN });
+      assert.deepEqual((await (await me(admin)).json()).session_policy, { enforced: true, idle_minutes: 15, absolute_minutes: 240 });
+      for (const [role, idle, total] of [[ROLES.OFFICE_HEAD, 20, 480], [ROLES.EXECUTIVE, 20, 480]]) {
+        const account = await seedAccount(ds, { role });
+        assert.deepEqual((await (await me(account)).json()).session_policy, { enforced: true, idle_minutes: idle, absolute_minutes: total });
+      }
+    } finally {
+      delete process.env.SESSION_POLICY_ENABLED;
+    }
   });
 
   it('if the link lookup fails, /me still answers and says it is unknown', async () => {

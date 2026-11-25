@@ -16,6 +16,8 @@ export const SIGN_OUT_COPY = Object.freeze({
 
 /** Notices the sign-in page may show. Anything else in ?notice= is ignored, never rendered. */
 export const LOGIN_NOTICES = Object.freeze({
+  session_idle: 'You were signed out because you were inactive for a while. Please sign in again.',
+  not_invited: 'This sign-in is not registered for CCCMS. Ask your CCCMS administrator for an invitation.',
   revoke_failed:
     'The server could not confirm that your session was ended. Your saved sign-in was removed from this page, but the session may still be active on the server. Choose "Try again" when the connection is back, or close the browser if this is a shared computer.',
 });

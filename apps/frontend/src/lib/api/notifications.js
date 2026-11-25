@@ -8,7 +8,7 @@ export const OVERSIGHT_NOTIFICATIONS_API = '/api/logs/analytics/notifications';
 export const OPERATIONS_NOTIFICATIONS_API = '/api/operations/notifications';
 
 export async function getNotificationFeeds(fetcher = apiFetch) {
-  const [oversight, operations] = await Promise.allSettled([fetcher(OVERSIGHT_NOTIFICATIONS_API), fetcher(OPERATIONS_NOTIFICATIONS_API)]);
+  const [oversight, operations] = await Promise.allSettled([fetcher(OVERSIGHT_NOTIFICATIONS_API, { background: true }), fetcher(OPERATIONS_NOTIFICATIONS_API, { background: true })]);
   return { oversight, operations };
 }
 export const markNotificationsRead = (keys, fetcher = apiFetch) => fetcher(`${OVERSIGHT_NOTIFICATIONS_API}/read`, { method: 'POST', body: { keys } });

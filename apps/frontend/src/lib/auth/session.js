@@ -19,6 +19,9 @@ const REFRESH_MARGIN_MS = 30_000;
 export const CLERK_EXCHANGE_API = `${IDENTITY_API}/auth/clerk/exchange`;
 /** Identity's 403 codes for a valid Clerk sign-in that has no CCMS access: shown on the "No access yet" page. */
 export const ACCESS_REJECTIONS = Object.freeze(['CCMS_ACCESS_PENDING', 'ACCOUNT_INACTIVE', 'IMPERSONATION_NOT_ALLOWED']);
+/** S8-45: a Clerk user CCCMS never invited (for example someone who only uses FMS or SCMS). Not a "No access yet" case: the person goes back to the sign-in page. */
+export const NOT_INVITED = 'NOT_INVITED';
+export const NOT_INVITED_NOTICE_URL = '/login?notice=not_invited';
 // Which sign-in this tab used ('password' | 'clerk'), so a refresh asks the right place. Only matters in dual mode.
 const METHOD_KEY = 'ccms_auth_method';
 
@@ -41,6 +44,8 @@ export function mightBeSignedIn() {
 
 let accessToken = null;
 let expiresAt = 0;
+let renewedAt = 0; // when this tab last got a new access token (a renewal counts as activity at Identity when session limits are on)
+let sessionLimitsOn = false;
 let refreshing = null;
 let hydrated = false;
 let rejection = null;
@@ -195,6 +200,7 @@ async function signInError(response) {
 function storeToken(data) {
   accessToken = data.access_token;
   expiresAt = Date.now() + data.expires_in * 1000;
+  renewedAt = Date.now();
   if (!tokenUser()) return false;
   rejection = null;
   persist();
@@ -281,7 +287,7 @@ async function refreshWithClerk() {
   if (!response.ok) {
     const error = await toApiError(response);
     clearToken();
-    rejection = response.status === 403 && ACCESS_REJECTIONS.includes(error.code) ? error.code : null;
+    rejection = response.status === 403 && (ACCESS_REJECTIONS.includes(error.code) || error.code === NOT_INVITED) ? error.code : null;
     return null;
   }
   if (!storeToken(await response.json())) return null;
@@ -304,7 +310,7 @@ export function refreshSession(force = false) {
           if (authProvider() === 'dual') saveMethod(method);
           return user;
         }
-        if (rejection && ACCESS_REJECTIONS.includes(rejection)) return null; // a definite answer: do not try the next sign-in
+        if (rejection && (ACCESS_REJECTIONS.includes(rejection) || rejection === NOT_INVITED)) return null; // a definite answer: do not try the next sign-in
       }
       return null;
     })().finally(() => {
@@ -320,9 +326,17 @@ export function completeClerkSignIn() {
   return refreshSession(true);
 }
 
-export async function getAccessToken() {
+/** S8-33: the guard tells the session layer whether inactivity limits are enforced for this password sign-in. */
+export function setSessionLimitsOn(on) {
+  sessionLimitsOn = Boolean(on) && methodsToTry()[0] === 'password';
+}
+export const lastRenewedAt = () => renewedAt;
+
+export async function getAccessToken({ background = false } = {}) {
   hydrate();
   if (tokenIsFresh()) return accessToken;
+  // Background polling (the bell) must never renew the session while limits are on: only the person's own activity may.
+  if (background && sessionLimitsOn) throw new ApiError('Paused while you are inactive.', { code: 'SESSION_PAUSED', status: 0 });
   try {
     const user = await refreshSession(true);
     return user ? accessToken : null;
@@ -335,6 +349,12 @@ export async function getAccessToken() {
 
 export function redirectToLogin() {
   if (typeof window === 'undefined') return;
+  // S8-45: end the Clerk session in this tab only (FMS and SCMS keep theirs) and return to the sign-in page with a plain message.
+  // Never to a protected page or /access-pending.
+  if (rejection === NOT_INVITED) {
+    signOutOfClerk().finally(() => window.location.assign(NOT_INVITED_NOTICE_URL));
+    return;
+  }
   // A Clerk sign-in without CCMS access goes to the page that says so, not back to a sign-in page that would loop.
   const target = rejection && ACCESS_REJECTIONS.includes(rejection) ? `${ACCESS_PENDING_PATH}?reason=${encodeURIComponent(rejection)}` : signInPath();
   if (window.location.pathname !== target.split('?')[0]) window.location.assign(target);
@@ -411,8 +431,8 @@ export function signOut() {
 }
 
 /** Calls an API through the gateway with the bearer token; refreshes once on 401. */
-export async function apiFetch(path, { method = 'GET', body, headers } = {}, retried = false) {
-  const token = await getAccessToken();
+export async function apiFetch(path, { method = 'GET', body, headers, background = false } = {}, retried = false) {
+  const token = await getAccessToken({ background });
   if (!token) {
     redirectToLogin();
     throw new ApiError('Your session has ended. Please sign in again.', { status: 401, code: 'SESSION_ENDED' });
@@ -440,7 +460,7 @@ export async function apiFetch(path, { method = 'GET', body, headers } = {}, ret
     // Forget only the token that was refused. If a concurrent request already replaced it, keep the
     // new one so the retry reuses it instead of starting another refresh.
     if (token === accessToken) clearToken();
-    return apiFetch(path, { method, body, headers }, true);
+    return apiFetch(path, { method, body, headers, background }, true);
   }
   if (response.status === 401) {
     redirectToLogin();

@@ -258,6 +258,9 @@ export const minutesText = (minutes) => {
   return h ? `${h} h ${m % 60} min` : `${m} min`;
 };
 
+/** "Overdue by 2 h 15 min (working time)": the wording the dashboard and the late-risk screen use for items past their limit. */
+export const overdueByText = (minutes) => `Overdue by ${minutesText(minutes)} (working time)`;
+
 export const sortRows = (rows, key, dir = 'desc') => [...rows].sort((a, b) => (dir === 'desc' ? -1 : 1) * ((Number(a[key]) || 0) - (Number(b[key]) || 0)));
 export const filterByFlag = (rows, flag) => (flag ? rows.filter((r) => r.flags?.includes(flag)) : rows);
 
@@ -455,6 +458,13 @@ export function deriveLateRiskItemMetrics(item) {
     elapsedText = 'Limit reached';
   }
 
+  // S8-25: how far past the limit, in working time. Only from numbers the server sent; nothing is worked out from a percentage.
+  const sentOverdue = item.overdue_working_minutes;
+  const overdueMinutes = Number.isFinite(Number(sentOverdue)) && sentOverdue !== null && sentOverdue !== undefined && Number(sentOverdue) > 0
+    ? Math.round(Number(sentOverdue))
+    : (limitMinutes && elapsedMinutes !== null && elapsedMinutes > limitMinutes ? Math.round(elapsedMinutes - limitMinutes) : null);
+  const overdueText = overdueMinutes ? overdueByText(overdueMinutes) : null;
+
   return {
     share,
     pctUsed,
@@ -462,6 +472,8 @@ export function deriveLateRiskItemMetrics(item) {
     barFillPct,
     isOverLimit,
     isSeverelyOverdue,
+    overdueMinutes,
+    overdueText,
     limitMinutes,
     elapsedMinutes,
     limitText,

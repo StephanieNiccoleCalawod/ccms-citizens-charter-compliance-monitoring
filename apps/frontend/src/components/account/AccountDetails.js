@@ -1,12 +1,13 @@
 import RoleBadge from '../ui/RoleBadge.js';
-import { initials, lastSignIn } from '../../lib/ui/account.js';
+import { initials, lastSignIn, signInMethodLabel } from '../../lib/ui/account.js';
 
-/** My account: the person's own details, read-only. `officeName` is looked up by the page (the account only holds the office id). */
-export default function AccountDetails({ account, officeName }) {
+/** My account: the person's own details, read-only. `officeName` is looked up by the page (the account only holds the office id). `signIn` is GET /me `sign_in`. */
+export default function AccountDetails({ account, officeName, signIn }) {
   const rows = [
     ['Employee number', account.employee_no || '—'],
     ['Office', account.office_id ? officeName || 'Loading…' : 'All offices'],
     ['Position', account.position || '—'],
+    ['Sign-in method', signInMethodLabel(signIn)],
     ['Last sign-in', lastSignIn(account.last_login_at)],
   ];
   return (
@@ -24,7 +25,7 @@ export default function AccountDetails({ account, officeName }) {
         </div>
       </div>
 
-      <dl className="mt-6 grid gap-x-8 gap-y-4 border-t border-line pt-5 sm:grid-cols-4">
+      <dl className="mt-6 grid gap-x-8 gap-y-4 border-t border-line pt-5 sm:grid-cols-5">
         {rows.map(([label, value]) => (
           <div key={label}>
             <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</dt>

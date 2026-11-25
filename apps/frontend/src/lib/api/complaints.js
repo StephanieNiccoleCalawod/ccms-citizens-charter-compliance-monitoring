@@ -2,6 +2,7 @@
 //   GET  /api/catalogue/public/offices            the active offices (office_id, office_code, office_name) for the form
 //   POST /api/logs/complaints                     { office_id, category, description, tracking_no?, name?, email? }
 //                                                 -> 201 { reference, status, email_sent }; 400 with details by field; 429; 503
+//   GET  /api/logs/complaints/tracking-check?tracking_no=  -> { found: false } | { found: true, office_id, office_name, service_name, date } (S8-56; no personal data)
 //   GET  /api/logs/complaints/status?ref=         -> { reference, status }; 404 COMPLAINT_NOT_FOUND shows nothing else
 import { publicFetch, toQuery } from './client.js';
 
@@ -47,6 +48,18 @@ export async function getComplaintStatus(ref, fetchImpl = fetch) {
   let response;
   try {
     response = await fetchImpl(`${COMPLAINTS_API}/status${toQuery({ ref })}`, { headers: { accept: 'application/json' } });
+  } catch {
+    throw new ComplaintApiError('Cannot reach the server. Check your connection and try again.');
+  }
+  if (!response.ok) throw await errorFrom(response);
+  return response.json();
+}
+
+/** S8-56: does this tracking number exist? Only found / not found and the office, service and day come back. */
+export async function checkTrackingNumber(trackingNo, fetchImpl = fetch) {
+  let response;
+  try {
+    response = await fetchImpl(`${COMPLAINTS_API}/tracking-check${toQuery({ tracking_no: String(trackingNo ?? '').trim() })}`, { headers: { accept: 'application/json' } });
   } catch {
     throw new ComplaintApiError('Cannot reach the server. Check your connection and try again.');
   }

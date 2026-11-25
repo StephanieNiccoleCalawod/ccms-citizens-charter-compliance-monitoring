@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { AppError, Errors, buildErrorBody, clientIp, createDbStore, createRateLimiter, isUuid, publicLimits } from 'ccms-shared';
 import { getDb } from '../../lib/data-source.js';
 import { getMailer } from '../../lib/mailer.js';
+import { checkTrackingNumber, trackingRequired } from './tracking-check.js';
 
 // CC032 / CC033: a citizen files a complaint without an account and checks its status with the reference. Oversight holds them
 // (spec 8.2; ERD section 8 still to be confirmed by the team). Staff handling is Sprint 7, so a complaint is RECEIVED here and
@@ -106,8 +107,19 @@ export function validateComplaint(body) {
 const mailText = (reference) => `Your complaint has been received.\n\nReference number: ${reference}\n\nKeep this number. You can check the status of your complaint at any time with it on the CCMS website, without signing in.\n\nThis is an automatic message. Please do not reply.`;
 
 /** POST /complaints. Returns { reference, status, email_sent }. The email never decides whether the complaint is saved. */
-export async function fileComplaint(db, body, { now = new Date(), isActiveOffice = officeIsActive, mailer = null } = {}) {
+export async function fileComplaint(db, body, { now = new Date(), isActiveOffice = officeIsActive, mailer = null, checkTracking = checkTrackingNumber, env = process.env } = {}) {
   const v = validateComplaint(body);
+  // S8-56 (COMPLAINT_REQUIRE_TRACKING=true): the complaint must carry a tracking number Operations confirms, and the office must be that transaction's office.
+  if (trackingRequired(env)) {
+    const details = {};
+    if (!v.trackingNo) details.tracking_no = 'Enter your transaction tracking number.';
+    else {
+      const found = await checkTracking(v.trackingNo);
+      if (!found.found) details.tracking_no = 'We could not find this tracking number. Please check it and try again.';
+      else if (found.office_id !== v.officeId) details.office_id = 'This tracking number belongs to a different office.';
+    }
+    if (Object.keys(details).length) throw Errors.validation('Please correct the highlighted fields.', details);
+  }
   if (!(await isActiveOffice(v.officeId))) throw Errors.validation('Choose an active office.', { office_id: 'Choose an active office.' });
   let reference;
   for (let attempt = 0; attempt < 5 && !reference; attempt += 1) {

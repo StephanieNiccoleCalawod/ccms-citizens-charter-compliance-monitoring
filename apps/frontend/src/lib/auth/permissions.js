@@ -29,6 +29,11 @@ export function rolesNav(role) {
   return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Roles and permissions', href: '/settings/roles' } : null;
 }
 
+/** Settings > Security and sessions (S8-34) is for Super Admin only: the idle and total sign-in limits enforced for every role, read-only. Identity also answers 403 to everyone else. */
+export function securityNav(role) {
+  return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Security and sessions', href: '/settings/security' } : null;
+}
+
 /**
  * Clerk sign-in access (Landas 1): the Super Admin approves people who signed in with Clerk. It lives in the Accounts page's
  * own "Clerk Sign-in Access" tab now, not a sidebar item of its own, so this no longer feeds appNavForRole; kept for the
@@ -84,5 +89,5 @@ export function appNavForRole(role, access = {}) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
   const lateRisk = { section: 'Main', label: 'Late-risk', href: '/late-risk' };
-  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), logsNav(role)].filter(Boolean);
+  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), securityNav(role), logsNav(role)].filter(Boolean);
 }

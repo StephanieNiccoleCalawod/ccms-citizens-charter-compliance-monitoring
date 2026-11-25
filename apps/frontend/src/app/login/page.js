@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import { BRAND } from '../../lib/constants/brand.js';
 import { ROLE_NOT_RECOGNIZED, ROLE_NOT_RECOGNIZED_MESSAGE } from '../../lib/auth/guards.js';
-import { clearToken, refreshSession, revokeServerSession, sessionRejection, signIn } from '../../lib/auth/session.js';
+import { NOT_INVITED, clearToken, refreshSession, revokeServerSession, sessionRejection, signIn } from '../../lib/auth/session.js';
 import { LOGIN_NOTICES, noticeAfterRetry, parseLoginNotice } from '../../lib/auth/sign-out-flow.js';
 import BrandMark from '../../components/ui/BrandMark.js';
 import AuthBrandPanel from '../../components/auth/AuthBrandPanel.js';
@@ -62,6 +62,10 @@ export default function LoginPage() {
         }
         // A session whose role is not recognized was dropped: say why and keep the form here.
         if (sessionRejection() === ROLE_NOT_RECOGNIZED) setError(ROLE_NOT_RECOGNIZED_MESSAGE);
+        // S8-45: sent back here because the Clerk sign-in was never invited to CCCMS (or the check just said so).
+        const asked = parseLoginNotice(search);
+        if (asked && asked !== 'revoke_failed') setNotice(asked);
+        else if (sessionRejection() === NOT_INVITED) setNotice('not_invited');
         setChecking(false);
       })
       .catch(() => {
@@ -130,16 +134,18 @@ export default function LoginPage() {
             {notice ? (
               <div className="space-y-2">
                 <ErrorBanner message={LOGIN_NOTICES[notice]} />
-                <div className="flex flex-wrap items-center gap-3">
-                  <button type="button" className="btn-secondary btn-sm" onClick={retryRevoke} disabled={retry.busy}>
-                    {retry.busy ? 'Trying again…' : 'Try again'}
-                  </button>
-                  {retry.result === 'failed' ? (
-                    <span role="status" className="text-xs text-slate-600">
-                      Still could not reach the server.
-                    </span>
-                  ) : null}
-                </div>
+                {notice === 'revoke_failed' ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button type="button" className="btn-secondary btn-sm" onClick={retryRevoke} disabled={retry.busy}>
+                      {retry.busy ? 'Trying again…' : 'Try again'}
+                    </button>
+                    {retry.result === 'failed' ? (
+                      <span role="status" className="text-xs text-slate-600">
+                        Still could not reach the server.
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : retry.result === 'revoked' ? (
               <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">

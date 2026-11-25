@@ -1,7 +1,9 @@
 import { ROLES, ROLE_LABELS } from 'ccms-shared';
 
 // S8-33 / S8-34 (BE): how long a password sign-in may sit idle and how long it may last in total, per role.
-// Defaults are the PROPOSED values from the Sprint 8 backlog (D8-04); they apply only when SESSION_POLICY_ENABLED=true (off by default).
+// Defaults are the numbers APPROVED for Sprint 8 (D8-04, D8-17, D8-05): Super Admin 15 min idle / 4 h, Office Head 20 min / 8 h,
+// Office Staff 30 min / 8 h, Executive 20 min / 8 h. They apply only when SESSION_POLICY_ENABLED=true (off by default until the
+// deployment turns it on together with the front-end warning). Limits are read-only in Settings; nobody edits them from the screen.
 // An administrator can tighten or loosen them with SESSION_POLICY_OVERRIDES, a JSON object such as
 //   {"office_staff":{"idleMinutes":1,"absoluteMinutes":3}}          (accelerated limits for a local test)
 // Values are bounded and there is no "never expires": an override outside the bounds is ignored and the default is used.
@@ -47,4 +49,10 @@ export function policyView(env = process.env) {
       return { role, role_label: ROLE_LABELS[role] ?? role, idle_minutes: idleMinutes, absolute_minutes: absoluteMinutes };
     }),
   };
+}
+
+/** What the signed-in person's own screen needs for the inactivity warning: only their role's limits. */
+export function policyForRole(role, env = process.env) {
+  const { idleMinutes, absoluteMinutes } = limitsFor(role, env);
+  return { enforced: env.SESSION_POLICY_ENABLED === 'true', idle_minutes: idleMinutes, absolute_minutes: absoluteMinutes };
 }

@@ -9,6 +9,7 @@ import ChangePasswordForm from '../../components/account/ChangePasswordForm.js';
 import WhatICanDo from '../../components/account/WhatICanDo.js';
 import LoadingState from '../../components/ui/LoadingState.js';
 import { getMe, getOfficeName } from '../../lib/api/account.js';
+import { CLERK_PASSWORD_NOTE, showPasswordForm } from '../../lib/ui/account.js';
 
 function MyAccount() {
   const [me, setMe] = useState(null);
@@ -37,12 +38,12 @@ function MyAccount() {
   return (
     <div className="space-y-6">
       <section className="card p-6" aria-label="Account profile">
-        <AccountDetails account={me.account} officeName={officeName} />
+        <AccountDetails account={me.account} officeName={officeName} signIn={me.sign_in} />
       </section>
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <section className="card p-6" aria-labelledby="acct-password">
-          <h2 id="acct-password" className="mb-4 title-card">Change password</h2>
-          <ChangePasswordForm />
+          <h2 id="acct-password" className="mb-4 title-card">{showPasswordForm(me.sign_in) ? 'Change password' : 'Password'}</h2>
+          {showPasswordForm(me.sign_in) ? <ChangePasswordForm /> : <p className="text-sm text-slate-600" data-testid="clerk-password-note">{CLERK_PASSWORD_NOTE}</p>}
         </section>
         <section className="card p-6" aria-label="What I can do">
           <WhatICanDo items={me.what_i_can_do} />

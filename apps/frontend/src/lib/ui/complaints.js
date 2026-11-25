@@ -1,3 +1,5 @@
+import { formatDateLong } from './date-format.js';
+
 // Rules for the public complaint form and status page (CC032 / CC033), as pure functions. The wording says "complaint" (C-07).
 // The category list mirrors COMPLAINT_CATEGORIES in the Oversight service (a test compares the two); the service decides.
 export const CATEGORIES = Object.freeze([
@@ -51,3 +53,14 @@ export const privacyNoticeUrl = (env = process.env) => {
   const url = String(env.NEXT_PUBLIC_PRIVACY_NOTICE_URL ?? '').trim();
   return /^(https?:\/\/|\/)/.test(url) ? url : '';
 };
+
+// S8-56: step 1 of the complaint form. The form opens only after the tracking number is found.
+export const TRACKING_NOT_FOUND = 'We could not find this tracking number. Please check it and try again.';
+export const TRACKING_REQUIRED = 'Enter your transaction tracking number.';
+
+/** The line shown for a found number: "Found: Registrar's Office — Request for TOR, November 18, 2026". */
+export function foundLine(found) {
+  const where = [found?.office_name, found?.service_name].filter(Boolean).join(' — ');
+  const day = found?.date ? formatDateLong(found.date) : '';
+  return `Found: ${[where, day].filter(Boolean).join(', ')}`;
+}

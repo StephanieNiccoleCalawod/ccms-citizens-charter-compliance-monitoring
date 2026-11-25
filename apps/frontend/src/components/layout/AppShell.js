@@ -22,6 +22,7 @@ import PageHeader from './PageHeader.js';
 import IconButton from '../ui/IconButton.js';
 import RowActionMenu from '../ui/RowActionMenu.js';
 import NotificationBell from '../notifications/NotificationBell.js';
+import SessionGuard from '../auth/SessionGuard.js';
 import { hasBell } from '../../lib/ui/notifications.js';
 
 // Active verified session and sidebar state. Populated only after verification post-hydration.
@@ -366,6 +367,7 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
         </main>
       </div>
       <ConfirmDialog {...signOutControl.dialogProps} returnFocusRef={signOutButtonRef} />
+      <SessionGuard />
       <Toaster />
     </div>
   );

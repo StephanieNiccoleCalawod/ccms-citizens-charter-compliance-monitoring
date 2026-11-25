@@ -1,12 +1,14 @@
 // CC056: the calls behind My account and Settings > Roles and permissions.
 import { apiFetch } from '../auth/session.js';
 import { OFFICES_API } from './catalogue.js';
-import { ME_API, MY_PASSWORD_API, PERMISSION_SWITCHES_API } from './identity.js';
+import { ME_API, MY_PASSWORD_API, PERMISSION_SWITCHES_API, SESSION_POLICY_API } from './identity.js';
 
 export const getMe = (fetcher = apiFetch) => fetcher(ME_API);
 
 export const changeMyPassword = ({ current, next }, fetcher = apiFetch) =>
   fetcher(MY_PASSWORD_API, { method: 'PUT', body: { current_password: current, new_password: next } });
+
+export const getSessionPolicy = (fetcher = apiFetch) => fetcher(SESSION_POLICY_API);
 
 export const getPermissionSwitches = (fetcher = apiFetch) => fetcher(PERMISSION_SWITCHES_API);
 

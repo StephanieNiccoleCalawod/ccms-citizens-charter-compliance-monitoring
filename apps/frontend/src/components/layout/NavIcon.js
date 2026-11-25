@@ -98,6 +98,7 @@ const ICON_BY_HREF = {
   '/calendar': 'calendar',
   '/settings': 'sliders',
   '/settings/roles': 'shield',
+  '/settings/security': 'shield',
   '/logs': 'history',
   '/registry': 'archive',
   '/transactions': 'receipt',

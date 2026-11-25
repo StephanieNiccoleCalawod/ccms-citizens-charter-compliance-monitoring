@@ -36,6 +36,38 @@ export function groupRows(rows) {
   return groups;
 }
 
+// S8-04: how this account signs in, from GET /me `sign_in` ({ clerk_linked, has_password }). Anything unclear keeps the password form,
+// so a problem reading the link never hides the way to change a CCCMS password.
+export const SIGN_IN_PASSWORD = 'Password';
+export const SIGN_IN_CLERK = 'PUP QC account (Clerk)';
+export const CLERK_PASSWORD_NOTE = 'Your password is managed in your PUP QC account, not in CCCMS. To change it, use the password option on the PUP QC sign-in page.';
+
+/** True only when the account is linked to Clerk and has no CCCMS password of its own. */
+export function isClerkOnly(signIn) {
+  return signIn?.clerk_linked === true && signIn?.has_password === false;
+}
+
+/** The "Sign-in method" line: Password, PUP QC account (Clerk), or both while the account can use either. */
+export function signInMethodLabel(signIn) {
+  if (isClerkOnly(signIn)) return SIGN_IN_CLERK;
+  if (signIn?.clerk_linked === true) return `${SIGN_IN_PASSWORD} or ${SIGN_IN_CLERK}`;
+  return SIGN_IN_PASSWORD;
+}
+
+/** The CCCMS password form is shown for password accounts and while both ways work; hidden only for a Clerk-only account. */
+export const showPasswordForm = (signIn) => !isClerkOnly(signIn);
+
+/** A limit in minutes as people read it: 15 minutes, 4 hours, 1 hour 30 minutes. */
+export function formatLimit(minutes) {
+  const unit = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return unit(rest, 'minute');
+  return rest === 0 ? unit(hours, 'hour') : `${unit(hours, 'hour')} ${unit(rest, 'minute')}`;
+}
+
+export const SESSION_POLICY_OFF_NOTE = 'These limits are not being enforced yet. They apply once the sign-in limits are turned on for this system.';
+
 export const LAST_SIGN_IN_NONE = 'No sign-in recorded yet';
 export const lastSignIn = (iso) => (iso ? formatDateTime(iso) : LAST_SIGN_IN_NONE);
 

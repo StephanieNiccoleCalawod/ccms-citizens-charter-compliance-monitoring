@@ -57,3 +57,45 @@ export function formatTimeRange(from, to) {
   const end = formatTime(to);
   return start && end ? `${start} to ${end}` : '';
 }
+
+// S8-62 (D-AC-2): written-out dates for sentences, headings, chart titles and report headers. Added next to the numeric formatDate,
+// which stays for the places that still use it. Same rules: calendar values are never converted, bad input gives ''.
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function parts(value) {
+  if (!formatDate(value)) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  return { year, month: month - 1, day };
+}
+
+/** '2026-11-24' -> 'November 24, 2026'. */
+export function formatDateLong(value) {
+  const p = parts(value);
+  return p ? `${MONTHS[p.month]} ${p.day}, ${p.year}` : '';
+}
+
+/** '2026-11-24' -> 'Nov 24, 2026' (dense tables). */
+export function formatDateShort(value) {
+  const p = parts(value);
+  return p ? `${MONTHS[p.month].slice(0, 3)} ${p.day}, ${p.year}` : '';
+}
+
+/** '2026-11-24' -> 'Nov 24' (chart axes). */
+export function formatDateAxis(value) {
+  const p = parts(value);
+  return p ? `${MONTHS[p.month].slice(0, 3)} ${p.day}` : '';
+}
+
+/**
+ * A period in words: 'November 24, 2026' (one day), 'November 24–28, 2026' (same month),
+ * 'November 24 – December 2, 2026' (across months), 'December 29, 2026 – January 2, 2027' (across years). '' when either end is unreadable.
+ */
+export function formatDateRange(from, to) {
+  const a = parts(from);
+  const b = parts(to);
+  if (!a || !b) return '';
+  if (from === to) return formatDateLong(from);
+  if (a.year !== b.year) return `${formatDateLong(from)} – ${formatDateLong(to)}`;
+  if (a.month === b.month) return `${MONTHS[a.month]} ${a.day}–${b.day}, ${a.year}`;
+  return `${MONTHS[a.month]} ${a.day} – ${MONTHS[b.month]} ${b.day}, ${a.year}`;
+}

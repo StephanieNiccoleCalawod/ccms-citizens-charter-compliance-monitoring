@@ -6,6 +6,7 @@ import { readSwitchValues } from './permission-switches.js';
 import { kickOutbox } from './outbox.js';
 import { hashPassword, passwordProblem, verifyPassword } from './passwords.js';
 import { hashToken } from './tokens.js';
+import { policyForRole } from './session-policy.js';
 
 const rowsOf = (result) => (Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result);
 
@@ -24,6 +25,7 @@ export async function getMe(db, user) {
     },
     what_i_can_do: capabilitiesFor(dto.role, switches).map(({ key, group, label, access, switchKey, switchOn }) => ({ key, group, label, access, switch_key: switchKey, switch_on: switchOn })),
     sign_in: await signInMethods(db, account),
+    session_policy: policyForRole(dto.role),
   };
 }
 
