@@ -12,6 +12,8 @@ import {
 import { OFFICES_API, SERVICES_API } from '../../lib/api/catalogue.js';
 import { fetchAllPages } from '../../lib/api/client.js';
 import { getInsightsOverview } from '../../lib/api/insights.js';
+import { getRatingSummary } from '../../lib/api/ratings.js';
+import { hasSatisfaction, lowRatingRows, withSatisfactionTab } from '../../lib/ui/case-flags.js';
 import { apiFetch } from '../../lib/auth/session.js';
 import { canViewInsights, insightsScope } from '../../lib/ui/analytics.js';
 import { PERIODS, buildDashboardTabs, dashboardAuditCounts } from '../../lib/ui/insights.js';
@@ -31,6 +33,8 @@ import KeyInsightsPanel from './KeyInsightsPanel.js';
 import LateRiskPanel from './LateRiskPanel.js';
 import RequestForecastSection from './RequestForecastSection.js';
 import ServiceCharterPanel from './ServiceCharterPanel.js';
+import CaseFlagsPanel from './CaseFlagsPanel.js';
+import ClientSatisfactionPanel from './ClientSatisfactionPanel.js';
 import UnusualCasesPanel from './UnusualCasesPanel.js';
 
 const ANCHOR_TO_TAB = Object.freeze({
@@ -217,7 +221,23 @@ function LiveDashboardAnalytics({ user }) {
     () => dashboardAuditCounts({ overview, scope: effectiveScope }),
     [overview, effectiveScope],
   );
-  const dashboardTabs = useMemo(() => buildDashboardTabs(tabCounts), [tabCounts]);
+  // S8: ratings of the same dates, for flag 5 (low rating) and the Client Satisfaction tab. A failed read just means no ratings are shown.
+  const [ratings, setRatings] = useState([]);
+  const ratingFrom = overview?.from;
+  const ratingTo = overview?.to;
+  useEffect(() => {
+    if (!ratingFrom || !ratingTo) return undefined;
+    let cancelled = false;
+    getRatingSummary({ officeId: selectedOfficeId || undefined, from: ratingFrom, to: ratingTo })
+      .then((data) => !cancelled && setRatings(data?.items ?? []))
+      .catch(() => !cancelled && setRatings([]));
+    return () => { cancelled = true; };
+  }, [ratingFrom, ratingTo, selectedOfficeId]);
+  const showSatisfaction = hasSatisfaction(ratings);
+  const dashboardTabs = useMemo(
+    () => withSatisfactionTab(buildDashboardTabs(tabCounts), showSatisfaction, lowRatingRows(ratings, effectiveScope).length),
+    [tabCounts, showSatisfaction, ratings, effectiveScope],
+  );
 
   const navigateAnchor = useCallback((anchorId) => {
     const targetTab = ANCHOR_TO_TAB[anchorId];
@@ -381,7 +401,14 @@ function LiveDashboardAnalytics({ user }) {
           loading={status === 'loading' && !overview}
           error={status === 'error' && !overview ? error : null}
         />
+        <CaseFlagsPanel overview={overview} ratings={ratings} names={names} scope={effectiveScope} />
       </div>
+
+      {showSatisfaction ? (
+        <div {...tabPanelProps('dashboard', 'satisfaction')} hidden={activeTab !== 'satisfaction'} className="space-y-4 focus:outline-none">
+          <ClientSatisfactionPanel ratings={ratings} names={names} scope={effectiveScope} />
+        </div>
+      ) : null}
 
       <AboutAnalyticsPanel
         completedRows={overview?.about?.completed_rows}
