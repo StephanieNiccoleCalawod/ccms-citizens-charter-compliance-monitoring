@@ -46,6 +46,16 @@ export async function rateWithCode(db, body, { now = new Date() } = {}) {
   return { rated: true, service_name: rows[0].service_name };
 }
 
+export const MIN_RATINGS = 10;
+export const LOW_AVERAGE = 3.0;
+export const FLAG_LOW_RATING = 'LOW_RATING';
+/** Client satisfaction (not timeliness): "not enough ratings yet" below 10 ratings; flag LOW_RATING when the average is below 3.0 with at least 10. */
+export function satisfaction({ count, average, asked }) {
+  const enough = count >= MIN_RATINGS;
+  return { enough_ratings: enough, response_rate: asked > 0 ? Math.round((count / asked) * 1000) / 10 : null, asked,
+    flags: enough && average < LOW_AVERAGE ? [FLAG_LOW_RATING] : [] };
+}
+
 /** GET /ratings/summary?office_id=&from=&to= : count and average per service (rated only), apart from compliance. */
 export async function ratingSummary(db, actor, params, now = new Date()) {
   const get = (n) => params.get(n) || undefined;
@@ -64,7 +74,7 @@ export async function ratingSummary(db, actor, params, now = new Date()) {
     officeId = actor.officeId;
   }
   const items = rowsOf(await db.query(
-    `SELECT service_id, max(service_code) AS service_code, max(service_name) AS service_name, count(stars)::int AS count, round(avg(stars)::numeric, 2)::float AS average,
+    `SELECT service_id, max(office_id::text) AS office_id, max(service_code) AS service_code, max(service_name) AS service_name, count(stars)::int AS count, round(avg(stars)::numeric, 2)::float AS average,
        min(rated_at) AS first_rated_at, max(rated_at) AS last_rated_at
        FROM service_ratings
       WHERE stars IS NOT NULL AND ($1::uuid IS NULL OR office_id = $1::uuid)
@@ -72,6 +82,14 @@ export async function ratingSummary(db, actor, params, now = new Date()) {
         AND ($3::date IS NULL OR rated_at < (($3::date + 1)::timestamp AT TIME ZONE 'Asia/Manila'))
       GROUP BY service_id ORDER BY max(service_name), service_id`,
     [officeId ?? null, from ?? null, to ?? null]));
+  // Response rate: ratings submitted / rating codes handed out (issued) in the same dates.
+  const askedRows = rowsOf(await db.query(
+    `SELECT service_id, count(*)::int AS asked FROM service_ratings
+      WHERE ($1::uuid IS NULL OR office_id = $1::uuid)
+        AND ($2::date IS NULL OR issued_at >= ($2::date::timestamp AT TIME ZONE 'Asia/Manila'))
+        AND ($3::date IS NULL OR issued_at < (($3::date + 1)::timestamp AT TIME ZONE 'Asia/Manila'))
+      GROUP BY service_id`, [officeId ?? null, from ?? null, to ?? null]));
+  const askedBy = new Map(askedRows.map((r) => [String(r.service_id), r.asked]));
   const total = items.reduce((n, i) => n + i.count, 0);
   const average = total ? Math.round((items.reduce((s, i) => s + i.average * i.count, 0) / total) * 100) / 100 : null;
   const explain = (count, first, last, method, steps) => calculation({
@@ -81,7 +99,7 @@ export async function ratingSummary(db, actor, params, now = new Date()) {
   });
   const first = items.map((i) => i.first_rated_at).filter(Boolean).sort((a, b) => new Date(a) - new Date(b))[0];
   const last = items.map((i) => i.last_rated_at).filter(Boolean).sort((a, b) => new Date(b) - new Date(a))[0];
-  return { items: items.map(({ first_rated_at, last_rated_at, ...item }) => ({ ...item,
+  return { items: items.map(({ first_rated_at, last_rated_at, ...item }) => ({ ...item, ...satisfaction({ count: item.count, average: item.average, asked: askedBy.get(String(item.service_id)) ?? 0 }),
     calculations: { ratings: explain(item.count, first_rated_at, last_rated_at, 'arithmetic mean',
       ['Select submitted ratings for the service and office in the requested dates.', 'Divide the sum of stars by the number submitted and round to two decimals.']) },
   })), total_count: total, average,

@@ -63,6 +63,7 @@ test('S8-46 ratings use submitted counts and Manila rating dates within authoriz
   const office = '11111111-1111-4111-8111-111111111111';
   const db = { query: async (sql, args) => {
     assert.equal(args[0], office);
+    if (!/avg\(stars\)/.test(sql)) return [{ service_id: 'service', asked: 5 }]; // S8: rating codes handed out, for the response rate
     assert.match(sql, /stars IS NOT NULL/);
     return [{ service_id: 'service', count: 2, average: 4.5,
       first_rated_at: '2026-11-01T17:00:00Z', last_rated_at: '2026-11-20T00:00:00Z' }];
@@ -71,6 +72,7 @@ test('S8-46 ratings use submitted counts and Manila rating dates within authoriz
   assert.equal(result.calculations.ratings.data_used.record_count, 2);
   assert.equal(result.calculations.ratings.data_used.period_from, '2026-11-02');
   assert.equal(result.items[0].calculations.ratings.data_used.period_to, '2026-11-20');
+  assert.deepEqual([result.items[0].response_rate, result.items[0].enough_ratings, result.items[0].flags], [40, false, []]);
   await assert.rejects(ratingSummary(db, { role: ROLES.OFFICE_HEAD, officeId: office },
     new URLSearchParams({ office_id: '22222222-2222-4222-8222-222222222222' }), at));
 });

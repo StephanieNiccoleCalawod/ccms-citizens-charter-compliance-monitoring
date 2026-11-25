@@ -1,6 +1,7 @@
 import { ROLES, Errors, calculation, isUuid, officeFilter, assertOfficeAccess, isOfficeBound, toManilaDate } from 'ccms-shared';
 import { computeKpis } from '../analytics/kpi.js';
 import { addDays, resolvePeriod } from '../analytics/period.js';
+import { WORKING_DAY_MINUTES, MIN_WORKING_DAYS, IQR_FACTOR, cancellationFlags, holdFlags } from './case-flags.js';
 import { charterCheck } from './charter.js';
 import { MAX_SENTENCES, MIN_CELL_COMPLETED, buildSentences } from './sentences.js';
 
@@ -9,7 +10,7 @@ import { MAX_SENTENCES, MIN_CELL_COMPLETED, buildSentences } from './sentences.j
 // Operations directly; Oversight has no copy of it. Access: Office Head and Office Staff their own office; Executive and Super
 // Admin every office; nothing here is per staff member.
 const COLUMNS = `transaction_id, tracking_no, office_id, service_id, service_code, status, outcome, is_compliant, variance_minutes, elapsed_working_minutes,
-       started_at, ended_at, is_backdated, started_outside_hours, registry_status, registry_miss_reason, started_by_user_id, ended_by_user_id, queue_wait_minutes`;
+       started_at, ended_at, is_backdated, started_outside_hours, registry_status, registry_miss_reason, started_by_user_id, ended_by_user_id, queue_wait_minutes, held_minutes`;
 
 const rowsOf = (result) => (Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result);
 
@@ -202,6 +203,10 @@ export async function getInsights(db, actor, query, now = new Date()) {
   const charter = {
     ...rawCharter,
     unusual: rawCharter.unusual.map((u) => ({ ...u, can_open: canOpenInsightTransaction(actor, rowById.get(u.transaction_id)) })),
+    // S8 flags 4 and 6 (flag 5, low rating, comes from the ratings summary in Operations)
+    long_holds: holdFlags(periodRows).map((h) => ({ ...h, can_open: canOpenInsightTransaction(actor, rowById.get(h.transaction_id)) })),
+    many_cancelled: cancellationFlags(rows, period),
+    case_thresholds: { hold_working_day_minutes: WORKING_DAY_MINUTES, cancellation_min_working_days: MIN_WORKING_DAYS, iqr_factor: IQR_FACTOR },
   };
   const codeOf = new Map(rows.map((r) => [r.service_id, r.service_code]));
   const totals = current.totals;
