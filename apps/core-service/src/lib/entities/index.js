@@ -199,6 +199,7 @@ export const TermDate = new EntitySchema({
   columns: {
     termId: { name: 'term_id', type: 'uuid', primary: true },
     termName: { name: 'term_name', type: 'text' },
+    academicYear: { name: 'academic_year', type: 'text', nullable: true },
     startDate: { name: 'start_date', type: 'date' },
     endDate: { name: 'end_date', type: 'date' },
     createdAt: { name: 'created_at', type: 'timestamptz', createDate: true },

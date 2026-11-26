@@ -12,7 +12,7 @@ import { createTerm, listTerms, updateTerm } from './terms.js';
 //     saved before its term existed is sent now without being edited;
 //   - a term that would overlap another stored term is skipped and reported, never forced;
 //   - a stored term SMS does not list is left alone and reported (nothing is ever deleted here).
-// Nothing from SMS's answer other than the term code and the two dates is stored or reported.
+// Only the term code, dates, and SMS-provided academic year are stored; no year is inferred.
 const VALID_CODE = /^\d{4}-(1S|2S|MIDYEAR)$/;
 
 export async function importSmsTerms(dataSource, { env = process.env, fetchImpl = fetch, actor = SYSTEM_ACTOR, log = () => {} } = {}) {
@@ -39,6 +39,8 @@ export async function importSmsTerms(dataSource, { env = process.env, fetchImpl 
     seen.add(code);
     const existing = stored.find((row) => smsTermCode(row.term_name) === code);
     const dates = { start_date: term.startDate, end_date: term.endDate };
+    const academicYear = typeof term.academicYear === 'string' ? term.academicYear.trim() || null : null;
+    const imported = { ...dates, academic_year: academicYear };
     // The new or changed term gets a fresh snapshot of the entries inside it. A brand-new term with no entries queues nothing.
     const queue = (isNew) => async (manager, saved) => {
       const row = { term_id: saved.term_id, term_name: saved.term_name, start_date: saved.start_date, end_date: saved.end_date };
@@ -47,13 +49,14 @@ export async function importSmsTerms(dataSource, { env = process.env, fetchImpl 
     };
     try {
       if (!existing) {
-        await createTerm(dataSource, actor, { term_name: code, ...dates }, { fromSms: true, inTransaction: queue(true) });
+        await createTerm(dataSource, actor, { term_name: code, ...imported }, { fromSms: true, inTransaction: queue(true) });
         result.added.push(code);
         log(`add ${code}`);
-      } else if (existing.start_date === dates.start_date && existing.end_date === dates.end_date) {
+      } else if (existing.start_date === dates.start_date && existing.end_date === dates.end_date
+        && existing.academic_year === academicYear) {
         result.unchanged += 1;
       } else {
-        await updateTerm(dataSource, actor, existing.term_id, { term_name: existing.term_name, ...dates }, { fromSms: true, inTransaction: queue(false) });
+        await updateTerm(dataSource, actor, existing.term_id, { term_name: existing.term_name, ...imported }, { fromSms: true, inTransaction: queue(false) });
         result.updated.push(code);
         log(`update ${code}`);
       }

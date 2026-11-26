@@ -7,6 +7,7 @@ import { createException } from '../src/lib/calendar/exceptions.js';
 import { importSmsTerms } from '../src/lib/calendar/sms-terms-import.js';
 import { createTerm } from '../src/lib/calendar/terms.js';
 import { setupTestEnv } from './calendar-helpers.js';
+import { S864TermAcademicYear1795679000000 } from '../migrations/1795679000000-S864TermAcademicYear.js';
 
 let env;
 before(async () => {
@@ -48,6 +49,42 @@ describe('import of the terms SMS owns', () => {
     const events = await env.ds.query(`SELECT payload FROM audit_outbox WHERE payload->>'action' = 'TERM_ADDED'`);
     assert.equal(events.length, 3);
     assert.equal(events[0].payload.actor_user_id, SYSTEM_ACTOR.id);
+  });
+
+  it('the migration preserves existing terms and leaves their year empty', async () => {
+    await createTerm(env.ds, SYSTEM_ACTOR, { term_name: '2026-1S', start_date: '2026-08-17', end_date: '2026-12-12' }, { env: {} });
+    const migration = new S864TermAcademicYear1795679000000();
+    const runner = env.ds.createQueryRunner();
+    try {
+      await migration.down(runner);
+      await migration.up(runner);
+      assert.deepEqual(await env.ds.query('SELECT term_name, academic_year FROM term_dates'), [
+        { term_name: '2026-1S', academic_year: null },
+      ]);
+    } finally {
+      await runner.release();
+    }
+  });
+
+  it('stores SMS academic years and updates them even when the dates do not change', async () => {
+    await run([SMS[0]]);
+    const years = () => env.ds.query('SELECT academic_year FROM term_dates');
+    assert.equal((await years())[0].academic_year, '2026-2027');
+    const changed = await run([{ ...SMS[0], academic_year: '2026-2028' }]);
+    assert.deepEqual(changed.updated, ['2026-1S']);
+    assert.equal((await years())[0].academic_year, '2026-2028');
+    assert.equal((await run([{ ...SMS[0], academic_year: '2026-2028' }])).unchanged, 1);
+  });
+
+  it('never infers a year and clears an old year when SMS omits it', async () => {
+    await run([SMS[0]]);
+    const withoutYear = { ...SMS[0] };
+    delete withoutYear.academic_year;
+    await run([withoutYear]);
+    assert.equal((await env.ds.query('SELECT academic_year FROM term_dates'))[0].academic_year, null);
+    await env.ds.query('DELETE FROM term_dates');
+    await run([withoutYear]);
+    assert.equal((await env.ds.query('SELECT academic_year FROM term_dates'))[0].academic_year, null);
   });
 
   it('a calendar entry saved before its term existed is sent to SMS once the term arrives (no edit needed)', async () => {

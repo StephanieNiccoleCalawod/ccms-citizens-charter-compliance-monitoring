@@ -15,6 +15,7 @@ export function toTermDto(row) {
   return {
     term_id: row.termId,
     term_name: row.termName,
+    academic_year: row.academicYear ?? null,
     start_date: row.startDate,
     end_date: row.endDate,
     created_at: row.createdAt,
@@ -80,6 +81,7 @@ export async function listTerms(dataSource) {
 export async function createTerm(dataSource, actor, body, { ipAddress, env = process.env, fromSms = false, inTransaction = null } = {}) {
   if (!fromSms) assertTermsEditable(env);
   const input = parseTermInput(body);
+  if (fromSms) input.academicYear = typeof body.academic_year === 'string' ? body.academic_year.trim() || null : null;
   try {
     const dto = await dataSource.transaction(async (manager) => {
       await lockCalendar(manager);
@@ -110,11 +112,13 @@ export async function createTerm(dataSource, actor, body, { ipAddress, env = pro
 export async function updateTerm(dataSource, actor, id, body, { ipAddress, env = process.env, fromSms = false, inTransaction = null } = {}) {
   if (!fromSms) assertTermsEditable(env);
   const input = parseTermInput(body);
+  if (fromSms) input.academicYear = typeof body.academic_year === 'string' ? body.academic_year.trim() || null : null;
   try {
     const dto = await dataSource.transaction(async (manager) => {
       await lockCalendar(manager);
       const before = toTermDto(await findOrFail(manager, id));
-      if (before.term_name === input.termName && before.start_date === input.startDate && before.end_date === input.endDate) {
+      if (before.term_name === input.termName && before.start_date === input.startDate && before.end_date === input.endDate
+        && (!fromSms || before.academic_year === input.academicYear)) {
         return before;
       }
       await assertNoOverlap(manager, input, id);
