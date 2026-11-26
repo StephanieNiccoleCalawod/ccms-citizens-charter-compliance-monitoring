@@ -3,8 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { kickOutbox } from './outbox.js';
 
 // S8-52 / D-AC-4: request access, grant with an end date, deny, revoke, expire. Every step is audited. Nobody decides their own request.
-// A Postgres `date` column comes back from the driver as a JavaScript Date (midnight on the server), so String() of it is not YYYY-MM-DD.
-export const dateOnly = (v) => (v instanceof Date ? `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}` : String(v).slice(0, 10));
+// Read ends_on as calendar-date text so the driver never treats it as a server-local timestamp.
 const rowsOf = (result) => (Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result);
 export const REASON_MAX = 500;
 export const SYSTEM = Object.freeze({ actorUserId: null, actorRole: 'system' });
@@ -20,7 +19,7 @@ export const MSG = Object.freeze({
 const dto = (r) => ({
   request_id: r.request_id, account_id: r.account_id, account_name: r.account_name ?? null, office_id: r.office_id,
   permission_key: r.permission_key, permission_label: GRANTABLE[r.permission_key]?.label ?? r.permission_key, reason: r.reason, status: r.status,
-  requested_at: r.requested_at, decided_at: r.decided_at ?? null, decision_note: r.decision_note ?? null, ends_on: r.ends_on ? dateOnly(r.ends_on) : null,
+  requested_at: r.requested_at, decided_at: r.decided_at ?? null, decision_note: r.decision_note ?? null, ends_on: r.ends_on_text ?? null,
 });
 
 export function parseRequest(body, actor) {
@@ -45,14 +44,15 @@ export function parseDecision(body, { requesterId, actor, today }) {
 
 export async function expireDueGrants(db, { now = new Date() } = {}) {
   const today = toManilaDate(now);
-  const due = rowsOf(await db.query(`SELECT grant_id, request_id, account_id, office_id, permission_key, ends_on FROM account_permission_grants WHERE status = 'ACTIVE' AND ends_on < $1::date`, [today]));
+  const due = rowsOf(await db.query(`SELECT grant_id, request_id, account_id, office_id, permission_key, to_char(ends_on, 'YYYY-MM-DD') AS ends_on
+    FROM account_permission_grants WHERE status = 'ACTIVE' AND ends_on < $1::date`, [today]));
   for (const g of due) {
     await db.transaction(async (manager) => {
       const done = rowsOf(await manager.query(`UPDATE account_permission_grants SET status = 'EXPIRED', ended_at = $2 WHERE grant_id = $1 AND status = 'ACTIVE' RETURNING grant_id`, [g.grant_id, now]));
       if (!done.length) return;
       await manager.query(`UPDATE access_requests SET status = 'EXPIRED' WHERE request_id = $1 AND status = 'GRANTED'`, [g.request_id]);
       await recordAudit(manager, { actor: SYSTEM, action: 'ACCESS_EXPIRED', entityType: 'access_request', entityId: g.request_id, officeId: g.office_id,
-        before: { status: 'GRANTED' }, after: { status: 'EXPIRED', account_id: g.account_id, permission_key: g.permission_key, ends_on: dateOnly(g.ends_on) } });
+        before: { status: 'GRANTED' }, after: { status: 'EXPIRED', account_id: g.account_id, permission_key: g.permission_key, ends_on: g.ends_on } });
     });
   }
   if (due.length) kickOutbox();
@@ -78,7 +78,8 @@ export async function createRequest(db, actor, body, { ipAddress, now = new Date
 }
 
 async function getRequest(db, id) {
-  const [row] = rowsOf(await db.query(`SELECT r.*, a.full_name AS account_name FROM access_requests r JOIN accounts a ON a.account_id = r.account_id WHERE r.request_id = $1`, [id]));
+  const [row] = rowsOf(await db.query(`SELECT r.*, to_char(r.ends_on, 'YYYY-MM-DD') AS ends_on_text, a.full_name AS account_name
+    FROM access_requests r JOIN accounts a ON a.account_id = r.account_id WHERE r.request_id = $1`, [id]));
   return row ? dto(row) : null;
 }
 
@@ -90,7 +91,7 @@ export async function listRequests(db, actor, params, { now = new Date() } = {})
   const own = actor.role !== ROLES.SUPER_ADMIN;
   if (own && !REQUESTER_ROLES.includes(actor.role)) throw Errors.forbidden();
   const rows = rowsOf(await db.query(
-    `SELECT r.*, a.full_name AS account_name FROM access_requests r JOIN accounts a ON a.account_id = r.account_id
+    `SELECT r.*, to_char(r.ends_on, 'YYYY-MM-DD') AS ends_on_text, a.full_name AS account_name FROM access_requests r JOIN accounts a ON a.account_id = r.account_id
       WHERE ($1::uuid IS NULL OR r.account_id = $1::uuid) AND ($2::text IS NULL OR r.status = $2::text)
       ORDER BY (r.status = 'PENDING') DESC, r.requested_at DESC LIMIT 200`, [own ? actor.id : null, status]));
   return { items: rows.map(dto) };
@@ -126,15 +127,15 @@ export async function listActiveGrants(db, actor, { now = new Date() } = {}) {
   if (actor.role !== ROLES.SUPER_ADMIN) throw Errors.forbidden();
   await expireDueGrants(db, { now });
   const rows = rowsOf(await db.query(
-    `SELECT g.grant_id, g.account_id, g.office_id, g.permission_key, g.ends_on, g.granted_at, a.full_name AS account_name, r.reason
+    `SELECT g.grant_id, g.account_id, g.office_id, g.permission_key, to_char(g.ends_on, 'YYYY-MM-DD') AS ends_on, g.granted_at, a.full_name AS account_name, r.reason
        FROM account_permission_grants g JOIN accounts a ON a.account_id = g.account_id JOIN access_requests r ON r.request_id = g.request_id
       WHERE g.status = 'ACTIVE' ORDER BY g.ends_on ASC, a.full_name ASC LIMIT 500`));
   const today = toManilaDate(now);
   const soon = new Date(Date.parse(`${today}T00:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10);
   return { items: rows.map((g) => ({
     grant_id: g.grant_id, account_id: g.account_id, account_name: g.account_name, office_id: g.office_id, permission_key: g.permission_key,
-    permission_label: GRANTABLE[g.permission_key]?.label ?? g.permission_key, reason: g.reason, ends_on: dateOnly(g.ends_on), granted_at: g.granted_at,
-    ends_soon: dateOnly(g.ends_on) <= soon,
+    permission_label: GRANTABLE[g.permission_key]?.label ?? g.permission_key, reason: g.reason, ends_on: g.ends_on, granted_at: g.granted_at,
+    ends_soon: g.ends_on <= soon,
   })) };
 }
 
@@ -158,6 +159,7 @@ export async function revokeGrant(db, actor, grantId, { ipAddress, now = new Dat
 export async function activeGrantsFor(db, accountId, { now = new Date() } = {}) {
   if (!isUuid(accountId)) throw Errors.validation('Send a valid account id.', { account_id: 'Send a valid account id.' });
   await expireDueGrants(db, { now });
-  const rows = rowsOf(await db.query(`SELECT permission_key, office_id, ends_on FROM account_permission_grants WHERE account_id = $1 AND status = 'ACTIVE' AND ends_on >= $2::date`, [accountId, toManilaDate(now)]));
-  return { grants: rows.map((g) => ({ permission_key: g.permission_key, office_id: g.office_id, ends_on: dateOnly(g.ends_on) })) };
+  const rows = rowsOf(await db.query(`SELECT permission_key, office_id, to_char(ends_on, 'YYYY-MM-DD') AS ends_on
+    FROM account_permission_grants WHERE account_id = $1 AND status = 'ACTIVE' AND ends_on >= $2::date`, [accountId, toManilaDate(now)]));
+  return { grants: rows };
 }
