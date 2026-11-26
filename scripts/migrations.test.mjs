@@ -462,6 +462,9 @@ describe('Sprint 5 numbered migrations', () => {
         assert.match(cli(service, db.url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
       }
       if (service === 'core') {
+        const academicYearRevert = cli(service, db.url, ['revert']);
+        assert.equal(academicYearRevert.code, 0, academicYearRevert.out);
+        assert.match(academicYearRevert.out, /Reverted: S864TermAcademicYear1795679000000/);
         // The sample office triggers the drop guard. Only the new test migration's column is being removed.
         for (const migration of ['S858ServiceHasFee1795478600000', 'S853OfficeBackdatePermission1795478500000']) {
           const reverted = cli(service, db.url, ['revert'], { CCMS_ALLOW_DATA_LOSS: migration });
