@@ -21,7 +21,7 @@ describe('the notice on a locked feature', () => {
   it('is shown on the four locked features and nowhere a role could not ask', () => {
     assert.match(read('src/components/queue/QueuePanel.js'), /permissionKey="VIEW_OFFICE_QUEUE"/);
     assert.match(read('src/components/reports/PeopleReport.js'), /permissionKey="REPORTS_PER_PERSON"/);
-    assert.match(read('src/components/reports/ReportsPage.js'), /permissionKey="EXPORT_CSV"/);
+    assert.match(read('src/components/reports/ReportDetail.js'), /permissionKey="EXPORT_CSV"/);
     assert.match(read('src/components/transactions/StartTransactionForm.js'), /permissionKey="RECORD_PAST_TRANSACTIONS"/);
     assert.match(read('src/components/access/LockedNotice.js'), /if \(!notice\) return null/);
   });

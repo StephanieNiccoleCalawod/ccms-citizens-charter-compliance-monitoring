@@ -4,15 +4,28 @@ import { formatDateRange, formatDateTime } from './date-format.js';
 import { queueWaitFigure } from './queue.js';
 
 export const PERIOD_TYPES = Object.freeze([
-  { value: 'half_year', label: 'Half-year' },
-  { value: 'monthly', label: 'Monthly' },
   { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'half_year', label: 'Half-year' },
   { value: 'annual', label: 'Annual' },
   { value: 'custom', label: 'Custom dates' },
 ]);
 export const DEFAULT_PERIOD_TYPE = 'half_year';
+/** The hint under "From" for a period type that is not Custom dates or a term/school year (those carry their own
+ * range already): picking any date there snaps the shown From/To to the week, month, half-year or year it falls
+ * in - Oversight only ever computes these four kinds of period from one such date, never an arbitrary range. */
+export const PERIOD_ANCHOR_HINT = Object.freeze({
+  weekly: 'Pick any date in the week; Monday–Sunday is used.',
+  monthly: 'Pick any date in the month; the whole month is used.',
+  half_year: 'Pick any date in the half-year; Jan–Jun or Jul–Dec is used.',
+  annual: 'Pick any date in the year; the whole year is used.',
+});
 export const STATUS_LABEL = Object.freeze({ DRAFT: 'Draft', PUBLISHED: 'Published', SUPERSEDED: 'Superseded' });
 export const REASON_MAX = 500;
+
+/** AC-10: printed signature titles under each blank line on a report sheet. No printed names - one place to change
+ * either title. "Noted by"'s title is not yet confirmed by the client, so it stays blank until it is. */
+export const SIGNATURE_LINES = Object.freeze({ preparedBy: 'Office Head', notedBy: '' });
 
 export const periodTypeLabel = (value) => PERIOD_TYPES.find((p) => p.value === value)?.label ?? value;
 export const periodText = (report) => formatDateRange(report?.from, report?.to) || '-';
@@ -38,16 +51,51 @@ export function buildGenerateBody({ officeId, periodType, from, to, date }) {
   return body;
 }
 
-/** Early feedback by field; the server checks again. */
-export function generateErrors({ officeId, periodType, from, to }) {
+/**
+ * Early feedback by field, also used to disable Generate Report until the dialog is fillable; the server checks
+ * again. `from`/`to` are the computed (for Weekly/Monthly/Half-year/Annual) or chosen (for Custom dates) range -
+ * leave them unset when there is none yet. `dateRequired` is true for Weekly/Monthly/Half-year/Annual, where a
+ * reference date is required before there is a range at all (a term or school year choice needs neither).
+ */
+export function generateErrors({ officeId, periodType, from, to, dateRequired = false }) {
   const errors = {};
   if (!officeId) errors.officeId = 'Choose an office.';
+  if (!periodType) errors.periodType = 'Choose a period.';
   if (periodType === 'custom') {
     if (!from) errors.from = 'Choose a start date.';
     if (!to) errors.to = 'Choose an end date.';
     if (from && to && from > to) errors.from = 'The start date must be on or before the end date.';
+  } else if (dateRequired && (!from || !to)) {
+    errors.date = 'Choose a reference date.';
   }
   return errors;
+}
+
+const DAY_MS = 86_400_000;
+const parseUTC = (date) => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)));
+const formatUTC = (ms) => new Date(ms).toISOString().slice(0, 10);
+const addDays = (date, days) => formatUTC(parseUTC(date) + days * DAY_MS);
+const lastDayOfMonth = (year, month) => formatUTC(Date.UTC(year, month, 0));
+
+/**
+ * The office report's from/to for a period type and an anchor date (today, or the date someone picked) - the same
+ * rule Oversight resolves server-side (periodBounds in oversight-service/analytics/period.js), kept here only so
+ * the "before you generate" summary shows the exact range about to be generated. null for Custom dates or a
+ * term/school year choice (those carry their own range already - see termPeriodText in term-period.js).
+ */
+export function periodBounds(type, anchor) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor ?? '')) return null;
+  const year = Number(anchor.slice(0, 4));
+  const month = Number(anchor.slice(5, 7));
+  if (type === 'weekly') {
+    const weekday = new Date(parseUTC(anchor)).getUTCDay(); // 0 Sunday .. 6 Saturday
+    const from = addDays(anchor, -((weekday + 6) % 7));
+    return { from, to: addDays(from, 6) };
+  }
+  if (type === 'monthly') return { from: `${anchor.slice(0, 7)}-01`, to: lastDayOfMonth(year, month) };
+  if (type === 'half_year') return month <= 6 ? { from: `${year}-01-01`, to: `${year}-06-30` } : { from: `${year}-07-01`, to: `${year}-12-31` };
+  if (type === 'annual') return { from: `${year}-01-01`, to: `${year}-12-31` };
+  return null;
 }
 
 export function reasonError(reason) {

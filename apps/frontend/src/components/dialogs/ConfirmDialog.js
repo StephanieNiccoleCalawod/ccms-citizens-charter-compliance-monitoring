@@ -17,6 +17,7 @@ export default function ConfirmDialog({
   confirmClassName,
   busy = false,
   busyLabel = 'Please wait…',
+  disabled = false,
   onConfirm,
   onCancel,
   returnFocusRef,
@@ -29,7 +30,7 @@ export default function ConfirmDialog({
       open={open}
       title={title}
       role="alertdialog"
-      describedBy={messageId}
+      describedBy={message ? messageId : undefined}
       initialFocusRef={cancelRef}
       returnFocusRef={returnFocusRef}
       onClose={busy ? undefined : onCancel}
@@ -44,6 +45,7 @@ export default function ConfirmDialog({
             className={confirmClassName}
             onClick={onConfirm}
             loading={busy}
+            disabled={disabled}
             loadingLabel={busyLabel}
           >
             {confirmLabel}
@@ -51,9 +53,11 @@ export default function ConfirmDialog({
         </>
       }
     >
-      <p id={messageId} className="text-sm text-ink-muted">
-        {message}
-      </p>
+      {message ? (
+        <p id={messageId} className="text-sm text-ink-muted">
+          {message}
+        </p>
+      ) : null}
       {children}
     </Modal>
   );

@@ -104,9 +104,8 @@ describe('CC056 labels and switches', () => {
 });
 
 describe('CC056 screens (source checks)', () => {
-  it('Roles and permissions is in the Super Admin menu only', () => {
-    assert.ok(appNavForRole(ROLES.SUPER_ADMIN).some((i) => i.href === '/settings/roles'));
-    for (const role of [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE]) assert.ok(!appNavForRole(role).some((i) => i.href === '/settings/roles'), role);
+  it('Roles and permissions is reached only through the Account Settings sidebar (not the main sidebar), and stays Super Admin only', () => {
+    for (const role of [ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE]) assert.ok(!appNavForRole(role).some((i) => i.href === '/settings/roles'), role);
     assert.match(read('src/app/settings/roles/page.js'), /allowedRoles=\{\[ROLES\.SUPER_ADMIN\]\}/);
   });
   it('My account is open to every role and is reached from the user menu', () => {
@@ -126,8 +125,9 @@ describe('CC056 screens (source checks)', () => {
     assert.match(matrix, /showInteractiveSwitch/);
     assert.doesNotMatch(matrix, /savePermissionSwitches/);
     const page = read('src/app/settings/roles/page.js');
-    assert.match(page, /<ConfirmDialog/);
+    assert.match(page, /<PermissionConfirmModal/);
     assert.match(page, /savePermissionSwitches\(\{ \[switchKey\]: nextEnabled \}\)/);
+    assert.match(read('src/components/account/PermissionConfirmModal.js'), /<ConfirmDialog/);
     assert.ok(read('src/components/account/PermissionSwitches.js').includes('view.switches.map'));
   });
   it('the password form never shows a saved message before the server answers, and clears the passwords after', () => {

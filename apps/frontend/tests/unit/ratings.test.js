@@ -58,7 +58,7 @@ describe('screens', () => {
     assert.match(read('src/app/rate/page.js'), /RatePage/);
   });
   it('the ratings table sits in the report beside, not inside, the compliance figures', () => {
-    const reports = read('src/components/reports/ReportsPage.js');
+    const reports = read('src/components/reports/ReportDetail.js');
     assert.match(reports, /<FiguresTable report=\{report\} \/>\s*<RatingsSection/);
     assert.ok(!read('src/lib/ui/reports.js').includes('rating'));
   });

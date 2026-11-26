@@ -4,33 +4,13 @@ import { navForRole } from 'ccms-shared/nav';
 import { ROLES } from 'ccms-shared/roles';
 import { queueNav } from '../ui/queue.js';
 import { clerkEnabled } from './provider.js';
-import { hubHasItems } from '../ui/settings-hub.js';
 
 export { landingForRole, navForRole } from 'ccms-shared/nav';
 export { ROLE_LABELS } from 'ccms-shared/roles';
 
-/**
- * The Settings item (D8-20): shown to a role only when the Settings hub has something for it. Every role has at least the read-only
- * transaction settings, so each role gets it; the item sits with the reference pages. The header icon on the Transactions page opens
- * the transaction settings directly (/settings/transactions).
- */
-export function transactionSettingsNav(role) {
-  return hubHasItems(role) ? { section: 'Reference', label: 'Settings', href: '/settings' } : null;
-}
-
 /** The audit log is for Super Admin only: nobody else gets the menu item (the Logs service also answers 403 to Office Staff and Executive). */
 export function logsNav(role) {
   return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Logs', href: '/logs' } : null;
-}
-
-/** Settings > Roles and permissions (CC056) is for Super Admin only: the four staff switches and the role matrix. The Identity service also answers 403 to everyone else. */
-export function rolesNav(role) {
-  return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Roles and permissions', href: '/settings/roles' } : null;
-}
-
-/** Settings > Security and sessions (S8-34) is for Super Admin only: the idle and total sign-in limits enforced for every role, read-only. Identity also answers 403 to everyone else. */
-export function securityNav(role) {
-  return role === ROLES.SUPER_ADMIN ? { section: 'Administration', label: 'Security and sessions', href: '/settings/security' } : null;
 }
 
 /**
@@ -83,10 +63,14 @@ export function activeNavHref(items, pathname) {
   return best;
 }
 
-/** The menu a signed-in role sees: the shared menu plus the pages the frontend adds (empty when the role is not recognized). */
+/**
+ * The menu a signed-in role sees: the shared menu plus the pages the frontend adds (empty when the role is not recognized).
+ * Settings (D8-20), Roles and permissions, and Security and sessions are not sidebar items: they live in the dedicated
+ * Account Settings sidebar (see AccountShell / lib/ui/account-nav.js), reached from the account dropdown in AppShell's header.
+ */
 export function appNavForRole(role, access = {}) {
   const shared = navForRole(role);
   if (shared.length === 0) return shared;
   const lateRisk = { section: 'Main', label: 'Chance of finishing late', href: '/late-risk' };
-  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, transactionSettingsNav(role), registryNav(role), rolesNav(role), securityNav(role), logsNav(role)].filter(Boolean);
+  return [...shared, transactionsNav(role), queueNav(role), reportsNav(role, access), complaintsNav(role, access), lateRisk, registryNav(role), logsNav(role)].filter(Boolean);
 }

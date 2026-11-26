@@ -12,16 +12,18 @@ const ITEM_CLASS =
 /**
  * Horizontal three-dot (⋯) menu for table rows, shared by every CCMS table (and, with `vertical`, the kebab
  * menu on a page header, e.g. the Registry page's "History").
- * items: [{ label, onSelect?, href?, icon?, danger?, disabled? }] - an item with `href` renders as a link
+ * items: [{ label, onSelect?, href?, icon?, danger?, active?, disabled? }] - an item with `href` renders as a link
  * (for example View), any other item renders as a button that calls `onSelect`. `icon` is an optional small
- * decorative glyph (an inline SVG) shown before the label.
+ * decorative glyph (an inline SVG) shown before the label. `active` marks the item as the current page
+ * (for example Settings while the user is on it): it gets `aria-current="page"` and the brand tint.
  * The menu is positioned with `fixed` so the table's overflow clipping never cuts it off.
  * Callers decide which items a user may see; pass an empty list to render nothing.
  * `vertical` draws the dots top to bottom.
  * `trigger` replaces the dots with custom content (with `triggerClassName` for the button), and
  * `buttonRef` lets the caller keep a ref to the trigger, for example to return focus to it.
+ * `disabled` disables the trigger itself (for example while a menu action it starts is still running).
  */
-export default function RowActionMenu({ items, label = 'Row actions', vertical = false, trigger = null, triggerClassName = null, buttonRef: externalRef = null }) {
+export default function RowActionMenu({ items, label = 'Row actions', vertical = false, trigger = null, triggerClassName = null, buttonRef: externalRef = null, disabled = false, ...triggerProps }) {
   const [pos, setPos] = useState(null); // { top, left } when open
   const ownRef = useRef(null);
   const buttonRef = externalRef ?? ownRef;
@@ -105,7 +107,9 @@ export default function RowActionMenu({ items, label = 'Row actions', vertical =
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={toggle}
+        disabled={disabled}
         className={triggerClassName ?? 'row-icon-button'}
+        {...triggerProps}
       >
         {trigger ?? (
         <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
@@ -136,16 +140,16 @@ export default function RowActionMenu({ items, label = 'Row actions', vertical =
           className="z-50 rounded-lg border border-slate-200 bg-white py-1 text-left shadow-lg"
         >
           {items.map((item) => {
-            const tone = item.danger ? 'text-red-700' : 'text-slate-700';
+            const tone = item.danger ? 'text-red-700' : item.active ? 'text-maroon-700 font-semibold bg-maroon-50' : 'text-slate-700';
             const content = (
               <>
-                {item.icon ? <span aria-hidden="true" className="mr-2.5 inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-500">{item.icon}</span> : null}
+                {item.icon ? <span aria-hidden="true" className={`mr-2.5 inline-flex h-4 w-4 shrink-0 items-center justify-center ${item.active ? 'text-maroon-700' : 'text-slate-500'}`}>{item.icon}</span> : null}
                 {item.label}
               </>
             );
             if (item.href) {
               return (
-                <Link key={item.label} role="menuitem" href={item.href} onClick={() => close()} className={`${ITEM_CLASS} ${tone}`}>
+                <Link key={item.label} role="menuitem" aria-current={item.active ? 'page' : undefined} href={item.href} onClick={() => close()} className={`${ITEM_CLASS} ${tone}`}>
                   {content}
                 </Link>
               );
@@ -155,6 +159,7 @@ export default function RowActionMenu({ items, label = 'Row actions', vertical =
                 key={item.label}
                 type="button"
                 role="menuitem"
+                aria-current={item.active ? 'page' : undefined}
                 disabled={item.disabled}
                 onClick={() => {
                   // Focus the trigger before this item is removed, so a dialog opened by onSelect

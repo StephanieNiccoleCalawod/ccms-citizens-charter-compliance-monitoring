@@ -29,7 +29,7 @@ import { useFormDirty } from '../../lib/ui/useFormDirty.js';
 // currentCode: an existing office whose saved code does not start with the institution code yet (shown as a note).
 const EMPTY_FORM = { office_code: '', office_name: '', currentCode: null };
 
-function OfficesManager() {
+export function OfficesManager() {
   const [state, setState] = useState({ loading: true, items: [], error: null });
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('active'); // '' = all, 'active' (default), 'inactive'

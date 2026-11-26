@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
+import PermissionConfirmModal from '../../../components/account/PermissionConfirmModal.js';
 import PermissionSwitches from '../../../components/account/PermissionSwitches.js';
 import RolesMatrix from '../../../components/account/RolesMatrix.js';
-import ConfirmDialog from '../../../components/dialogs/ConfirmDialog.js';
 import ErrorBanner from '../../../components/feedback/ErrorBanner.js';
-import AppShell from '../../../components/layout/AppShell.js';
+import AccountShell from '../../../components/layout/AccountShell.js';
 import Button from '../../../components/ui/Button.js';
 import LoadingState from '../../../components/ui/LoadingState.js';
 import { getPermissionSwitches, savePermissionSwitches } from '../../../lib/api/account.js';
 import { ACCOUNTS_API } from '../../../lib/api/identity.js';
+import { OFFICES_API } from '../../../lib/api/catalogue.js';
 import { apiFetch } from '../../../lib/auth/session.js';
 import { affectedRolesForSwitch, switchValues } from '../../../lib/ui/account.js';
 import { notify } from '../../../lib/ui/notify.js';
@@ -25,9 +26,10 @@ function SlidersIcon() {
   );
 }
 
-function RolesAndPermissions({ user }) {
+export function RolesAndPermissions({ user }) {
   const [view, setView] = useState(null);
   const [roleCounts, setRoleCounts] = useState(null);
+  const [offices, setOffices] = useState([]);
   const [loadError, setLoadError] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [switchesOpen, setSwitchesOpen] = useState(false);
@@ -62,6 +64,13 @@ function RolesAndPermissions({ user }) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // For the confirmation modal's Office scope -> Specific Office picker (real offices, not mock data).
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch(OFFICES_API).then(({ items }) => !cancelled && setOffices(items ?? [])).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   function requestSwitchToggle(target) {
@@ -133,39 +142,19 @@ function RolesAndPermissions({ user }) {
         onToggleSwitch={requestSwitchToggle}
       />
 
-      <ConfirmDialog
+      <PermissionConfirmModal
+        key={pendingToggle ? `${pendingToggle.switchKey}-${pendingToggle.nextEnabled}` : 'closed'}
         open={Boolean(pendingToggle)}
-        title={pendingToggle?.nextEnabled ? 'Enable permission switch?' : 'Disable permission switch?'}
-        message={
-          pendingToggle
-            ? `Change "${pendingToggle.row.label}" from ${pendingToggle.nextEnabled ? 'Off (switch off)' : 'Yes (switch on)'} to ${pendingToggle.nextEnabled ? 'Yes (switch on)' : 'Off (switch off)'}?`
-            : ''
-        }
-        confirmLabel={pendingToggle?.nextEnabled ? 'Enable Switch' : 'Disable Switch'}
+        pending={pendingToggle}
+        switchInfo={pendingSwitchInfo}
+        affectedRoles={pendingAffectedRoles}
+        offices={offices}
         busy={savingSwitchKey !== null}
-        busyLabel="Saving…"
         onConfirm={confirmSwitchToggle}
         onCancel={() => {
           if (savingSwitchKey === null) setPendingToggle(null);
         }}
-      >
-        {pendingToggle ? (
-          <div className="mt-3 space-y-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#202938]">
-            <div>
-              <span className="font-semibold text-[#64748B]">Affected role(s): </span>
-              <span className="font-semibold">
-                {pendingAffectedRoles.map((r) => r.label).join(', ') || pendingToggle.role?.label}
-              </span>
-            </div>
-            {pendingSwitchInfo?.description ? (
-              <p className="text-[#64748B]">{pendingSwitchInfo.description}</p>
-            ) : null}
-            <p className="text-[#64748B]">
-              This change persists immediately in the backend, is enforced on the next API request, and is recorded in the audit log.
-            </p>
-          </div>
-        ) : null}
-      </ConfirmDialog>
+      />
 
       <PermissionSwitches
         key={switchesKey}
@@ -181,12 +170,12 @@ function RolesAndPermissions({ user }) {
 
 export default function RolesPage() {
   return (
-    <AppShell
+    <AccountShell
       title="Roles and Permissions"
       subtitle="Manage system capabilities and access permissions across CCCMS user roles."
       allowedRoles={[ROLES.SUPER_ADMIN]}
     >
       {(user) => <RolesAndPermissions user={user} />}
-    </AppShell>
+    </AccountShell>
   );
 }

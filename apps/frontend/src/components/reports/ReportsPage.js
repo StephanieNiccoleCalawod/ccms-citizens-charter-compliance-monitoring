@@ -1,153 +1,64 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import { apiFetch } from '../../lib/auth/session.js';
 import { OFFICES_API } from '../../lib/api/catalogue.js';
-import { downloadReportCsv, generateReport, getReport, listReports, publishReport, startNewVersion } from '../../lib/api/reports.js';
-import { formatDate, formatDateTime } from '../../lib/ui/date-format.js';
+import { generateReport, getReport, listReports } from '../../lib/api/reports.js';
+import { formatDate, formatDateRange } from '../../lib/ui/date-format.js';
 import {
-  PERIOD_TYPES, REASON_MAX, STATUS_LABEL, buildGenerateBody, canManageReports, failureMessage, figureRows,
-  periodSentence, periodText, periodTypeLabel, publishedByText, reasonError, reportActions, versionBanner, versionText,
+  PERIOD_ANCHOR_HINT, PERIOD_TYPES, STATUS_LABEL, buildGenerateBody, canManageReports, failureMessage, generateErrors,
+  periodBounds, periodText, periodTypeLabel,
 } from '../../lib/ui/reports.js';
-import ConfirmDialog from '../dialogs/ConfirmDialog.js';
+import { usePersistentState } from '../../lib/ui/persistent-state.js';
+import { setViewedReport } from '../../lib/ui/report-view-store.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
-import { FieldError, RequiredMark } from '../forms/Field.js';
+import { RequiredMark } from '../forms/Field.js';
 import FilterBar from '../forms/FilterBar.js';
 import Button from '../ui/Button.js';
+import Modal from '../modals/Modal.js';
 import StatusBadge from '../ui/StatusBadge.js';
-import StatusBanner from '../feedback/StatusBanner.js';
 import DataTable from '../ui/DataTable.js';
-import TableShell, { Table, Th } from '../ui/TableShell.js';
-import RatingsSection from '../ratings/RatingsSection.js';
-import LockedNotice from '../access/LockedNotice.js';
-import { canRequestAccess } from '../../lib/ui/access.js';
 import PeopleReport from './PeopleReport.js';
 import TermPeriodOptions, { useTerms } from '../forms/TermPeriodOptions.js';
-import { TERMS_NOT_AVAILABLE, isTermChoice } from '../../lib/ui/term-period.js';
+import { isTermChoice, termPeriodText } from '../../lib/ui/term-period.js';
 import { canSeePeopleReport } from '../../lib/ui/people-report.js';
 
-// Reports (CC029 / CC030 / CC031). Office Head and Super Admin generate, publish and correct; the Executive reads published reports
-// of every office. Print to PDF prints the report only (see .report-print-area in globals.css).
+// Reports (CC029 / CC030 / CC031). Office Head and Super Admin generate, publish and correct; the Executive reads
+// published reports of every office. One shared Generate Report modal covers both the official office report and
+// Report by Person (PeopleReport.js, reused here rather than re-implemented) behind a Report Type choice; there is
+// no separate "Reports by person" section on this page any more. Generate Report and Open both land on the
+// dedicated /reports/view page (see ReportView.js); this page is the list, the Status filter and the modal, and
+// its state survives the round trip there and back (see usePersistentState).
 const PAGE_SIZE = 20;
-const NO_FILTERS = { officeId: '', periodType: '', status: '' };
-
-function FiguresTable({ report }) {
-  const rows = figureRows(report);
-  const heads = ['Received', 'On time', 'Late', 'Closed automatically', 'On-time rate', 'Cancelled', 'Auto-closed', 'Pending now', 'Not in registry', 'Queue wait'];
-  return (
-    <div data-testid="report-figures">
-      <TableShell>
-        <Table label="Report figures" minWidth="56rem" head={<tr><Th>Service</Th>{heads.map((h) => <Th key={h} align="right">{h}</Th>)}</tr>}>
-          {rows.map((r) => (
-            <tr key={r.key} className={r.total ? 'tr-summary font-bold' : 'tr-row'}>
-              <td className="td">{r.label}</td>
-              {[r.received, r.onTime, r.late, r.closedAutomatically, r.rate, r.cancelled, r.autoClosed, r.pending, r.notInRegistry, r.queueWait].map((v, i) => <td key={i} className="td text-right tabular-nums">{v}</td>)}
-            </tr>
-          ))}
-        </Table>
-      </TableShell>
-      <p className="mt-2 text-xs text-ink-muted">{report.figures?.basis}</p>
-      <p className="mt-1 text-xs text-ink-muted">Queue wait: minutes from taking a queue ticket to the start of the transaction, for transactions started with a ticket. It is not part of compliance.</p>
-    </div>
-  );
-}
-
-function ReportDetail({ report, role, generatedBy, onBack, onOpen, onChanged }) {
-  const [busy, setBusy] = useState('');
-  const [error, setError] = useState('');
-  const [locked, setLocked] = useState(false); // the CSV download was refused for lack of access (S8-52)
-  const [notice, setNotice] = useState('');
-  const [confirm, setConfirm] = useState(null); // 'publish' | 'correct'
-  const [reason, setReason] = useState('');
-  const [reasonProblem, setReasonProblem] = useState('');
-  const actions = reportActions(report, role);
-  const banner = versionBanner(report);
-  const manage = canManageReports(role);
-
-  async function run(kind, task, done) {
-    setBusy(kind); setError(''); setLocked(false);
-    try { const result = await task(); setConfirm(null); done(result); } catch (failure) { setError(failureMessage(failure)); setLocked(kind === 'csv' && failure?.status === 403); setConfirm(null); } finally { setBusy(''); }
-  }
-  const doPublish = () => run('publish', () => publishReport(report.report_id), (r) => { setNotice(`Version ${r.version} is now published.`); onChanged(r); });
-  const doCorrect = () => {
-    const problem = reasonError(reason);
-    setReasonProblem(problem);
-    if (problem) return;
-    run('correct', () => startNewVersion(report.report_id, reason.trim()), (r) => { setReason(''); onOpen(r); });
-  };
-  const doCsv = () => run('csv', () => downloadReportCsv(report.report_id), ({ blob, filename }) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <Button variant="secondary" onClick={onBack}>Back to reports</Button>
-        <div className="flex flex-wrap gap-2">
-          {actions.publish ? <Button disabled={Boolean(busy)} onClick={() => setConfirm('publish')} data-testid="report-publish">Publish</Button> : null}
-          {actions.correct ? <Button variant="secondary" disabled={Boolean(busy)} onClick={() => { setReasonProblem(''); setConfirm('correct'); }} data-testid="report-correct">Correct with a new version</Button> : null}
-          {actions.csv ? <Button variant="secondary" disabled={Boolean(busy)} loading={busy === 'csv'} loadingLabel="Preparing CSV…" onClick={doCsv} data-testid="report-csv">Download CSV</Button> : null}
-          {actions.print ? <Button variant="secondary" onClick={() => window.print()} data-testid="report-print">Print / Save as PDF</Button> : null}
-        </div>
-      </div>
-      {locked && canRequestAccess(role)
-        ? <LockedNotice permissionKey="EXPORT_CSV" role={role} message="You don’t have access to download CSV yet." />
-        : <ErrorBanner message={error} onDismiss={() => setError('')} />}
-      {notice ? <StatusBanner variant="success" message={notice} onDismiss={() => setNotice('')} dismissAriaLabel="Dismiss message" /> : null}
-      {banner ? (
-        <div className="card flex flex-wrap items-center justify-between gap-2 border-amber-300 bg-amber-50 p-3 text-sm print:hidden" role="status" data-testid="report-version-banner">
-          <span>{banner.text}</span>
-          {banner.targetId ? <button type="button" className="btn-link" onClick={() => onOpen({ report_id: banner.targetId })}>Open that version</button> : null}
-        </div>
-      ) : null}
-      <article className="report-print-area card space-y-4 p-6" data-testid="report-sheet">
-        <header className="border-b border-slate-200 pb-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Polytechnic University of the Philippines, Quezon City</p>
-          <h2 className="title-section">Office Accomplishment Report</h2>
-          <p className="text-sm font-semibold">{report.office_name ?? 'Office'}</p>
-        </header>
-        <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-          <div><dt className="inline font-semibold">Period: </dt><dd className="inline">{periodSentence(report)}</dd></div>
-          <div><dt className="inline font-semibold">Version: </dt><dd className="inline">{versionText(report).replace('Version ', '')} ({STATUS_LABEL[report.status] ?? report.status})</dd></div>
-          <div><dt className="inline font-semibold">Generated: </dt><dd className="inline">{formatDateTime(report.generated_at)}</dd></div>
-          {generatedBy ? <div><dt className="inline font-semibold">Printed by: </dt><dd className="inline">{generatedBy}</dd></div> : null}
-          {report.published_at ? <div><dt className="inline font-semibold">Published: </dt><dd className="inline" data-testid="report-published-by">{manage ? publishedByText(report) : formatDateTime(report.published_at)}</dd></div> : null}
-          {report.status === 'DRAFT' ? <div className="sm:col-span-2 font-semibold text-amber-800">Draft: the figures are not official until the report is published.</div> : null}
-          {report.supersede_reason ? <div className="sm:col-span-2"><dt className="inline font-semibold">Reason for this version: </dt><dd className="inline">{report.supersede_reason}</dd></div> : null}
-        </dl>
-        <FiguresTable report={report} />
-        <RatingsSection officeId={report.office_id} from={report.period_from} to={report.period_to} />
-      </article>
-      <ConfirmDialog open={confirm === 'publish'} title="Publish this report?" confirmLabel="Publish" busy={busy === 'publish'} busyLabel="Publishing…" onConfirm={doPublish} onCancel={() => setConfirm(null)}
-        message="Publishing freezes these figures as the official record for this office and period. A later change needs a new version with a reason." />
-      <ConfirmDialog open={confirm === 'correct'} title="Correct with a new version" confirmLabel="Start new version" busy={busy === 'correct'} busyLabel="Starting…" onConfirm={doCorrect} onCancel={() => setConfirm(null)}
-        message="This starts a draft with fresh figures. The published version stays official until you publish the new one.">
-        <label htmlFor="report-reason" className="label mt-3">Reason for the correction<RequiredMark /></label>
-        <textarea id="report-reason" className="input" aria-required="true" rows={3} maxLength={REASON_MAX} value={reason} onChange={(e) => setReason(e.target.value)} aria-invalid={Boolean(reasonProblem)} aria-describedby={reasonProblem ? 'report-reason-error' : undefined} />
-        <FieldError id="report-reason-error">{reasonProblem}</FieldError>
-      </ConfirmDialog>
-    </div>
-  );
-}
+const NO_DRAFT = { officeId: '', periodType: 'weekly', date: '', from: '', to: '' };
 
 export default function ReportsPage({ user }) {
   const manage = canManageReports(user.role);
+  const router = useRouter();
   const [offices, setOffices] = useState([]);
-  const [filters, setFilters] = useState(NO_FILTERS);
-  const [monthlyReportDate, setMonthlyReportDate] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const [filters, setFilters] = usePersistentState('reports-page:filters', { status: '' }); // the listing's own filter: Status only
+  const [page, setPage] = usePersistentState('reports-page:page', 1);
+  const [pageSize, setPageSize] = usePersistentState('reports-page:pageSize', PAGE_SIZE);
   const [list, setList] = useState({ items: [], total: 0, loading: true, error: '' });
-  const [report, setReport] = useState(null);
   const [opening, setOpening] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [personFormState, setPersonFormState] = useState({ loading: false, canSubmit: false });
+  const [reportFor, setReportFor] = usePersistentState('reports-page:reportFor', 'office'); // 'office' | 'person': which fields the modal shows
+  const [draft, setDraft] = usePersistentState('reports-page:draft', NO_DRAFT); // Office/Period and its date(s), applied only on Generate Report
+  const [genError, setGenError] = useState('');
   const reload = useRef(0);
   const termState = useTerms();
+  const generateButtonRef = useRef(null);
+  const seesPeopleReport = canSeePeopleReport(user.role);
+  // Office Staff cannot manage (generate) office reports but can still see their own Report by Person, so the
+  // Generate Report button and modal exist whenever either is true. The Report Type choice itself only makes
+  // sense when both are available; otherwise there is only one kind of report this role could generate.
+  const canChooseReportType = manage && seesPeopleReport;
+  const effectiveReportFor = canChooseReportType ? reportFor : (manage ? 'office' : 'person');
 
   useEffect(() => { apiFetch(OFFICES_API).then(({ items }) => setOffices(items ?? [])).catch(() => {}); }, []);
   const officeName = useMemo(() => new Map(offices.map((o) => [o.office_id, o.office_name])), [offices]);
@@ -155,44 +66,83 @@ export default function ReportsPage({ user }) {
   const load = useCallback(() => {
     const ticket = ++reload.current;
     setList((l) => ({ ...l, loading: true, error: '' }));
-    // A term or school year is a way to generate a report; the list is filtered by the stored period type only.
-    listReports({ ...filters, periodType: isTermChoice(filters.periodType) ? '' : filters.periodType, page, pageSize })
+    listReports({ status: filters.status, page, pageSize })
       .then((data) => { if (ticket === reload.current) setList({ items: data.items ?? [], total: data.total ?? 0, loading: false, error: '' }); })
       .catch((failure) => { if (ticket === reload.current) setList({ items: [], total: 0, loading: false, error: failureMessage(failure) }); });
   }, [filters, page, pageSize]);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- read the list again when the filters or page change (load also serves "Back")
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- read the list again when the filters or page change
   useEffect(() => { load(); }, [load]);
 
+  // Opening an existing report from the table: fetch it (if the row did not already carry its figures), hand it
+  // to the dedicated report page, and navigate there - the list and its Status filter stay exactly as they are.
   async function open(target) {
     setOpening(true); setError('');
-    try { setReport(target.figures ? target : await getReport(target.report_id)); } catch (failure) { setError(failureMessage(failure)); } finally { setOpening(false); }
-  }
-  const setFilter = (key) => (event) => { setPage(1); setFilters((f) => ({ ...f, [key]: event.target.value })); };
-
-  // Generate now uses the Office and Period already chosen in the filter row (Office Head's own office, since that
-  // field is hidden for them). "All offices"/"All periods" and the Custom dates period have no single report to build,
-  // so each asks for a specific choice instead of silently guessing one.
-  async function generate() {
-    const officeId = user.role === ROLES.OFFICE_HEAD ? user.officeId : filters.officeId;
-    if (!officeId) { setError('Choose an office to generate a report for.'); return; }
-    if (!filters.periodType) { setError('Choose a period to generate a report for.'); return; }
-    if (filters.periodType === 'custom') { setError('Custom dates are not generated from this filter; choose Half-year, Monthly, Weekly or Annual.'); return; }
-    setGenerating(true); setError('');
     try {
-      setReport(await generateReport(buildGenerateBody({
-        officeId,
-        periodType: filters.periodType,
-        date: filters.periodType === 'monthly' ? monthlyReportDate : undefined,
-      })));
+      const full = target.figures ? target : await getReport(target.report_id);
+      setViewedReport({ kind: 'office', report: full, generatedBy: user.fullName });
+      router.push('/reports/view');
     } catch (failure) {
       setError(failureMessage(failure));
     } finally {
-      setGenerating(false);
+      setOpening(false);
     }
   }
+  const setDraftField = (key) => (event) => setDraft((d) => ({ ...d, [key]: event.target.value }));
 
-  if (report) {
-    return <ReportDetail key={report.report_id} report={report} role={user.role} generatedBy={user.fullName} onBack={() => { setReport(null); load(); }} onOpen={open} onChanged={(r) => { setReport(r); }} />;
+  function openGenerateModal() {
+    setGenError('');
+    setReportModalOpen(true);
+  }
+
+  const genOfficeId = user.role === ROLES.OFFICE_HEAD ? user.officeId : draft.officeId;
+  const needsAnchorDate = !isTermChoice(draft.periodType) && draft.periodType !== 'custom';
+  // Weekly/Monthly/Half-year/Annual are always generated from a computed, non-custom range (Oversight only ever
+  // resolves those four kinds of period from one anchor date, never an arbitrary pair - see periodBounds), so From
+  // and To there show that computed range rather than two independently free dates; only Custom dates and a term
+  // or school year choice are exempt from this (a term/school year needs neither). Nothing is computed, and the
+  // range stays blank, until a reference date is actually chosen - it is never silently defaulted to today.
+  const bounds = needsAnchorDate && draft.date ? periodBounds(draft.periodType, draft.date) : null;
+  const fieldErrors = generateErrors({
+    officeId: genOfficeId,
+    periodType: draft.periodType,
+    from: draft.periodType === 'custom' ? draft.from : bounds?.from,
+    to: draft.periodType === 'custom' ? draft.to : bounds?.to,
+    dateRequired: needsAnchorDate,
+  });
+  const canGenerate = Object.keys(fieldErrors).length === 0;
+
+  // The line shown before Generate Report: the exact range about to be generated, written out in full
+  // ("November 23–29, 2026"), or the term/school year's own wording when that is what was chosen.
+  const previewText = useMemo(() => {
+    if (isTermChoice(draft.periodType)) return termPeriodText(draft.periodType, termState.terms);
+    if (draft.periodType === 'custom') return draft.from && draft.to && draft.from <= draft.to ? formatDateRange(draft.from, draft.to) : '';
+    return bounds ? formatDateRange(bounds.from, bounds.to) : '';
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- bounds is derived from draft.periodType/date each render
+  }, [draft.periodType, draft.date, draft.from, draft.to, termState.terms, bounds]);
+
+  // Generates the official office report for exactly what the dialog shows: the chosen office, and either the
+  // period type with its computed range, Custom dates' From/To, or a term/school year. On success the dialog
+  // closes and the new report is shown on the dedicated report page, not inline here.
+  async function generate() {
+    if (!canGenerate) { setGenError(Object.values(fieldErrors)[0]); return; }
+    setGenerating(true); setGenError('');
+    try {
+      const result = await generateReport(buildGenerateBody({
+        officeId: genOfficeId,
+        periodType: draft.periodType,
+        date: !isTermChoice(draft.periodType) && draft.periodType !== 'custom' ? (draft.date || undefined) : undefined,
+        from: draft.periodType === 'custom' ? draft.from : undefined,
+        to: draft.periodType === 'custom' ? draft.to : undefined,
+      }));
+      setReportModalOpen(false);
+      setPage(1);
+      setViewedReport({ kind: 'office', report: result, generatedBy: user.fullName });
+      router.push('/reports/view');
+    } catch (failure) {
+      setGenError(failureMessage(failure));
+    } finally {
+      setGenerating(false);
+    }
   }
 
   const columns = [
@@ -208,50 +158,123 @@ export default function ReportsPage({ user }) {
     <div className="space-y-4">
       <ErrorBanner message={error} onDismiss={() => setError('')} />
       <FilterBar
-        label="Report filters"
+        label="Report actions"
         data-testid="report-filters"
-        dirty={Boolean(filters.officeId || filters.periodType || filters.status || monthlyReportDate)}
-        onClear={() => { setFilters(NO_FILTERS); setMonthlyReportDate(''); setPage(1); }}
-        actions={manage ? (
-          <Button className="w-full sm:w-auto" onClick={generate} loading={generating} loadingLabel="Generating…" data-testid="report-generate">
-            Generate
+        actions={manage || seesPeopleReport ? (
+          <Button
+            ref={generateButtonRef}
+            className="w-full sm:w-auto"
+            onClick={openGenerateModal}
+            loading={generating}
+            loadingLabel="Generating…"
+            data-testid="report-generate"
+          >
+            Generate Report
           </Button>
         ) : null}
       >
-        {user.role !== ROLES.OFFICE_HEAD ? (
-          <div className="w-full sm:w-64"><label htmlFor="rf-office" className="label">Office</label>
-            <select id="rf-office" className="input select-chevron" value={filters.officeId} onChange={setFilter('officeId')}>
-              <option value="">All offices</option>
-              {offices.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
-            </select></div>
-        ) : null}
-        <div className="w-full sm:w-48"><label htmlFor="rf-period" className="label">Period</label>
-          <select id="rf-period" className="input select-chevron" value={filters.periodType} onChange={setFilter('periodType')}>
-            <option value="">All periods</option>
-            {PERIOD_TYPES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-            {manage ? <TermPeriodOptions terms={termState.terms} /> : null}
+        <div className="w-full sm:w-56">
+          <label htmlFor="report-status-filter" className="label">Status</label>
+          <select id="report-status-filter" className="input select-chevron" value={filters.status}
+            onChange={(event) => { setFilters({ status: event.target.value }); setPage(1); }}>
+            <option value="">All</option>
+            {Object.entries(STATUS_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
-          {manage && termState.loaded && termState.terms.length === 0 ? <p className="mt-1 text-xs text-slate-500" data-testid="terms-unavailable">{TERMS_NOT_AVAILABLE}</p> : null}</div>
-        {manage && filters.periodType === 'monthly' ? (
-          <div className="w-full sm:w-56">
-            <label htmlFor="rf-monthly-date" className="label">Date in report month (optional)</label>
-            <input id="rf-monthly-date" type="date" className="input" value={monthlyReportDate}
-              onChange={(event) => setMonthlyReportDate(event.target.value)} aria-describedby="rf-monthly-date-hint" />
-            <p id="rf-monthly-date-hint" className="mt-1 text-xs text-slate-500">Leave blank to use the current month.</p>
-          </div>
-        ) : null}
-        {manage ? (
-          <div className="w-full sm:w-40"><label htmlFor="rf-status" className="label">Status</label>
-            <select id="rf-status" className="input select-chevron" value={filters.status} onChange={setFilter('status')}>
-              <option value="">All</option>
-              {Object.entries(STATUS_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select></div>
-        ) : null}
+        </div>
       </FilterBar>
       <DataTable label="Reports" columns={columns} data={list.items} keyExtractor={(r) => r.report_id} loading={list.loading} error={list.error || null}
         emptyMessage={manage ? 'No reports yet. Generate one above.' : 'No published reports yet.'} minWidth="44rem"
         pagination={{ page, pageSize, total: list.total, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }} />
-      {canSeePeopleReport(user.role) ? <PeopleReport user={user} offices={offices} /> : null}
+      {manage || seesPeopleReport ? (
+        <Modal
+          open={reportModalOpen}
+          onClose={generating || personFormState.loading ? undefined : () => setReportModalOpen(false)}
+          title={effectiveReportFor === 'person' ? 'Report by person' : 'Generate office report'}
+          showClose={!generating && !personFormState.loading}
+          returnFocusRef={generateButtonRef}
+          footer={
+            effectiveReportFor === 'person' ? (
+              <>
+                <Button variant="secondary" onClick={() => setReportModalOpen(false)} disabled={personFormState.loading}>Cancel</Button>
+                <Button type="submit" form="people-report-form" loading={personFormState.loading} loadingLabel="Generating…" disabled={!personFormState.canSubmit} data-testid="people-run">Generate Report</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="secondary" onClick={() => setReportModalOpen(false)} disabled={generating}>Cancel</Button>
+                <Button onClick={generate} loading={generating} loadingLabel="Generating…" disabled={!canGenerate} data-testid="report-generate-confirm">Generate Report</Button>
+              </>
+            )
+          }
+        >
+          <div className="space-y-4">
+            {canChooseReportType ? (
+              <div className="w-full sm:w-64">
+                <label htmlFor="rf-report-for" className="label">Report Type<RequiredMark /></label>
+                <select
+                  id="rf-report-for"
+                  className="input select-chevron"
+                  value={reportFor}
+                  onChange={(event) => setReportFor(event.target.value)}
+                  data-testid="report-for"
+                >
+                  <option value="office">Office Report</option>
+                  <option value="person">Report by Person</option>
+                </select>
+              </div>
+            ) : null}
+
+            {effectiveReportFor === 'person' ? (
+              <PeopleReport
+                user={user}
+                offices={offices}
+                hideHeading
+                compact
+                persistKey="modal"
+                formId="people-report-form"
+                onStateChange={setPersonFormState}
+                onGenerated={() => setReportModalOpen(false)}
+              />
+            ) : (
+              <>
+                <ErrorBanner message={genError} onDismiss={() => setGenError('')} />
+                <div className="flex flex-wrap gap-4">
+                  {user.role !== ROLES.OFFICE_HEAD ? (
+                    <div className="w-full sm:w-64"><label htmlFor="rf-office" className="label">Office<RequiredMark /></label>
+                      <select id="rf-office" className="input select-chevron" value={draft.officeId} onChange={setDraftField('officeId')}>
+                        <option value="">Choose an office</option>
+                        {offices.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
+                      </select></div>
+                  ) : null}
+                  <div className="w-full sm:w-64"><label htmlFor="rf-period" className="label">Period type<RequiredMark /></label>
+                    <select id="rf-period" className="input select-chevron" value={draft.periodType} onChange={setDraftField('periodType')}>
+                      {PERIOD_TYPES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                      <TermPeriodOptions terms={termState.terms} />
+                    </select>
+                  </div>
+                  {!isTermChoice(draft.periodType) ? (
+                    <div className="flex w-full flex-col gap-4 sm:flex-row">
+                      <div className="min-w-0 flex-1"><label htmlFor="rf-from" className="label">From<RequiredMark /></label>
+                        <input id="rf-from" type="date" className="input" aria-describedby="rf-from-hint"
+                          value={draft.periodType === 'custom' ? draft.from : (bounds?.from ?? '')}
+                          max={draft.periodType === 'custom' ? (draft.to || undefined) : undefined}
+                          onChange={draft.periodType === 'custom' ? setDraftField('from') : setDraftField('date')} />
+                        <p id="rf-from-hint" className="mt-1 text-xs text-slate-500">{draft.periodType === 'custom' ? 'MM/DD/YYYY' : PERIOD_ANCHOR_HINT[draft.periodType]}</p></div>
+                      <div className="min-w-0 flex-1"><label htmlFor="rf-to" className="label">To<RequiredMark /></label>
+                        <input id="rf-to" type="date" className="input" aria-describedby="rf-to-hint"
+                          value={draft.periodType === 'custom' ? draft.to : (bounds?.to ?? '')}
+                          min={draft.periodType === 'custom' ? (draft.from || undefined) : undefined}
+                          disabled={draft.periodType !== 'custom'}
+                          onChange={draft.periodType === 'custom' ? setDraftField('to') : undefined} />
+                        <p id="rf-to-hint" className="mt-1 text-xs text-slate-500">{draft.periodType === 'custom' ? 'MM/DD/YYYY' : 'The end date is automatically calculated based on the selected period.'}</p></div>
+                    </div>
+                  ) : null}
+                </div>
+                {previewText ? <p className="text-sm text-slate-600" data-testid="report-generate-preview">{previewText}</p> : null}
+              </>
+            )}
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }

@@ -25,6 +25,15 @@ import RowActionMenu from '../ui/RowActionMenu.js';
 import NotificationBell from '../notifications/NotificationBell.js';
 import SessionGuard from '../auth/SessionGuard.js';
 import { hasBell } from '../../lib/ui/notifications.js';
+import { hubHasItems } from '../../lib/ui/settings-hub.js';
+
+// Same shape as NavIcon's 'sliders' glyph, so the account-menu Settings item reads as the same
+// destination it used to be in the sidebar.
+const SETTINGS_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true" focusable="false">
+    <path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 4v6M7 14v6" />
+  </svg>
+);
 
 // Active verified session and sidebar state. Populated only after verification post-hydration.
 // On server and during first client hydration, activeSessionUser is null, guaranteeing
@@ -304,7 +313,7 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
       </aside>
 
       <div className={`min-w-0 flex-1 ${pageClassName ?? ''}`.trim()}>
-        <header className="flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-8">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <IconButton
               onClick={wide ? toggleCollapsed : () => setMenuOpen((open) => !open)}
@@ -341,7 +350,13 @@ export default function AppShell({ title, subtitle, eyebrow, breadcrumb, headerR
                 </svg>
               </>
             }
-            items={[{ label: 'My account', href: '/account' }, { label: signOutControl.busy ? 'Signing out…' : 'Sign out', disabled: signOutControl.busy, onSelect: signOutControl.request }]}
+            items={[
+              { label: 'My account', href: '/account' },
+              ...(hubHasItems(user.role)
+                ? [{ label: 'Settings', href: '/settings', icon: SETTINGS_ICON, active: pathname === '/settings' || pathname.startsWith('/settings/') }]
+                : []),
+              { label: signOutControl.busy ? 'Signing out…' : 'Sign out', disabled: signOutControl.busy, onSelect: signOutControl.request },
+            ]}
           />
           </div>
         </header>

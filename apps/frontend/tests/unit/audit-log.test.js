@@ -47,15 +47,16 @@ describe('who gets the Logs page', () => {
     assert.equal(logsNav('admin'), null);
   });
 
-  it('existing navigation is unchanged: Home first, the shared pages and Transaction Settings still there', () => {
+  it('existing navigation is unchanged: Home first, the shared pages still there; Settings moved out of the sidebar into the account dropdown', () => {
     for (const role of ROLE_LIST) {
       const nav = appNavForRole(role);
       assert.equal(nav[0].href, '/', role);
-      // Transaction Settings is the icon on the Transactions page for the three roles that have it; only Executive keeps the menu item.
-      assert.equal(nav.some((item) => item.href === '/settings'), true, role);
+      // Settings is no longer a sidebar menu item: it lives in the account dropdown (AppShell), gated by hubHasItems.
+      assert.equal(nav.some((item) => item.href === '/settings'), false, role);
       assert.ok(nav.some((item) => item.href === '/services') && nav.some((item) => item.href === '/calendar'), role);
     }
-    assert.deepEqual(appNavForRole(ROLES.SUPER_ADMIN).filter((i) => i.section === 'Administration').map((i) => i.label), ['Accounts', 'Offices', 'Registry', 'Roles and permissions', 'Security and sessions', 'Logs']); // CC056 added Roles and permissions; S8-34 added Security and sessions
+    // Roles and permissions and Security and sessions moved out of the main sidebar into the dedicated Account Settings sidebar.
+    assert.deepEqual(appNavForRole(ROLES.SUPER_ADMIN).filter((i) => i.section === 'Administration').map((i) => i.label), ['Accounts', 'Offices', 'Registry', 'Logs']);
   });
 
   it('the page is limited to Super Admin by the app shell, and the menu item is not a plain link in the shared nav', () => {

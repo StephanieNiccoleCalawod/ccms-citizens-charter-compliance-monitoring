@@ -16,6 +16,18 @@ test('S8-54 D-AC-6 denies Executive, cross-office and other-person staff reports
   assert.equal(parsePeopleReport(query(), user).personId, person);
   assert.equal(parsePeopleReport(query({ office_id: other }), { ...user, role: ROLES.SUPER_ADMIN }).officeId, other);
 });
+test('S8-6x a Super Admin may leave the office out of a "Whole office" request, meaning every office; nobody else may', () => {
+  const noOffice = () => new URLSearchParams({ from: '2026-10-01', to: '2026-10-31', scope: 'office' });
+  const admin = { ...user, role: ROLES.SUPER_ADMIN, officeId: null }; // a real Super Admin is tied to no one office
+  assert.equal(parsePeopleReport(noOffice(), admin).officeId, null);
+  // Only the "office" (Whole office) scope may do this - a per-staff or per-person request still needs one office.
+  for (const scope of ['all_staff', 'person']) {
+    assert.throws(() => parsePeopleReport(new URLSearchParams({ from: '2026-10-01', to: '2026-10-31', scope }), admin), (e) => e.status === 400);
+  }
+  // An Office Head or Office Staff can never omit it - their own office fills in instead, never "every office".
+  assert.equal(parsePeopleReport(noOffice(), { ...user, role: ROLES.OFFICE_HEAD }).officeId, office);
+  assert.equal(parsePeopleReport(new URLSearchParams({ from: '2026-10-01', to: '2026-10-31' }), user).officeId, office);
+});
 test('S8-54 strict real dates and scope prevent silently broader filters', () => {
   for (const over of [{ from: '2026-02-30' }, { from: '0000-01-01' }, { from: '2026-11-01' }, { scope: 'everyone' }, { seeded: 'true' }]) {
     assert.throws(() => parsePeopleReport(query(over), user), (e) => e.status === 400);

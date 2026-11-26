@@ -19,6 +19,7 @@ export const HUB_GROUPS = Object.freeze([
   ] },
   { id: 'calendar', title: 'Working hours and terms', links: [
     { label: 'Working hours and academic terms', hint: 'The campus and office schedules, and the terms from the Syllabus Management System.', href: '/calendar', roles: ALL, readOnlyFor: [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE] },
+    { label: 'Connected systems', hint: 'Sync status of the Syllabus Management System and Faculty Management System.', href: '/settings/connected-systems', roles: ADMIN },
   ] },
   { id: 'access', title: 'Access and roles', links: [
     { label: 'Roles and permissions', hint: 'What each role may do, and the permission switches.', href: '/settings/roles', roles: ADMIN },

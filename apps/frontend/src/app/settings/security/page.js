@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import ErrorBanner from '../../../components/feedback/ErrorBanner.js';
-import AppShell from '../../../components/layout/AppShell.js';
+import AccountShell from '../../../components/layout/AccountShell.js';
 import LoadingState from '../../../components/ui/LoadingState.js';
 import TableShell, { Table, Th } from '../../../components/ui/TableShell.js';
 import { getSessionPolicy } from '../../../lib/api/account.js';
 import { SESSION_POLICY_OFF_NOTE, formatLimit } from '../../../lib/ui/account.js';
 
 // S8-34: the sign-in limits the server enforces for each role, read-only. The values come from Identity, never from this page.
-function SecurityAndSessions() {
+export function SecurityAndSessions() {
   const [policy, setPolicy] = useState(null);
   const [error, setError] = useState(null);
 
@@ -61,8 +61,8 @@ function SecurityAndSessions() {
 
 export default function SecurityAndSessionsPage() {
   return (
-    <AppShell title="Security and sessions" subtitle="How long each role can stay signed in." allowedRoles={[ROLES.SUPER_ADMIN]}>
+    <AccountShell title="Security and sessions" subtitle="How long each role can stay signed in." allowedRoles={[ROLES.SUPER_ADMIN]}>
       <SecurityAndSessions />
-    </AppShell>
+    </AccountShell>
   );
 }

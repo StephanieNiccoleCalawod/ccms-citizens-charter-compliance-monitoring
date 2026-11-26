@@ -59,6 +59,14 @@ test('S8-54 SQL excludes reserved/provenance seeds, reconciles totals and hides 
     assert.equal(own.items[0].person_id, USERS.staffA);
     assert.equal(own.excluded_seed_count, 2);
     assert.equal((await env.ds.query('SELECT count(*)::int AS n FROM transactions'))[0].n, 7);
+    // S8-6x: a Super Admin's all-offices "Whole office" report (no office_id) combines OFFICE_A and OFFICE_B.
+    const superAdmin = { id: USERS.superAdmin ?? randomUUID(), officeId: null, role: ROLES.SUPER_ADMIN };
+    const allOffices = await readPeopleReport(db, superAdmin,
+      new URLSearchParams({ scope: 'office', from: '2026-10-01', to: '2026-10-31' }), { roster: async () => { throw new Error('no roster for all-offices'); } });
+    assert.equal(allOffices.office_id, null);
+    assert.equal(allOffices.items.length, 0);
+    assert.equal(allOffices.totals.handled, office.totals.handled + 1); // + the one OFFICE_B transaction
+    assert.equal(allOffices.excluded_seed_count, 2);
   } finally { await runner.rollbackTransaction(); await runner.release(); }
 });
 

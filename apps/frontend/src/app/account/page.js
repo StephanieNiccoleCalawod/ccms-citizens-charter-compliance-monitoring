@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ROLE_LIST } from 'ccms-shared/roles';
-import AppShell from '../../components/layout/AppShell.js';
+import AccountShell from '../../components/layout/AccountShell.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import AccountDetails from '../../components/account/AccountDetails.js';
 import ChangePasswordForm from '../../components/account/ChangePasswordForm.js';
@@ -55,8 +55,8 @@ function MyAccount() {
 
 export default function AccountPage() {
   return (
-    <AppShell title="My account" subtitle="Your details, your password and what your role can do." allowedRoles={ROLE_LIST}>
+    <AccountShell title="My account" subtitle="Your details, your password and what your role can do." allowedRoles={ROLE_LIST}>
       <MyAccount />
-    </AppShell>
+    </AccountShell>
   );
 }

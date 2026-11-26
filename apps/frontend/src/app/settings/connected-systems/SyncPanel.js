@@ -1,15 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import ErrorBanner from '../../components/feedback/ErrorBanner.js';
-import Button from '../../components/ui/Button.js';
-import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
-import TableState from '../../components/ui/TableState.js';
-import { apiFetch } from '../../lib/auth/session.js';
-import { SYNC_LABELS } from '../../lib/api/calendar.js';
-import { formatDateTime } from '../../lib/ui/date-format.js';
-import { ACCENTS, TONES, eventCount, systemCards } from '../../lib/ui/sync-status.js';
-import { externalSystemLabel } from '../../lib/constants/brand.js';
+import ErrorBanner from '../../../components/feedback/ErrorBanner.js';
+import Button from '../../../components/ui/Button.js';
+import TableShell, { Table, Th } from '../../../components/ui/TableShell.js';
+import TableState from '../../../components/ui/TableState.js';
+import { apiFetch } from '../../../lib/auth/session.js';
+import { SYNC_LABELS } from '../../../lib/api/calendar.js';
+import { formatDateTime } from '../../../lib/ui/date-format.js';
+import { ACCENTS, TONES, eventCount, systemCards } from '../../../lib/ui/sync-status.js';
+import { externalSystemLabel } from '../../../lib/constants/brand.js';
 
 const STATUS_CLASS = {
   FAILED: 'badge bg-red-50 text-red-700',
@@ -83,14 +83,8 @@ export default function SyncPanel({ refreshKey }) {
   const cards = data ? systemCards(data) : [];
 
   return (
-    <section className="space-y-4" aria-labelledby="sync-heading">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 id="sync-heading" className="text-2xl">
-            Connected systems
-          </h2>
-          <p className="mt-1 text-sm text-ink-muted">These are separate systems. CCCMS sends them the campus calendar.</p>
-        </div>
+    <section className="space-y-4" aria-label="Connected systems">
+      <div className="flex justify-end">
         <Button variant="secondary" size="sm" onClick={load}>Refresh</Button>
       </div>
       <ErrorBanner message={state.error} onDismiss={() => setState((s) => ({ ...s, error: null }))} />

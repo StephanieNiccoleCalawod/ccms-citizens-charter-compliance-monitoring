@@ -26,16 +26,18 @@ export function scopesFor(role) {
 
 export const canSeePeopleReport = (role) => scopesFor(role).length > 0;
 
-/** The query for the request, or { error } when something is missing. Dates are Manila calendar dates (YYYY-MM-DD). */
+/** The query for the request, or { error } when something is missing. Dates are Manila calendar dates (YYYY-MM-DD).
+ * A Super Admin's "Whole office" may leave the office out entirely (S8-6x): every office combined, not one. */
 export function buildPeopleQuery({ role, scope, officeId, personId, from, to, user }) {
   const own = role === ROLES.OFFICE_STAFF;
+  const allOffices = role === ROLES.SUPER_ADMIN && scope === 'office';
   const office = role === ROLES.SUPER_ADMIN ? officeId : user?.officeId;
-  if (!office) return { error: 'Choose an office.' };
+  if (!office && !allOffices) return { error: 'Choose an office.' };
   if (!from || !to) return { error: 'Choose the first and last date.' };
   if (from > to) return { error: 'The first date must not be after the last date.' };
   const chosen = own ? 'person' : scope;
   if (chosen === 'person' && !own && !personId) return { error: 'Choose a person.' };
-  return { scope: chosen, officeId: office, personId: chosen === 'person' ? (own ? user.id : personId) : undefined, from, to };
+  return { scope: chosen, officeId: allOffices ? undefined : office, personId: chosen === 'person' ? (own ? user.id : personId) : undefined, from, to };
 }
 
 export function peopleFailureMessage(failure) {
@@ -79,6 +81,7 @@ export function peopleRows(report) {
 export const peopleScopeText = (report, officeName, personName) => {
   if (report?.scope === 'person') return `${personName || 'One person'}, ${officeName || 'office'}`;
   if (report?.scope === 'all_staff') return `Every staff member, ${officeName || 'office'}`;
+  if (report?.scope === 'office' && !report?.office_id) return 'All offices';
   return officeName || 'Office';
 };
 

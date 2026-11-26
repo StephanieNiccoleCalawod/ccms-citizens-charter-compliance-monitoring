@@ -8,7 +8,7 @@ const hrefs = (role) => hubGroups(role).flatMap((g) => g.links.map((l) => l.href
 
 describe('D8-20 Settings hub', () => {
   it('Super Admin reaches every setting from the hub', () => {
-    assert.deepEqual(hrefs(ROLES.SUPER_ADMIN).sort(), ['/access', '/calendar', '/offices', '/settings/notifications', '/settings/roles', '/settings/security', '/settings/transactions']);
+    assert.deepEqual(hrefs(ROLES.SUPER_ADMIN).sort(), ['/access', '/calendar', '/offices', '/settings/connected-systems', '/settings/notifications', '/settings/roles', '/settings/security', '/settings/transactions']);
   });
   it('holidays and suspensions and Accounts are not in the hub', () => {
     for (const role of Object.values(ROLES)) for (const h of hrefs(role)) assert.ok(!['/accounts', '/calendar?tab=holidays'].includes(h), h);
@@ -20,8 +20,8 @@ describe('D8-20 Settings hub', () => {
       for (const g of hubGroups(role)) for (const l of g.links) assert.equal(l.readOnly, !['/access', '/settings/notifications'].includes(l.href));
     }
   });
-  it('the Settings menu item shows only when the hub has something for the role', () => {
-    for (const role of Object.values(ROLES)) assert.equal(appNavForRole(role).some((i) => i.href === '/settings'), hubHasItems(role), role);
+  it('Settings is not a sidebar item: it lives in the account dropdown, shown only when the hub has something for the role', () => {
+    for (const role of Object.values(ROLES)) assert.equal(appNavForRole(role).some((i) => i.href === '/settings'), false, role);
     assert.equal(hubHasItems('nobody'), false);
   });
 });

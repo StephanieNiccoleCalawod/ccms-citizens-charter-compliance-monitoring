@@ -19,7 +19,7 @@ describe('navigation and page roles', () => {
     assert.ok(nav.some((i) => i.href === '/transactions'));
     assert.ok(!nav.some((i) => i.href === '/transactions/new'));
     assert.ok(nav.some((i) => i.href === '/campus'), 'Campus Home is still there');
-    assert.ok(nav.some((i) => i.href === '/settings'), 'Transaction Settings stays a read-only reference item for the Executive');
+    assert.ok(!nav.some((i) => i.href === '/settings'), 'Settings is not a sidebar item: it is in the account dropdown');
     assert.equal(new Set(nav.map((i) => i.href)).size, nav.length, 'no duplicated entries');
   });
 
@@ -27,7 +27,7 @@ describe('navigation and page roles', () => {
     for (const role of OPERATORS) {
       const nav = appNavForRole(role);
       assert.ok(nav.some((i) => i.href === '/transactions'), role);
-      assert.ok(nav.some((i) => i.href === '/settings'), `${role}: the Settings hub has links for this role`);
+      assert.ok(!nav.some((i) => i.href === '/settings'), `${role}: Settings is not a sidebar item`);
       assert.equal(isTransactionReadOnly(role), false, role);
     }
     assert.equal(isTransactionReadOnly(ROLES.EXECUTIVE), true);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { ROLES } from 'ccms-shared/roles';
-import { buildPeopleQuery, peopleCsv, peopleRows, reportCsvName, scopesFor } from '../../src/lib/ui/people-report.js';
+import { buildPeopleQuery, peopleCsv, peopleRows, peopleScopeText, reportCsvName, scopesFor } from '../../src/lib/ui/people-report.js';
 
 const report = {
   scope: 'all_staff', from: '2026-11-01', to: '2026-11-30',
@@ -17,11 +17,23 @@ describe('S8-54 reports by person', () => {
   });
   it('builds the query and asks for what is missing', () => {
     const user = { id: 'u1', officeId: 'o1' };
-    assert.equal(buildPeopleQuery({ role: ROLES.SUPER_ADMIN, scope: 'office', from: '2026-11-01', to: '2026-11-30', user }).error, 'Choose an office.');
+    assert.equal(buildPeopleQuery({ role: ROLES.SUPER_ADMIN, scope: 'all_staff', from: '2026-11-01', to: '2026-11-30', user }).error, 'Choose an office.');
     assert.equal(buildPeopleQuery({ role: ROLES.OFFICE_HEAD, scope: 'person', from: '2026-11-01', to: '2026-11-30', user }).error, 'Choose a person.');
     assert.equal(buildPeopleQuery({ role: ROLES.OFFICE_HEAD, scope: 'office', from: '2026-12-01', to: '2026-11-30', user }).error, 'The first date must not be after the last date.');
     assert.deepEqual(buildPeopleQuery({ role: ROLES.OFFICE_STAFF, scope: 'office', from: '2026-11-01', to: '2026-11-30', user }),
       { scope: 'person', officeId: 'o1', personId: 'u1', from: '2026-11-01', to: '2026-11-30' });
+  });
+  it('S8-6x a Super Admin\'s Whole office needs no office at all - every office combined - unlike every other scope/role', () => {
+    const user = { id: 'u1', officeId: null };
+    assert.deepEqual(buildPeopleQuery({ role: ROLES.SUPER_ADMIN, scope: 'office', from: '2026-11-01', to: '2026-11-30', user }),
+      { scope: 'office', officeId: undefined, personId: undefined, from: '2026-11-01', to: '2026-11-30' });
+    // An office picked under a different scope is dropped once "Whole office" is chosen (never silently all-offices-or-one).
+    assert.deepEqual(buildPeopleQuery({ role: ROLES.SUPER_ADMIN, scope: 'office', officeId: 'o1', from: '2026-11-01', to: '2026-11-30', user }),
+      { scope: 'office', officeId: undefined, personId: undefined, from: '2026-11-01', to: '2026-11-30' });
+  });
+  it('S8-6x says "All offices" only for a Whole office report with no office_id, never a named office', () => {
+    assert.equal(peopleScopeText({ scope: 'office', office_id: null }, '', ''), 'All offices');
+    assert.equal(peopleScopeText({ scope: 'office', office_id: 'o1' }, 'Registrar', ''), 'Registrar');
   });
   it('rows end with the total and say "No rate yet" without a rate', () => {
     const rows = peopleRows(report);

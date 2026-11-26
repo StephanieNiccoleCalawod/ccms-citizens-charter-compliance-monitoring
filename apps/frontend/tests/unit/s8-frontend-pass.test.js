@@ -4,9 +4,9 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
-import { ROLES } from 'ccms-shared/roles';
+import { ROLE_LIST } from 'ccms-shared/roles';
 import { CLERK_PASSWORD_NOTE, formatLimit, isClerkOnly, showPasswordForm, signInMethodLabel } from '../../src/lib/ui/account.js';
-import { appNavForRole, securityNav } from '../../src/lib/auth/permissions.js';
+import { appNavForRole } from '../../src/lib/auth/permissions.js';
 import { LOGIN_NOTICES, parseLoginNotice } from '../../src/lib/auth/sign-out-flow.js';
 import { WARNING_SECONDS, countdownText, idleState, readSharedActivity, shouldRenew, writeSharedActivity } from '../../src/lib/auth/idle-guard.js';
 import { formatDateAxis, formatDateLong, formatDateRange, formatDateShort } from '../../src/lib/ui/date-format.js';
@@ -81,12 +81,8 @@ describe('S8-33 inactivity warning', () => {
 });
 
 describe('S8-34 Security and sessions', () => {
-  it('is a Super Admin menu item and a read-only page', () => {
-    assert.deepEqual(securityNav(ROLES.SUPER_ADMIN), { section: 'Administration', label: 'Security and sessions', href: '/settings/security' });
-    for (const role of [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE]) {
-      assert.equal(securityNav(role), null);
-      assert.ok(!appNavForRole(role).some((i) => i.href === '/settings/security'));
-    }
+  it('is reached only through the Account Settings sidebar (not the main sidebar), and is a read-only page', () => {
+    for (const role of ROLE_LIST) assert.ok(!appNavForRole(role).some((i) => i.href === '/settings/security'), role);
     const page = read('src/app/settings/security/page.js');
     assert.match(page, /allowedRoles=\{\[ROLES\.SUPER_ADMIN\]\}/);
     assert.ok(!/<input|<select|method: 'PUT'/.test(page));

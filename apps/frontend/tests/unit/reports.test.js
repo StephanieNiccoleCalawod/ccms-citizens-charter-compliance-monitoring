@@ -103,13 +103,14 @@ describe('reports menu and screens', () => {
   });
   it('the figures use the shared table; the page has no edit or delete; print hides the page chrome', () => {
     const page = read('src/components/reports/ReportsPage.js');
-    assert.ok(!/<table|<thead|<th[ >]/.test(page), 'tables only through the shared components');
-    assert.ok(!/delete|Delete/.test(page));
-    assert.match(page, /print:hidden/);
+    const detail = read('src/components/reports/ReportDetail.js');
+    assert.ok(!/<table|<thead|<th[ >]/.test(page) && !/<table|<thead|<th[ >]/.test(detail), 'tables only through the shared components');
+    assert.ok(!/delete|Delete/.test(page) && !/delete|Delete/.test(detail));
+    assert.match(detail, /print:hidden/);
     assert.match(read('src/app/globals.css'), /\.report-print-area/);
   });
   it('the Executive and Office Staff views never show who published', () => {
-    const page = read('src/components/reports/ReportsPage.js');
+    const page = read('src/components/reports/ReportDetail.js');
     assert.match(page, /manage \? publishedByText\(report\) : formatDateTime\(report\.published_at\)/);
   });
 });

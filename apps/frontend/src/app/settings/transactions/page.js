@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
-import AppShell from '../../../components/layout/AppShell.js';
+import AccountShell from '../../../components/layout/AccountShell.js';
 import ConfirmDialog from '../../../components/dialogs/ConfirmDialog.js';
 import StatusBanner from '../../../components/feedback/StatusBanner.js';
 import Switch from '../../../components/ui/Switch.js';
@@ -21,7 +21,7 @@ import {
 import Counters from '../Counters.js';
 import OfficeBackdate from '../OfficeBackdate.js';
 
-function SettingsManager({ user }) {
+export function SettingsManager({ user }) {
   const canWrite = canChangeTransactionSettings(user.role);
   const [settings, setSettings] = useState(null); // the last values the server confirmed, with their version
   const [form, setForm] = useState(settingsToForm(DEFAULT_SETTINGS));
@@ -236,12 +236,12 @@ function SettingsManager({ user }) {
 
 export default function TransactionSettingsPage() {
   return (
-    <AppShell
+    <AccountShell
       title="Transaction settings"
       subtitle="How transactions behave: hold, counters and automatic closing."
       breadcrumb={[{ label: 'Settings', href: '/settings' }, { label: 'Transaction Settings' }]}
     >
       {(user) => <SettingsManager user={user} />}
-    </AppShell>
+    </AccountShell>
   );
 }

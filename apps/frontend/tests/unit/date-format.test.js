@@ -188,7 +188,7 @@ describe('every screen uses the shared helpers', () => {
     };
     uses('src/app/calendar/Holidays.js', ['formatDate', 'formatTime']);
     uses('src/app/calendar/Terms.js', ['formatDate']);
-    uses('src/app/calendar/SyncPanel.js', ['formatDateTime']);
+    uses('src/app/settings/connected-systems/SyncPanel.js', ['formatDateTime']);
     assert.match(read('src/lib/ui/working-hours.js'), /from '\.\/date-format\.js'/); // the records on the Working hours tab
     assert.ok(read('src/lib/ui/working-hours.js').includes('formatDateTime('));
     uses('src/app/services/[id]/page.js', ['formatDate']);

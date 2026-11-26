@@ -18,7 +18,7 @@ const TABLE_PAGES = {
   'src/app/offices/page.js': ['Office name', 'Status', 'Actions'],
   'src/app/logs/page.js': ['Date &amp; time', 'Done by', 'Action', 'Affected entity', 'Office'],
   'src/app/calendar/Terms.js': ['Term', 'Start date', 'End date'],
-  'src/app/calendar/SyncPanel.js': ['External system', 'Event', 'Status', 'Last synced', 'Attempts'],
+  'src/app/settings/connected-systems/SyncPanel.js': ['External system', 'Event', 'Status', 'Last synced', 'Attempts'],
   'src/app/settings/Counters.js': ['Counter', 'Status', 'Actions'],
 };
 
@@ -197,7 +197,8 @@ describe('Phase 3 table, sorting, tabs and summary consistency', () => {
     assert.match(css, /@utility tr-summary \{\s*@apply h-\[52px\] border-t-2 border-line bg-surface-muted font-semibold text-ink;/);
     for (const file of [
       'src/app/registry/RegistryOverview.js',
-      'src/components/reports/ReportsPage.js',
+      'src/components/reports/ReportDetail.js',
+      'src/components/reports/PeopleReportSheet.js',
       'src/components/ratings/RatingsSection.js',
     ]) {
       assert.match(read(file), /tr-summary/, file);

@@ -19,11 +19,66 @@ function Section({ title, children }) {
   );
 }
 
+/**
+ * The body of the "How is this calculated?" panel (what it shows, how it is computed, data used), without the
+ * icon button or Modal around it - reused as-is where another panel folds this content into its own modal instead
+ * of opening a separate one (for example the Chance of Finishing Late page's combined scoring/calculation info).
+ * @param {{ calculation: object|null|undefined, subject?: string, testId?: string }} props
+ */
+export function CalculationBody({ calculation, subject = 'this figure', testId = 'calc-info' }) {
+  const view = calculationView(calculation);
+  return (
+    <div className="space-y-5" data-testid={`${testId}-panel`}>
+      {subject !== 'this figure' ? <p className="text-sm font-semibold text-ink">{subject.charAt(0).toUpperCase() + subject.slice(1)}</p> : null}
+      {view ? (
+        <>
+          <Section title="What it shows">
+            <p className="text-sm text-ink">{view.shows || CALCULATION_UNAVAILABLE}</p>
+          </Section>
+          <Section title="How it is computed">
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
+              {view.steps.map((step) => <li key={step}>{step}</li>)}
+            </ol>
+            {view.method ? <p className="text-xs text-ink-muted">Method: {view.method}</p> : null}
+            {view.parameters.length > 0 ? (
+              <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 text-xs text-ink-muted">
+                {view.parameters.map((p) => (
+                  <div key={p.label} className="contents">
+                    <dt>{p.label}</dt>
+                    <dd className="text-right font-medium text-ink">{p.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+          </Section>
+          <Section title="Data used">
+            <dl className="space-y-1 text-sm">
+              {view.data.map((row) => (
+                <div key={row.label} className="flex flex-wrap justify-between gap-x-4">
+                  <dt className="text-ink-muted">{row.label}</dt>
+                  <dd className="font-medium text-ink">{row.value}</dd>
+                </div>
+              ))}
+              {view.lastRun ? (
+                <div className="flex flex-wrap justify-between gap-x-4">
+                  <dt className="text-ink-muted">Last calculated</dt>
+                  <dd className="font-medium text-ink">{view.lastRun}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </Section>
+        </>
+      ) : (
+        <p className="text-sm text-ink-muted" data-testid={`${testId}-unavailable`}>{CALCULATION_UNAVAILABLE}</p>
+      )}
+    </div>
+  );
+}
+
 /** @param {{ calculation: object|null|undefined, subject?: string, testId?: string, className?: string }} props */
 export default function CalculationInfo({ calculation, subject = 'this figure', testId = 'calc-info', className = '' }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(null);
-  const view = calculationView(calculation);
 
   return (
     <>
@@ -50,50 +105,7 @@ export default function CalculationInfo({ calculation, subject = 'this figure', 
         widthClass="max-w-lg"
         footer={<Button variant="secondary" onClick={() => setOpen(false)}>Close</Button>}
       >
-        <div className="space-y-5" data-testid={`${testId}-panel`}>
-          {subject !== 'this figure' ? <p className="text-sm font-semibold text-ink">{subject.charAt(0).toUpperCase() + subject.slice(1)}</p> : null}
-          {view ? (
-            <>
-              <Section title="What it shows">
-                <p className="text-sm text-ink">{view.shows || CALCULATION_UNAVAILABLE}</p>
-              </Section>
-              <Section title="How it is computed">
-                <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
-                  {view.steps.map((step) => <li key={step}>{step}</li>)}
-                </ol>
-                {view.method ? <p className="text-xs text-ink-muted">Method: {view.method}</p> : null}
-                {view.parameters.length > 0 ? (
-                  <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 text-xs text-ink-muted">
-                    {view.parameters.map((p) => (
-                      <div key={p.label} className="contents">
-                        <dt>{p.label}</dt>
-                        <dd className="text-right font-medium text-ink">{p.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : null}
-              </Section>
-              <Section title="Data used">
-                <dl className="space-y-1 text-sm">
-                  {view.data.map((row) => (
-                    <div key={row.label} className="flex flex-wrap justify-between gap-x-4">
-                      <dt className="text-ink-muted">{row.label}</dt>
-                      <dd className="font-medium text-ink">{row.value}</dd>
-                    </div>
-                  ))}
-                  {view.lastRun ? (
-                    <div className="flex flex-wrap justify-between gap-x-4">
-                      <dt className="text-ink-muted">Last calculated</dt>
-                      <dd className="font-medium text-ink">{view.lastRun}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </Section>
-            </>
-          ) : (
-            <p className="text-sm text-ink-muted" data-testid={`${testId}-unavailable`}>{CALCULATION_UNAVAILABLE}</p>
-          )}
-        </div>
+        <CalculationBody calculation={calculation} subject={subject} testId={testId} />
       </Modal>
     </>
   );

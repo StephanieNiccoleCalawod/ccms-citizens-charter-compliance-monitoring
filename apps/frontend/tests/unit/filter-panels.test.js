@@ -132,9 +132,15 @@ describe('Phase 3 global SearchInput and FilterBar adoption', () => {
       'src/components/account/ClerkAccessPanel.js',
       'src/components/reports/ReportsPage.js',
       'src/components/complaints/ComplaintsPage.js',
-      'src/components/dashboard/DashboardAnalytics.js',
     ]) {
       assert.ok(read(file).includes('<FilterBar'), file);
     }
+  });
+
+  it('the Dashboard keeps its Period/Office filters as plain, right-aligned controls with no card background (not the shared FilterBar card)', () => {
+    const file = read('src/components/dashboard/DashboardAnalytics.js');
+    assert.ok(!file.includes('<FilterBar'), 'no shared FilterBar card on the Dashboard');
+    assert.ok(file.includes('justify-end'), 'filters are right-aligned');
+    assert.ok(file.includes('dashboard-period') && file.includes('dashboard-office'), 'Period and Office controls are still there');
   });
 });

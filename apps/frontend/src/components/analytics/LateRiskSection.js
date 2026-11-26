@@ -12,7 +12,6 @@ import Button from '../ui/Button.js';
 import DataTable from '../ui/DataTable.js';
 import EmptyState from '../ui/EmptyState.js';
 import IconButton from '../ui/IconButton.js';
-import StatusBadge from '../ui/StatusBadge.js';
 import { OFFICES_API } from '../../lib/api/catalogue.js';
 import { apiFetch } from '../../lib/auth/session.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
@@ -23,12 +22,19 @@ import {
 } from '../../lib/ui/insights.js';
 import { mainReasonText } from '../../lib/ui/late-risk-reason.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
-import CalculationInfo from './CalculationInfo.js';
+import RiskLevelDropdown from './RiskLevelDropdown.js';
 
 const API = '/api/operations/analytics/late-risk';
 const percent = (value) => `${Math.round(Number(value) * 100)}%`;
 const LEVEL_LABEL = { HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
 const LEVEL_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+
+/** The "Scoring model" status badge (Unavailable / Trained / Rule-based) for a model, however it is shown -
+ * the right-side panel this used to live in and the ScoringModelInfo popover that replaced it both call this. */
+export function modelBadgeFor(model) {
+  if (!model) return { label: 'Unavailable', variant: 'neutral' };
+  return model.method === 'trained' ? { label: 'Trained', variant: 'success' } : { label: 'Rule-based', variant: 'neutral' };
+}
 
 export function LateRiskModelSummary({ model }) {
   if (!model) {
@@ -640,8 +646,10 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
 
 /**
  * Late-risk monitoring page:
- * 1. Top Control Bar (Office selector, search field, risk category filters with dynamic counts, Super Admin Retrain).
- * 2. Two-column main content: Ranked Open Transactions table (left ~67%) and Scoring Model panel (right ~33%).
+ * 1. Top Control Bar (search, Office selector, one Risk Level dropdown with live counts, Super Admin Retrain).
+ * 2. Full-width Ranked Open Transactions table. Neither the Scoring Model nor the "how is this calculated" panel
+ *    has its own icon or right-side panel here any more - `onInfoChange` reports both up to the page header's one
+ *    info popover instead (see app/late-risk/page.js and ScoringModelInfo.js), which has nowhere else to read them from.
  * 3. Slide-over Escalate / Inspect detail drawer for the selected transaction.
  * The four KPI summary containers remain omitted.
  */
@@ -652,6 +660,7 @@ export default function LateRiskSection({
   scores: preloadedScores,
   loading: preloadedLoading = false,
   error: preloadedError = '',
+  onInfoChange,
 }) {
   const isAdmin = user?.role === ROLES.SUPER_ADMIN;
   const isExecutive = user?.role === ROLES.EXECUTIVE;
@@ -723,6 +732,10 @@ export default function LateRiskSection({
   const activeError = embedded ? preloadedError : error;
   const loading = embedded ? preloadedLoading : (Boolean(activeOfficeId) && !data && !activeError);
 
+  useEffect(() => {
+    onInfoChange?.({ model: data?.model ?? null, calculation: data?.calculations?.late_risk ?? null });
+  }, [data?.model, data?.calculations?.late_risk, onInfoChange]);
+
   const counts = useMemo(() => {
     const items = data?.items ?? [];
     return {
@@ -747,102 +760,67 @@ export default function LateRiskSection({
 
   const shown = (n) => (data ? n.toLocaleString('en-PH') : '-');
 
-  const filterButtons = [
-    { id: 'ALL', label: 'All', count: shown(counts.total), testId: 'late-risk-open', dot: null },
+  const riskOptions = [
+    { id: 'ALL', label: 'All Risk Levels', count: shown(counts.total), testId: 'late-risk-open', dot: null },
     { id: 'HIGH', label: 'High Risk', count: shown(counts.HIGH), testId: 'late-risk-high', dot: 'bg-rose-600' },
     { id: 'MEDIUM', label: 'Medium Risk', count: shown(counts.MEDIUM), testId: 'late-risk-medium', dot: 'bg-amber-500' },
     { id: 'LOW', label: 'Low Risk', count: shown(counts.LOW), testId: 'late-risk-low', dot: 'bg-emerald-500' },
   ];
-
-  const modelBadge = !data?.model
-    ? { label: 'Unavailable', variant: 'neutral' }
-    : data.model.method === 'trained'
-      ? { label: 'Trained', variant: 'success' }
-      : { label: 'Rule-based', variant: 'neutral' };
 
   return (
     <div className="space-y-4" data-testid="late-risk-section">
       {!embedded ? <ErrorBanner message={activeError} onDismiss={() => setError('')} /> : (activeError ? <p className="text-sm text-slate-600">{activeError}</p> : null)}
       {!embedded ? <StatusBanner variant="success" message={notice} onDismiss={() => setNotice('')} dismissAriaLabel="Dismiss message" /> : null}
 
-      {/* 1. Top Control Bar */}
+      {/* 1. Top Control Bar: search (flexible width), Office, Risk Level, Retrain (far right on one line) */}
       <div
         aria-label="Deadline risk controls"
         data-testid="late-risk-toolbar"
-        className="card flex flex-col gap-3 p-4 sm:p-5 2xl:flex-row 2xl:items-center 2xl:justify-between"
+        className="card flex flex-col flex-wrap gap-3 p-4 sm:p-5 lg:flex-row lg:items-center"
       >
-        {!embedded ? <CalculationInfo calculation={data?.calculations?.late_risk ?? null} subject="the chance of finishing late" testId="late-risk-calc" /> : null}
-        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="min-w-0 flex-1 sm:min-w-[16rem] sm:max-w-sm">
-            <label htmlFor="late-risk-search" className="sr-only">Search tracking number or service</label>
-            <SearchInput
-              id="late-risk-search"
-              data-testid="late-risk-search"
-              aria-label="Search tracking number or service"
-              customPlaceholder="Search tracking # or service..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {!embedded && campus ? (
-            <div className="w-full sm:w-56">
-              <label htmlFor="late-risk-office" className="sr-only">Office</label>
-              <select
-                id="late-risk-office"
-                value={officeId}
-                onChange={(event) => {
-                  setOfficeId(event.target.value);
-                  setDetailTarget(null);
-                }}
-                className="input select-chevron font-medium"
-              >
-                <option value="" disabled>Select an office</option>
-                {offices.map((office) => (
-                  <option key={office.office_id} value={office.office_id}>
-                    {office.office_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+        <div className="min-w-0 flex-1 sm:min-w-[16rem]">
+          <label htmlFor="late-risk-search" className="sr-only">Search tracking number or service</label>
+          <SearchInput
+            id="late-risk-search"
+            data-testid="late-risk-search"
+            aria-label="Search tracking number or service"
+            customPlaceholder="Search tracking # or service..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2.5 xl:justify-end">
-          <div
-            role="group"
-            aria-label="Filter by risk category"
-            className="flex flex-wrap items-center gap-1.5"
-            data-testid="late-risk-filters"
-          >
-            {filterButtons.map((btn) => {
-              const selected = riskFilter === btn.id;
-              return (
-                <button
-                  key={btn.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => setRiskFilter(btn.id)}
-                  data-testid={btn.testId}
-                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-sans text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] ${selected
-                    ? 'border-[#800000] bg-[#800000] text-white shadow-2xs'
-                    : 'border-[#E2E8F0] bg-white text-[#64748B] hover:border-slate-300 hover:text-[#202938]'
-                    }`}
-                >
-                  {btn.dot && !selected ? <span aria-hidden="true" className={`h-2 w-2 rounded-full ${btn.dot}`} /> : null}
-                  <span>{btn.label}</span>
-                  <span className="font-mono text-[11px] tabular-nums">({btn.count})</span>
-                </button>
-              );
-            })}
+        {!embedded && campus ? (
+          <div className="w-full sm:w-56">
+            <label htmlFor="late-risk-office" className="sr-only">Office</label>
+            <select
+              id="late-risk-office"
+              value={officeId}
+              onChange={(event) => {
+                setOfficeId(event.target.value);
+                setDetailTarget(null);
+              }}
+              className="input select-chevron font-medium"
+            >
+              <option value="" disabled>Select an office</option>
+              {offices.map((office) => (
+                <option key={office.office_id} value={office.office_id}>
+                  {office.office_name}
+                </option>
+              ))}
+            </select>
           </div>
+        ) : null}
 
-          {!embedded && isAdmin ? (
-            <Button onClick={retrain} loading={training} loadingLabel="Training…" className="w-full sm:w-auto">
-              Retrain
-            </Button>
-          ) : null}
+        <div className="w-full sm:w-56">
+          <RiskLevelDropdown value={riskFilter} onChange={setRiskFilter} options={riskOptions} />
         </div>
+
+        {!embedded && isAdmin ? (
+          <Button onClick={retrain} loading={training} loadingLabel="Training…" className="w-full sm:w-auto lg:ml-auto">
+            Retrain
+          </Button>
+        ) : null}
       </div>
 
       {!activeOfficeId ? (
@@ -850,72 +828,47 @@ export default function LateRiskSection({
           {embedded ? 'Choose an office above to see its open transactions ranked by deadline risk.' : 'Select an office to see its open transactions ranked by risk.'}
         </EmptyState>
       ) : (
-        /* 2. Two-Column Main Content: Ranked Open Transactions (~67%) + Scoring Model (~33%) */
-        <div className="grid items-start gap-5 lg:grid-cols-12">
-          {/* Left Panel: Ranked Open Transactions Table */}
-          <section
-            aria-labelledby="ranked-open-tx-title"
-            data-testid="late-risk-table-panel"
-            className="min-w-0 space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-2xs sm:p-5 lg:col-span-8"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h2 id="ranked-open-tx-title" className="font-sans text-base font-bold text-[#202938]">
-                  Ranked Open Transactions
-                </h2>
-                <span
-                  data-testid="late-risk-queue-count"
-                  className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-xs font-semibold text-[#64748B]"
-                >
-                  Showing {filteredItems.length} of {counts.total}
-                </span>
-              </div>
-
-              {data?.as_of ? (
-                <p className="font-sans text-xs text-[#64748B]" data-testid="late-risk-timestamp">
-                  {data.stale ? 'Showing saved results as of ' : 'Results as of '}
-                  <time dateTime={data.as_of}>{formatDateTime(data.as_of)}</time>
-                </p>
-              ) : null}
+        /* 2. Full-Width Ranked Open Transactions (the Scoring Model panel that used to sit beside it is now the
+           page header's info popover - see onInfoChange above and ScoringModelInfo.js). */
+        <section
+          aria-labelledby="ranked-open-tx-title"
+          data-testid="late-risk-table-panel"
+          className="min-w-0 space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-2xs sm:p-5"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 id="ranked-open-tx-title" className="font-sans text-base font-bold text-[#202938]">
+                Ranked Open Transactions
+              </h2>
+              <span
+                data-testid="late-risk-queue-count"
+                className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-xs font-semibold text-[#64748B]"
+              >
+                Showing {filteredItems.length} of {counts.total}
+              </span>
             </div>
 
-            <LateRiskTable
-              data={data}
-              loading={loading}
-              showProbability={isAdmin}
-              itemsOverride={filteredItems}
-              onSelectAction={(row, mode) => setDetailTarget({ item: row, mode })}
-            />
+            {data?.as_of ? (
+              <p className="font-sans text-xs text-[#64748B]" data-testid="late-risk-timestamp">
+                {data.stale ? 'Showing saved results as of ' : 'Results as of '}
+                <time dateTime={data.as_of}>{formatDateTime(data.as_of)}</time>
+              </p>
+            ) : null}
+          </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3 font-sans text-xs text-[#64748B]">
-              <span>Working-time calculations automatically pause outside official campus hours &amp; holidays.</span>
-              <span>Click Review now or Inspect to view milestones</span>
-            </div>
-          </section>
+          <LateRiskTable
+            data={data}
+            loading={loading}
+            showProbability={isAdmin}
+            itemsOverride={filteredItems}
+            onSelectAction={(row, mode) => setDetailTarget({ item: row, mode })}
+          />
 
-          {/* Right Panel: Scoring Model */}
-          <section
-            aria-labelledby="scoring-model-title"
-            data-testid="late-risk-model-panel"
-            className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-2xs sm:p-5 lg:col-span-4"
-          >
-            <div className="flex items-start justify-between gap-2 border-b border-[#E2E8F0] pb-3.5">
-              <div>
-                <h2 id="scoring-model-title" className="font-sans text-base font-bold text-[#202938]">
-                  Scoring model
-                </h2>
-                <p className="mt-0.5 font-sans text-xs text-[#64748B]">
-                  How the risk levels are worked out.
-                </p>
-              </div>
-              <StatusBadge variant={modelBadge.variant}>{modelBadge.label}</StatusBadge>
-            </div>
-
-            <div className="mt-4">
-              <LateRiskModelSummary model={data?.model} />
-            </div>
-          </section>
-        </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3 font-sans text-xs text-[#64748B]">
+            <span>Working-time calculations automatically pause outside official campus hours &amp; holidays.</span>
+            <span>Click Review now or Inspect to view milestones</span>
+          </div>
+        </section>
       )}
 
       {/* 3. Escalate / Inspect Slide-Over Transaction Detail Drawer */}

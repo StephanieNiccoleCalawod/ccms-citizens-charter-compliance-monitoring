@@ -17,12 +17,10 @@ import { hasSatisfaction, lowRatingRows, withSatisfactionTab } from '../../lib/u
 import { apiFetch } from '../../lib/auth/session.js';
 import { canViewInsights, insightsScope } from '../../lib/ui/analytics.js';
 import { PERIODS, buildDashboardTabs, dashboardAuditCounts } from '../../lib/ui/insights.js';
-import NeedsAttention from './NeedsAttention.js';
 import TermPeriodOptions, { useTerms } from '../forms/TermPeriodOptions.js';
-import { TERMS_NOT_AVAILABLE, termPeriodText } from '../../lib/ui/term-period.js';
+import { termPeriodText } from '../../lib/ui/term-period.js';
 import { useAnalytics } from '../../lib/ui/useAnalytics.js';
 import StatusBanner from '../feedback/StatusBanner.js';
-import FilterBar from '../forms/FilterBar.js';
 import Tabs, { tabPanelProps } from '../ui/Tabs.js';
 import AboutAnalyticsPanel from './AboutAnalyticsPanel.js';
 import ComplianceHeatmap from './ComplianceHeatmap.js';
@@ -68,7 +66,7 @@ function Loading() {
 
 /**
  * Main Dashboard analytics overview (live backend APIs only).
- * Order: FilterBar + DashboardHeader -> 4 KPI Summary Cards -> Compliance Trend + Expected Request Volume ->
+ * Order: DashboardHeader -> 4 KPI Summary Cards -> Period/Office filters -> Compliance Trend + Expected Request Volume ->
  * Deadline Risk Monitoring + Key Insights -> Office Performance Overview -> About analytics.
  */
 export default function DashboardAnalytics({ user }) {
@@ -223,14 +221,17 @@ function LiveDashboardAnalytics({ user }) {
   );
   // S8: ratings of the same dates, for flag 5 (low rating) and the Client Satisfaction tab. A failed read just means no ratings are shown.
   const [ratings, setRatings] = useState([]);
+  const [ratingsLoading, setRatingsLoading] = useState(false);
   const ratingFrom = overview?.from;
   const ratingTo = overview?.to;
   useEffect(() => {
     if (!ratingFrom || !ratingTo) return undefined;
     let cancelled = false;
+    setRatingsLoading(true);
     getRatingSummary({ officeId: selectedOfficeId || undefined, from: ratingFrom, to: ratingTo })
       .then((data) => !cancelled && setRatings(data?.items ?? []))
-      .catch(() => !cancelled && setRatings([]));
+      .catch(() => !cancelled && setRatings([]))
+      .finally(() => !cancelled && setRatingsLoading(false));
     return () => { cancelled = true; };
   }, [ratingFrom, ratingTo, selectedOfficeId]);
   const showSatisfaction = hasSatisfaction(ratings);
@@ -284,8 +285,23 @@ function LiveDashboardAnalytics({ user }) {
         if (id && ANCHOR_TO_TAB[id]) navigateAnchor(id);
       }}
     >
-      <NeedsAttention role={user.role} />
-      <FilterBar label="Dashboard analytics filters">
+      <DashboardHeader
+        scope={effectiveScope}
+        scopeLabel={effectiveScope.kind === 'office' ? (names.offices[effectiveScope.officeId] || 'your office only') : 'the whole campus'}
+        lastUpdated={lastUpdated}
+        refreshing={refreshing}
+      />
+
+      {refreshError ? (
+        <StatusBanner
+          variant="error"
+          message={`The latest refresh failed, so these figures are from ${lastUpdated ? 'the previous update' : 'earlier'}. ${refreshError}`}
+        />
+      ) : null}
+
+      <ComplianceKpiGrid kpis={kpis} />
+
+      <div role="group" aria-label="Dashboard analytics filters" className="flex flex-wrap items-end justify-end gap-4">
         <div className="w-full sm:w-48">
           <label htmlFor="dashboard-period" className="label">Period</label>
           <select
@@ -298,7 +314,6 @@ function LiveDashboardAnalytics({ user }) {
             {PERIODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             <TermPeriodOptions terms={termState.terms} />
           </select>
-          {termState.loaded && termState.terms.length === 0 ? <p className="mt-1 text-xs text-slate-500" data-testid="terms-unavailable">{TERMS_NOT_AVAILABLE}</p> : null}
           {termText ? <p className="mt-1 text-xs text-slate-500" data-testid="term-period-text">{termText}</p> : null}
         </div>
         {isCampusRole ? (
@@ -316,23 +331,7 @@ function LiveDashboardAnalytics({ user }) {
             </select>
           </div>
         ) : null}
-      </FilterBar>
-
-      <DashboardHeader
-        scope={effectiveScope}
-        scopeLabel={effectiveScope.kind === 'office' ? (names.offices[effectiveScope.officeId] || 'your office only') : 'the whole campus'}
-        lastUpdated={lastUpdated}
-        refreshing={refreshing}
-      />
-
-      {refreshError ? (
-        <StatusBanner
-          variant="error"
-          message={`The latest refresh failed, so these figures are from ${lastUpdated ? 'the previous update' : 'earlier'}. ${refreshError}`}
-        />
-      ) : null}
-
-      <ComplianceKpiGrid kpis={kpis} />
+      </div>
 
       <Tabs
         variant="analytics"
@@ -401,12 +400,12 @@ function LiveDashboardAnalytics({ user }) {
           loading={status === 'loading' && !overview}
           error={status === 'error' && !overview ? error : null}
         />
-        <CaseFlagsPanel overview={overview} ratings={ratings} names={names} scope={effectiveScope} />
+        <CaseFlagsPanel overview={overview} ratings={ratings} ratingsLoading={ratingsLoading} names={names} scope={effectiveScope} />
       </div>
 
       {showSatisfaction ? (
         <div {...tabPanelProps('dashboard', 'satisfaction')} hidden={activeTab !== 'satisfaction'} className="space-y-4 focus:outline-none">
-          <ClientSatisfactionPanel ratings={ratings} names={names} scope={effectiveScope} />
+          <ClientSatisfactionPanel ratings={ratings} loading={ratingsLoading} names={names} scope={effectiveScope} />
         </div>
       ) : null}
 

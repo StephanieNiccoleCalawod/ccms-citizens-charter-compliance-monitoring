@@ -69,12 +69,6 @@ const SHAPES = {
       <path d="M10 13h4" />
     </>
   ),
-  shield: (
-    <>
-      <path d="M12 3 4.5 6v6c0 5 3.3 8 7.5 9 4.2-1 7.5-4 7.5-9V6L12 3Z" />
-      <path d="m9 12 2 2 4-4" />
-    </>
-  ),
   history: (
     <>
       <path d="M4 12a8 8 0 1 0 2.5-5.8" />
@@ -82,7 +76,6 @@ const SHAPES = {
       <path d="M12 8v4l3 2" />
     </>
   ),
-  sliders: <path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 4v6M7 14v6" />,
   pulse: <path d="M3 12h4l3-7 4 14 3-7h4" />,
   dot: <circle cx="12" cy="12" r="3" />,
 };
@@ -96,9 +89,6 @@ const ICON_BY_HREF = {
   '/offices': 'building',
   '/services': 'layers',
   '/calendar': 'calendar',
-  '/settings': 'sliders',
-  '/settings/roles': 'shield',
-  '/settings/security': 'shield',
   '/logs': 'history',
   '/registry': 'archive',
   '/transactions': 'receipt',

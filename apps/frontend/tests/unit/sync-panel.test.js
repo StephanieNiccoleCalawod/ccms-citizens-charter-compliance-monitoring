@@ -7,7 +7,8 @@ import { describe, it } from 'node:test';
 import { ACCENTS, TONES, eventCount, fmsCard, smsCard, systemCards } from '../../src/lib/ui/sync-status.js';
 
 const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8');
-const panel = read('src/app/calendar/SyncPanel.js');
+const panel = read('src/app/settings/connected-systems/SyncPanel.js');
+const settingsPage = read('src/app/settings/connected-systems/page.js');
 
 describe('the Syllabus Management System (SMS) card', () => {
   it('"Not synced yet" (amber) with the plain sentence when it has never received data', () => {
@@ -65,10 +66,11 @@ describe('the Faculty Management System (FMS) card', () => {
 });
 
 describe('the panel', () => {
-  it('shows both cards, SMS first, with a heading, the sentence under it, and Refresh', () => {
+  it('lives on its own Settings page, with the page title, the sentence as its subtitle, and Refresh', () => {
     assert.deepEqual(systemCards({}).map((c) => c.id), ['sms', 'fms']);
-    assert.match(panel, /Connected systems/);
-    assert.match(panel, /These are separate systems\. CCCMS sends them the campus calendar\./);
+    assert.match(settingsPage, /title="Connected systems"/);
+    assert.match(settingsPage, /subtitle="These are separate systems\. CCCMS sends them the campus calendar\."/);
+    assert.match(settingsPage, /allowedRoles=\{\[ROLES\.SUPER_ADMIN\]\}/);
     assert.match(panel, /onClick=\{load\}>\s*Refresh/);
     assert.match(panel, /\{cards\.map\(\(card\) => \(\s*<SystemCard key=\{card\.id\} card=\{card\} \/>/);
     assert.match(panel, /grid items-stretch gap-3 lg:grid-cols-2" data-testid="system-columns"/, 'the two system cards sit side by side from lg');

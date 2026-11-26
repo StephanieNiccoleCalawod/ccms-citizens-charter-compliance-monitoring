@@ -33,7 +33,7 @@ describe('Calendar page notice about the Syllabus Management System (SMS)', () =
 
   it('the panel shows the notice and reads the new received-at field', () => {
     // The panel builds its cards in lib/ui/sync-status.js, which reads the notice and the received-at field.
-    const panel = read('src/app/calendar/SyncPanel.js');
+    const panel = read('src/app/settings/connected-systems/SyncPanel.js');
     const helper = read('src/lib/ui/sync-status.js');
     assert.match(panel, /systemCards\(data\)/);
     assert.match(helper, /smsSyncNotice\(status\)/);

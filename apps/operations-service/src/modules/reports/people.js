@@ -8,16 +8,21 @@ const validDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && Number(v.slice(0, 4)) 
 export function parsePeopleReport(params, user, now = new Date()) {
   if (![ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF].includes(user.role)) throw Errors.forbidden();
   const scope = params.get('scope') ?? (user.role === ROLES.OFFICE_STAFF ? 'person' : 'office');
-  const officeId = lower(params.get('office_id') ?? user.officeId);
+  const rawOfficeId = params.get('office_id');
+  // S8-6x: a Super Admin asking for the whole office (not a person or a per-staff breakdown) may leave the office
+  // out entirely, meaning every office combined. Every other case still needs exactly one office, as before - an
+  // Office Head or Office Staff is always scoped to their own office regardless (user.officeId, never absent).
+  const allOffices = scope === 'office' && user.role === ROLES.SUPER_ADMIN && rawOfficeId == null;
+  const officeId = allOffices ? null : lower(rawOfficeId ?? user.officeId);
   const personId = lower(params.get('person_id') ?? (scope === 'person' ? user.id : null));
   const from = params.get('from') ?? toManilaDate(now), to = params.get('to') ?? from;
-  if (!['office', 'person', 'all_staff'].includes(scope) || !isUuid(officeId) ||
+  if (!['office', 'person', 'all_staff'].includes(scope) || (!allOffices && !isUuid(officeId)) ||
       (scope === 'person' && !isUuid(personId)) || (scope !== 'person' && params.has('person_id')) ||
       !validDate(from) || !validDate(to) || from > to ||
       [...params.keys()].some((k) => !['scope', 'office_id', 'person_id', 'from', 'to'].includes(k))) {
     throw Errors.validation('Select a valid scope, office, person and date range');
   }
-  if (user.role !== ROLES.SUPER_ADMIN && officeId !== lower(user.officeId)) throw Errors.forbidden();
+  if (!allOffices && user.role !== ROLES.SUPER_ADMIN && officeId !== lower(user.officeId)) throw Errors.forbidden();
   if (user.role === ROLES.OFFICE_STAFF && (scope !== 'person' || personId !== lower(user.id))) throw Errors.forbidden();
   return { scope, officeId, personId: scope === 'person' ? personId : null, from, to };
 }
@@ -43,7 +48,8 @@ export async function fetchComplaintCounts(officeId, { env = process.env, fetche
   const base = serviceApiBase(env.OVERSIGHT_SERVICE_URL);
   if (!base || !env.SERVICE_KEY) return null;
   try {
-    const r = await fetcher(`${base}/internal/complaint-links?office_id=${encodeURIComponent(officeId)}`, {
+    const query = officeId ? `?office_id=${encodeURIComponent(officeId)}` : '';
+    const r = await fetcher(`${base}/internal/complaint-links${query}`, {
       headers: { accept: 'application/json', 'x-service-key': env.SERVICE_KEY }, signal: AbortSignal.timeout(5000) });
     if (!r.ok) return null;
     const { items } = await r.json();
@@ -55,17 +61,19 @@ export async function fetchComplaintCounts(officeId, { env = process.env, fetche
 /** Sum complaint counts per person: transactions in the report's own scope (same filters and seeded rule), keyed like the main query. */
 export const PEOPLE_COMPLAINT_SQL = `SELECT t.started_by, upper(t.tracking_no) AS tracking_no
   FROM transactions t
-  WHERE t.office_id=$1 AND t.started_at >= $2::timestamptz AND t.started_at < $3::timestamptz
+  WHERE ($1::uuid IS NULL OR t.office_id=$1) AND t.started_at >= $2::timestamptz AND t.started_at < $3::timestamptz
     AND ($4::uuid IS NULL OR t.started_by=$4) AND upper(t.tracking_no)=ANY($5::text[])
     AND NOT (EXISTS (SELECT 1 FROM seeded_transactions s WHERE s.transaction_id=t.transaction_id)
       OR (t.tracking_no ~ '-9[0-9]{3}$' AND right(t.tracking_no,4) <> '9000'))`;
 
+// office_id ($1) is null only for a Super Admin's all-offices "Whole office" report (S8-6x): every office's
+// transactions count then, instead of just one.
 export const PEOPLE_REPORT_SQL = `WITH scoped AS (
   SELECT t.started_by, t.status, t.is_compliant, t.elapsed_working_minutes, t.held_minutes, r.stars,
     (EXISTS (SELECT 1 FROM seeded_transactions s WHERE s.transaction_id=t.transaction_id)
       OR (t.tracking_no ~ '-9[0-9]{3}$' AND right(t.tracking_no,4) <> '9000')) AS seeded
   FROM transactions t LEFT JOIN service_ratings r ON r.transaction_id=t.transaction_id
-  WHERE t.office_id=$1 AND t.started_at >= $2::timestamptz AND t.started_at < $3::timestamptz
+  WHERE ($1::uuid IS NULL OR t.office_id=$1) AND t.started_at >= $2::timestamptz AND t.started_at < $3::timestamptz
     AND ($4::uuid IS NULL OR t.started_by=$4)
 ), eligible AS (
   SELECT *, CASE WHEN $5::uuid[] IS NULL OR started_by=ANY($5) THEN started_by ELSE NULL END AS person_key
@@ -98,7 +106,9 @@ function metrics(row = {}, linkedComplaints = null) {
 // BE Dev 1 source data. Oversight owns composing, publishing and freezing the final reports.
 export async function readPeopleReport(db, user, params, { now = new Date(), roster = fetchOfficePeople, complaintCounts = fetchComplaintCounts } = {}) {
   const q = parsePeopleReport(params, user, now);
-  const people = user.role === ROLES.OFFICE_STAFF ? [{ account_id: user.id, full_name: user.fullName ?? null }] : await roster(q.officeId);
+  // The all-offices "Whole office" report (q.officeId null, Super Admin only) never lists people - items stays
+  // empty below, same as any other "office" scope - so there is no roster to read.
+  const people = user.role === ROLES.OFFICE_STAFF ? [{ account_id: user.id, full_name: user.fullName ?? null }] : (q.officeId ? await roster(q.officeId) : []);
   const names = new Map(people.map((p) => [lower(p.account_id), p.full_name]));
   if (user.role === ROLES.OFFICE_HEAD && q.scope === 'person' && q.personId !== lower(user.id) && !names.has(q.personId)) throw Errors.forbidden();
   if (user.role === ROLES.OFFICE_HEAD && !names.has(lower(user.id))) names.set(lower(user.id), user.fullName ?? null);
