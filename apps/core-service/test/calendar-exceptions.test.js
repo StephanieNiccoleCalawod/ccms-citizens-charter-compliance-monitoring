@@ -50,9 +50,12 @@ describe('holidays and suspensions (CC015)', () => {
   });
 
   it('AC1: a campus-wide REGULAR_HOLIDAY removes that date for every office; AC10: removing it restores the date', async () => {
-    const { response, body } = await add(holiday('2026-10-07'));
+    const { response, body } = await add(holiday('2026-10-07', { reason_category: undefined }));
     assert.equal(response.status, 201);
     assert.equal(body.exception.exception_type, 'REGULAR_HOLIDAY');
+    assert.equal(body.exception.reason_category, 'HOLIDAY_PROCLAMATION');
+    const [stored] = await env.ds.query('SELECT reason_category FROM calendar_exceptions WHERE exception_id = $1', [body.exception.exception_id]);
+    assert.equal(stored.reason_category, 'HOLIDAY_PROCLAMATION');
     assert.equal(body.exception.office_id, null);
     assert.equal(body.exception.suspended_from, null);
     assert.equal(body.exception.is_recurring, false);
@@ -77,7 +80,12 @@ describe('holidays and suspensions (CC015)', () => {
   });
 
   it('AC2: an office-specific SUSPENSION for office A removes the day only for office A', async () => {
-    const { response, body } = await add({ exception_date: '2026-10-07', exception_type: 'SUSPENSION', description: 'Power outage', office_id: OFFICE_A });
+    const suspension = { exception_date: '2026-10-07', exception_type: 'SUSPENSION', description: 'Power outage', office_id: OFFICE_A };
+    const rejected = await add({ ...suspension, reason_category: undefined });
+    assert.equal(rejected.response.status, 400);
+    assert.equal(rejected.body.error.details.reason_category, 'Choose a reason category');
+
+    const { response, body } = await add({ ...suspension, reason_category: 'POWER_WATER_OUTAGE' });
     assert.equal(response.status, 201);
     assert.equal(body.exception.office_id, OFFICE_A);
     assert.equal(await minutes('2026-10-06T18:00:00+08:00', '2026-10-08T09:00:00+08:00', OFFICE_A), 120);
@@ -133,7 +141,7 @@ describe('holidays and suspensions (CC015)', () => {
     assert.equal(response.status, 400);
     assert.equal(body.error.message, 'Suspensions cannot be recurring');
     const update = await add(holiday('2026-09-02'));
-    const put = await putRoute(req('PUT', `/exceptions/${update.body.exception.exception_id}`, { token: tokens.superAdmin, body: { exception_date: '2026-09-02', exception_type: 'SUSPENSION', description: 'x', is_recurring: true } }), ctx(update.body.exception.exception_id));
+    const put = await putRoute(req('PUT', `/exceptions/${update.body.exception.exception_id}`, { token: tokens.superAdmin, body: { exception_date: '2026-09-02', exception_type: 'SUSPENSION', description: 'x', is_recurring: true, reason_category: 'OTHER' } }), ctx(update.body.exception.exception_id));
     assert.equal(put.status, 400);
     assert.equal((await put.json()).error.message, 'Suspensions cannot be recurring');
     await assert.rejects(
