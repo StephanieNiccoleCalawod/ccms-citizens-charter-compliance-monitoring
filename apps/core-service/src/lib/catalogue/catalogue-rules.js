@@ -164,7 +164,7 @@ export function parseStandardFields(body, details = {}, prefix = '') {
   }
   const effectiveFrom = str(body.effective_from).trim();
   if (!effectiveFrom) details[`${prefix}effective_from`] = 'Effective from date is required';
-  else if (!isValidManilaDate(effectiveFrom)) details[`${prefix}effective_from`] = 'Effective from must be a date (YYYY-MM-DD)';
+  else if (!isValidManilaDate(effectiveFrom)) details[`${prefix}effective_from`] = 'Enter a valid effective date.';
   // The Charter reference is optional: blank is stored as null; only a too-long one is refused.
   const charterText = collapseSpaces(str(body.charter_reference));
   if (charterText.length > 200) details[`${prefix}charter_reference`] = 'Charter reference must be 200 characters or fewer';
@@ -198,4 +198,9 @@ export function parsePaging(params, { defaultSize = 20, maxSize = 100 } = {}) {
 /** Escapes % _ \ for use in an ILIKE pattern. */
 export function likePattern(text) {
   return `%${text.trim().replace(/[%_\\]/g, '\\$&')}%`;
+}
+
+const longDateFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' });
+export function formatDateLong(dateString) {
+  return longDateFormatter.format(fromManila(dateString));
 }

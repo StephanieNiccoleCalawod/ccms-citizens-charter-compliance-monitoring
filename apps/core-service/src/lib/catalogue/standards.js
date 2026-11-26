@@ -4,6 +4,7 @@ import {
   PAST_STANDARD,
   STANDARD_DATE_TAKEN,
   addDays,
+  formatDateLong,
   manilaToday,
   parseStandardFields,
   throwIfInvalid,
@@ -93,7 +94,7 @@ async function addVersionLocked(manager, actor, service, fields, ipAddress) {
   }
   const latest = rows[0]; // newest first
   if (latest && fields.effectiveFrom < latest.effective_from) {
-    const message = `A newer version already starts on ${latest.effective_from}; delete it first or choose a later date`;
+    const message = `A newer version already starts on ${formatDateLong(latest.effective_from)}; delete it first or choose a later date`;
     throw Errors.conflict(message, 'STANDARD_NOT_LATEST', { effective_from: message });
   }
 
