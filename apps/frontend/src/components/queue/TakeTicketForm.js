@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import PublicHeader from '../layout/PublicHeader.js';
@@ -53,6 +54,15 @@ export default function TakeTicketForm() {
     <div className="min-h-screen bg-slate-50">
       <PublicHeader />
       <main className="mx-auto max-w-xl px-4 py-8">
+        <div className="mb-4">
+          <Link
+            href="/"
+            data-testid="queue-take-back-link"
+            className="inline-flex items-center gap-2 rounded text-sm font-semibold text-[#800000] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] focus-visible:ring-offset-2"
+          >
+            <span aria-hidden="true">&larr;</span> Back
+          </Link>
+        </div>
         {ticket ? (
           <section className="card space-y-3 p-6 text-center" role="status" data-testid="ticket-done">
             <p className="text-sm text-slate-700">Your number{ticket.office_name ? ` at ${ticket.office_name}` : ''} is</p>

@@ -104,12 +104,12 @@ export default function KpiHome({ user }) {
   ));
 
   const officeColumns = [
-    { key: 'name', header: 'Office', sortable: true, render: (row) => row.name },
-    { key: 'received', header: 'Received', align: 'right', sortable: true, render: (row) => row.received },
-    { key: 'onTime', header: 'On time', align: 'right', sortable: true, render: (row) => row.onTime },
-    { key: 'late', header: 'Late', align: 'right', sortable: true, render: (row) => row.late },
-    { key: 'rate', header: 'On-time rate', align: 'right', sortable: true, render: (row) => (row.rate === null ? HOME_MESSAGES.noRate : `${row.rate}%`) },
-    { key: 'pending', header: 'Pending', align: 'right', sortable: true, render: (row) => row.pending },
+    { key: 'name', header: 'Office', sortable: true, render: (row) => <span className="td-primary">{row.name}</span> },
+    { key: 'received', header: 'Received', align: 'right', sortable: true, className: 'tabular-nums', render: (row) => row.received },
+    { key: 'onTime', header: 'On time', align: 'right', sortable: true, className: 'tabular-nums', render: (row) => row.onTime },
+    { key: 'late', header: 'Late', align: 'right', sortable: true, className: 'tabular-nums', render: (row) => row.late },
+    { key: 'rate', header: 'On-time rate', align: 'right', sortable: true, className: 'tabular-nums', render: (row) => (row.rate === null ? <span className="td-muted">{HOME_MESSAGES.noRate}</span> : <span className="font-semibold">{row.rate}%</span>) },
+    { key: 'pending', header: 'Pending', align: 'right', sortable: true, className: 'tabular-nums', render: (row) => row.pending },
   ];
 
   const pendingColumns = [
@@ -117,12 +117,12 @@ export default function KpiHome({ user }) {
       key: 'tracking_no',
       header: 'Tracking number',
       render: (row) => (
-        <Link href={`/transactions/${encodeURIComponent(row.transaction_id)}`} className="row-action px-0 font-mono">
+        <Link href={`/transactions/${encodeURIComponent(row.transaction_id)}`} className="row-action px-0 tabular-nums">
           {row.tracking_no}
         </Link>
       ),
     },
-    { key: 'service', header: 'Service', render: (row) => row.service_name || row.service_code || HOME_MESSAGES.notAvailable },
+    { key: 'service', header: 'Service', render: (row) => <span className="td-medium">{row.service_name || row.service_code || HOME_MESSAGES.notAvailable}</span> },
     {
       key: 'status',
       header: 'Status',
@@ -132,7 +132,7 @@ export default function KpiHome({ user }) {
         </StatusBadge>
       ),
     },
-    { key: 'started_at', header: 'Started', render: (row) => formatDateTime(row.started_at) },
+    { key: 'started_at', header: 'Started', className: 'tabular-nums', render: (row) => formatDateTime(row.started_at) },
   ];
 
   return (
@@ -168,6 +168,9 @@ export default function KpiHome({ user }) {
             keyExtractor={(row) => row.id}
             loading={loading && sortedOfficeRows.length === 0}
             loadingMessage="Loading…"
+            emptyIcon="building"
+            emptyTitle="No Office Records for This Period"
+            emptySupport={label || undefined}
             emptyMessage={HOME_MESSAGES.empty}
             minWidth="40rem"
             sort={officeSort}
@@ -182,15 +185,24 @@ export default function KpiHome({ user }) {
               <Table busy={loading} minWidth="40rem" label="Figures by staff member"
                 head={<tr><Th>Staff</Th><Th align="right">Received</Th><Th align="right">On time</Th><Th align="right">Late</Th><Th align="right">On-time rate</Th><Th align="right">Pending</Th></tr>}>
                 {loading && rows.length === 0 ? <TableState colSpan={6} kind="loading">Loading…</TableState> : null}
-                {!loading && rows.length === 0 ? <TableState colSpan={6}>{HOME_MESSAGES.empty}</TableState> : null}
+                {!loading && rows.length === 0 ? (
+                  <TableState
+                    colSpan={6}
+                    icon="clock"
+                    title="No Records for This Period"
+                    supportingInfo={label || undefined}
+                  >
+                    {HOME_MESSAGES.empty}
+                  </TableState>
+                ) : null}
                 {rows.map((row) => (
                   <tr key={row.id} className="tr-row">
-                    <td className="td">{row.name}</td>
-                    <td className="td text-right">{row.received}</td>
-                    <td className="td text-right">{row.onTime}</td>
-                    <td className="td text-right">{row.late}</td>
-                    <td className="td text-right">{row.rate === null ? HOME_MESSAGES.noRate : `${row.rate}%`}</td>
-                    <td className="td text-right">{row.pending}</td>
+                    <td className="td td-primary">{row.name}</td>
+                    <td className="td text-right td-num">{row.received}</td>
+                    <td className="td text-right td-num">{row.onTime}</td>
+                    <td className="td text-right td-num">{row.late > 0 ? <span className="font-semibold text-red-700">{row.late}</span> : row.late}</td>
+                    <td className="td text-right td-num">{row.rate === null ? <span className="td-muted">{HOME_MESSAGES.noRate}</span> : <span className="font-semibold">{row.rate}%</span>}</td>
+                    <td className="td text-right td-num">{row.pending}</td>
                   </tr>
                 ))}
               </Table>
@@ -210,7 +222,9 @@ export default function KpiHome({ user }) {
               loading={pendingState.loading && pendingState.items.length === 0}
               loadingMessage="Loading pending transactions…"
               error={pendingState.error}
-              emptyMessage="No pending transactions right now."
+              emptyVariant="success"
+              emptyTitle="No Open Transactions"
+              emptyMessage="There are currently no open transactions requiring monitoring."
               totalCount={pendingState.loading && pendingState.items.length === 0 ? null : pendingState.total}
               countLabel="pending"
               pagination={{

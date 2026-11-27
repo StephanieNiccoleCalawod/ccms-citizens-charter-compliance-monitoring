@@ -31,11 +31,21 @@ export default function ServiceLateRateMatrix({
   scope = { kind: 'campus', officeId: null },
 }) {
   const [filter, setFilter] = useState('all');
-  const [inactiveOpen, setInactiveOpen] = useState(true);
+  const [inactiveOpen, setInactiveOpen] = useState(false);
+  const [lowVolumeOpen, setLowVolumeOpen] = useState(false);
+  const [expandedOffices, setExpandedOffices] = useState(() => new Set());
   const [inactiveQuery, setInactiveQuery] = useState('');
   const [selectedCell, setSelectedCell] = useState(null);
   const [cellData, setCellData] = useState(null);
   const reqSeqRef = useRef(0);
+
+  function toggleExpanded(officeId) {
+    setExpandedOffices((prev) => {
+      const next = new Set(prev);
+      if (next.has(officeId)) next.delete(officeId); else next.add(officeId);
+      return next;
+    });
+  }
 
   const minCompleted = Number(overview?.min_cell_completed) || MIN_CELL_COMPLETED;
 
@@ -63,6 +73,14 @@ export default function ServiceLateRateMatrix({
     if (distinct.length <= 3) return distinct.join(', ');
     return `${distinct.slice(0, 3).join(', ')} & ${distinct.length - 3} more`;
   }, [model.noActivityServices]);
+
+  // The default "All Active" view mixes a handful of offices that actually need a look with dozens that don't
+  // (every one of their services is still too few completed transactions to judge). Those stay in the grid as
+  // full cards; the rest move to a compact, collapsed-by-default list below so the signal isn't buried in noise.
+  // An explicit filter (Flagged / Too Few) already narrows the view on its own, so it keeps the plain, single grid.
+  const showTiered = filter === 'all';
+  const attentionRows = showTiered ? model.officeRows.filter((row) => !row.low_volume) : model.officeRows;
+  const lowVolumeRows = showTiered ? model.officeRows.filter((row) => row.low_volume) : [];
 
   const filterButtons = [
     { value: 'all', label: `All Active (${model.counts.all})` },
@@ -153,11 +171,35 @@ export default function ServiceLateRateMatrix({
         </ul>
 
         {model.officeRows.length === 0 ? (
-          <EmptyState className="mt-5" data-testid="service-matrix-empty">{emptyMessage}</EmptyState>
+          <EmptyState
+            role="status"
+            surface="subtle"
+            size="compact"
+            variant={filter === 'flagged' ? 'success' : filter === 'too_few' ? 'search' : 'neutral'}
+            icon={filter === 'flagged' ? 'check' : filter === 'too_few' ? 'search' : 'chart'}
+            title={
+              filter === 'flagged'
+                ? 'No Flagged Services Found'
+                : filter === 'too_few'
+                  ? 'No Matching Services Found'
+                  : 'No Records for This Period'
+            }
+            actionLabel={filter ? 'Show All Services' : undefined}
+            onAction={filter ? () => setFilter('') : undefined}
+            className="mt-5"
+            data-testid="service-matrix-empty"
+          >
+            {emptyMessage}
+          </EmptyState>
         ) : (
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="service-office-rows">
-            {model.officeRows.map((row) => {
+            {attentionRows.map((row) => {
               const hasFlagged = row.flagged_count > 0;
+              const collapseTooFew = showTiered;
+              const priorityCards = collapseTooFew ? row.cards.filter((c) => c.risk !== 'too_few') : row.cards;
+              const tooFewCards = collapseTooFew ? row.cards.filter((c) => c.risk === 'too_few') : [];
+              const expanded = expandedOffices.has(row.office_id);
+              const visibleCards = expanded ? row.cards : priorityCards;
               return (
                 <div
                   key={row.office_id}
@@ -193,7 +235,7 @@ export default function ServiceLateRateMatrix({
                   </div>
 
                   <div className="max-h-72 space-y-1.5 overflow-y-auto pr-0.5">
-                    {row.cards.map((card) => {
+                    {visibleCards.map((card) => {
                       const style = SERVICE_RISK_STYLES[card.risk] ?? SERVICE_RISK_STYLES.too_few;
                       const isSelected = selectedCell?.office_id === card.office_id && selectedCell?.service_id === card.service_id;
                       return (
@@ -217,12 +259,66 @@ export default function ServiceLateRateMatrix({
                         </button>
                       );
                     })}
+                    {!expanded && tooFewCards.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(row.office_id)}
+                        data-testid="office-row-show-too-few"
+                        className="w-full cursor-pointer rounded-lg px-3 py-1.5 text-center font-sans text-xs font-semibold text-[#64748B] transition-colors hover:bg-[#F4F5F8] hover:text-[#202938]"
+                      >
+                        +{tooFewCards.length} too few to judge
+                      </button>
+                    ) : null}
+                    {expanded && collapseTooFew ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(row.office_id)}
+                        className="w-full cursor-pointer rounded-lg px-3 py-1.5 text-center font-sans text-xs font-semibold text-[#64748B] transition-colors hover:bg-[#F4F5F8] hover:text-[#202938]"
+                      >
+                        Show fewer
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               );
             })}
           </div>
         )}
+
+        {lowVolumeRows.length > 0 ? (
+          <div className="mt-4 overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]" data-testid="low-volume-offices">
+            <button
+              type="button"
+              onClick={() => setLowVolumeOpen((prev) => !prev)}
+              aria-expanded={lowVolumeOpen}
+              data-testid="low-volume-toggle"
+              className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F1F5F9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000]"
+            >
+              <span className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className="inline-flex items-center justify-center rounded-md bg-[#E2E8F0]/80 px-2 py-0.5 font-sans text-xs font-bold tabular-nums text-[#202938]">
+                  {lowVolumeRows.length}
+                </span>
+                <span className="font-sans text-xs font-bold text-[#202938]">
+                  Low-volume offices &mdash; every service still has too few completed transactions to judge
+                </span>
+              </span>
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                className={`h-4 w-4 shrink-0 text-[#64748B] transition-transform ${lowVolumeOpen ? 'rotate-180' : ''}`}>
+                <path d="m5 8 5 5 5-5" />
+              </svg>
+            </button>
+            {lowVolumeOpen ? (
+              <ul className="grid gap-2 border-t border-[#E2E8F0] px-4 py-3.5 sm:grid-cols-2 xl:grid-cols-3">
+                {lowVolumeRows.map((row) => (
+                  <li key={row.office_id} data-testid="low-volume-office-row" className="flex items-center justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 font-sans text-xs text-[#202938]">
+                    <span className="truncate font-medium">{row.office_name}</span>
+                    <span className="shrink-0 text-[#64748B]">{row.cards.length} service{row.cards.length === 1 ? '' : 's'}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
 
         <ServiceCellDetail cell={selectedCell} cellData={cellData} onClose={() => setSelectedCell(null)} />
 

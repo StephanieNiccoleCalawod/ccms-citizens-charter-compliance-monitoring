@@ -114,3 +114,46 @@ describe('reports menu and screens', () => {
     assert.match(page, /manage \? publishedByText\(report\) : formatDateTime\(report\.published_at\)/);
   });
 });
+
+describe('the on-screen report and the official printed document are separate layouts', () => {
+  const detail = read('src/components/reports/ReportDetail.js');
+  const css = read('src/app/globals.css');
+
+  it('the on-screen page has a clean header (title, office, status badge, period, version, generated) and is hidden from print', () => {
+    assert.match(detail, /print:hidden" data-testid="report-page-header"/);
+    assert.match(detail, /title-page/);
+    assert.match(detail, /<StatusBadge variant=\{report\.status\}/);
+    assert.match(detail, /print:hidden" data-testid="report-onscreen-body"/);
+  });
+
+  it('the figures table is one component reused by both layouts, not a second calculation', () => {
+    const occurrences = [...detail.matchAll(/<FiguresTable report=\{report\} \/>/g)];
+    assert.equal(occurrences.length, 2, 'FiguresTable is rendered once on screen and once in the print document');
+  });
+
+  it('report notes are a collapsible <details> on screen, and the same text plainly in the printed document', () => {
+    assert.match(detail, /<details[^>]*data-testid="report-notes"/);
+    assert.equal([...detail.matchAll(/<ReportNotesList report=\{report\} \/>/g)].length, 2);
+  });
+
+  it('the official document is hidden on screen and shown only for print, via the same .report-print-area the print stylesheet already targets', () => {
+    assert.match(detail, /className="report-print-area hidden card space-y-4 p-6 print:block"/);
+  });
+
+  it('the printed document keeps the PUP header, full metadata, the figures table and the signature section', () => {
+    const sheet = detail.slice(detail.indexOf('data-testid="report-sheet"'));
+    assert.match(sheet, /pup-logo\.png/);
+    assert.match(sheet, /Polytechnic University of the Philippines, Quezon City/);
+    assert.match(sheet, /<FiguresTable report=\{report\} \/>/);
+    assert.match(sheet, /<SignatureLines \/>/);
+  });
+
+  it('the official page is forced to A4 landscape, not left to the printer', () => {
+    assert.match(css, /@page report\s*\{[^}]*size:\s*A4 landscape;/);
+  });
+
+  it('the figures table gets print-specific column widths and type size instead of being shrunk to fit', () => {
+    assert.match(css, /\.report-print-area \[data-testid="report-figures"\] table\s*\{[^}]*table-layout:\s*fixed;/);
+    assert.match(css, /\.report-print-area \[data-testid="report-figures"\] th:first-child,\s*\n\s*\.report-print-area \[data-testid="report-figures"\] td:first-child\s*\{\s*\n\s*width:\s*20%;/);
+  });
+});

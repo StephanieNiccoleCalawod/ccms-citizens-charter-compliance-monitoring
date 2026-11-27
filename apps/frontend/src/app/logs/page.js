@@ -239,7 +239,15 @@ function AuditLog() {
               {state.loading && state.items.length === 0 ? (
                 <TableState colSpan={COLUMNS} kind="loading">Loading audit log...</TableState>
               ) : state.items.length === 0 ? (
-                <TableState colSpan={COLUMNS} kind={state.error ? 'error' : 'empty'}>
+                <TableState
+                  colSpan={COLUMNS}
+                  kind={state.error ? 'error' : 'empty'}
+                  variant={filtered ? 'search' : 'neutral'}
+                  icon={filtered ? 'search' : 'document'}
+                  title={filtered ? 'No Matching Audit Entries' : 'No Audit Entries Yet'}
+                  actionLabel={!state.error && filtered ? 'Clear Filters' : null}
+                  onAction={!state.error && filtered ? clear : null}
+                >
                   {state.error
                     ? (
                       // The failure is said once, here (no banner above says it again), with the reason the service gave and a Retry.
@@ -270,49 +278,49 @@ function AuditLog() {
                     <Fragment key={event.audit_id}>
                       {/* The whole row opens and closes the details with a click; the arrow button is the keyboard and screen-reader control for the same thing. */}
                       <tr className={`tr-row cursor-pointer ${open ? 'bg-table-hover' : ''}`} onClick={() => toggle(event.audit_id)}>
-                        <td className="td">
-                          <span className="block whitespace-nowrap font-semibold text-slate-900">{date}</span>
-                          {time ? <span className="block whitespace-nowrap text-slate-500">{time}</span> : null}
+                        <td className="td whitespace-nowrap">
+                          <span className="block tabular-nums text-ink">{date}</span>
+                          {time ? <span className="td-secondary tabular-nums">{time}</span> : null}
                         </td>
                         <td className="td">
                           {actorNameText ? (
-                            <span className="block font-semibold text-slate-900" title={actorId || undefined}>{actorNameText}</span>
+                            <span className="block td-primary" title={actorId || undefined}>{actorNameText}</span>
                           ) : event.actor_role === 'system' ? (
-                            <span className="block font-semibold text-slate-900">System</span>
+                            <span className="block td-primary">System</span>
                           ) : (
                             <>
-                              <span className="block font-semibold text-slate-500">User name unavailable</span>
-                              {actorId ? <span className="block font-mono text-xs text-slate-500" title={actorId}>{shortId(actorId)}</span> : null}
+                              <span className="block td-muted">User name unavailable</span>
+                              {actorId ? <span className="td-secondary tabular-nums" title={actorId}>{shortId(actorId)}</span> : null}
                             </>
                           )}
-                          {ROLE_LABELS[event.actor_role] ? <span className="mt-1 block"><RoleBadge role={event.actor_role} /></span> : roleLabel ? <span className="block text-slate-500">{roleLabel}</span> : null}
+                          {ROLE_LABELS[event.actor_role] ? <span className="mt-1 block"><RoleBadge role={event.actor_role} /></span> : roleLabel ? <span className="td-secondary">{roleLabel}</span> : null}
                         </td>
                         <td className="td">
                           <span className="badge-tag max-w-full text-[11px] tracking-wide">{event.action || '-'}</span>
                         </td>
                         <td className="td">
                           {subject ? (
-                            <span className="block font-semibold text-slate-900">{subject}</span>
+                            <span className="block td-medium">{subject}</span>
                           ) : (
                             <>
-                              <span className="block font-semibold text-slate-500">{NAME_UNAVAILABLE}</span>
-                              <span className="block font-mono text-xs text-slate-500" title={event.entity_id || undefined}>{shortId(event.entity_id) || '-'}</span>
+                              <span className="block td-muted">{NAME_UNAVAILABLE}</span>
+                              <span className="td-secondary tabular-nums" title={event.entity_id || undefined}>{shortId(event.entity_id) || '-'}</span>
                             </>
                           )}
-                          {event.entity_type ? <span className="block text-slate-500">{entityTypeLabel(event.entity_type)}</span> : null}
+                          {event.entity_type ? <span className="td-secondary">{entityTypeLabel(event.entity_type)}</span> : null}
                         </td>
                         <td className="td">
                           {event.office_id ? (
                             office ? (
                               <>
-                                <span className="block font-bold text-slate-900">{office.name}</span>
-                                <span className="block text-slate-500">{office.code}</span>
+                                <span className="block text-ink">{office.name}</span>
+                                <span className="td-secondary">{office.code}</span>
                               </>
                             ) : (
-                              <span className="block font-mono font-semibold text-slate-900" title={event.office_id}>{shortId(event.office_id)}</span>
+                              <span className="block tabular-nums text-ink" title={event.office_id}>{shortId(event.office_id)}</span>
                             )
                           ) : (
-                            <span className="block font-bold text-slate-900">Campus-wide</span>
+                            <span className="block text-ink">Campus-wide</span>
                           )}
                         </td>
                         <td className="td w-12 text-right">
@@ -336,27 +344,27 @@ function AuditLog() {
                       {open ? (
                         <tr id={detailId} className="bg-table-hover">
                           <td className="px-4 py-4" colSpan={COLUMNS}>
-                            <dl className="mb-4 grid gap-x-6 gap-y-1 text-xs text-slate-600 sm:grid-cols-3">
+                            <dl className="mb-4 grid gap-x-6 gap-y-1 text-xs text-ink-muted sm:grid-cols-3">
                               <div>
-                                <dt className="font-semibold text-slate-500">Actor ID</dt>
-                                <dd className="break-all font-mono">{actorId || '-'}</dd>
+                                <dt className="font-semibold text-ink-muted">Actor ID</dt>
+                                <dd className="break-all tabular-nums text-ink">{actorId || '-'}</dd>
                               </div>
                               <div>
-                                <dt className="font-semibold text-slate-500">Entity ID</dt>
-                                <dd className="break-all font-mono">{event.entity_id || '-'}</dd>
+                                <dt className="font-semibold text-ink-muted">Entity ID</dt>
+                                <dd className="break-all tabular-nums text-ink">{event.entity_id || '-'}</dd>
                               </div>
                               <div>
-                                <dt className="font-semibold text-slate-500">Audit entry ID</dt>
-                                <dd className="break-all font-mono">{event.audit_id}</dd>
+                                <dt className="font-semibold text-ink-muted">Audit entry ID</dt>
+                                <dd className="break-all tabular-nums text-ink">{event.audit_id}</dd>
                               </div>
                             </dl>
                             <div className="grid gap-4 md:grid-cols-2">
                               <section aria-label="Before" className="rounded-lg border border-line bg-white p-4">
-                                <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-stone-500">Before</h3>
+                                <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-muted">Before</h3>
                                 <AuditValue node={auditValueTree(event.before_value)} />
                               </section>
                               <section aria-label="After" className="rounded-lg border border-line bg-white p-4">
-                                <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-stone-500">After</h3>
+                                <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-muted">After</h3>
                                 <AuditValue node={auditValueTree(event.after_value)} />
                               </section>
                             </div>

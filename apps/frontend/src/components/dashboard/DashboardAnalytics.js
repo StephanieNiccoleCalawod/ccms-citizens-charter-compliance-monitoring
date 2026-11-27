@@ -346,30 +346,30 @@ function LiveDashboardAnalytics({ user }) {
       <div {...tabPanelProps('dashboard', 'overview')} hidden={activeTab !== 'overview'} className="space-y-4 focus:outline-none">
         <div className={TWO_COLUMNS} data-testid="charts-row">
           <ComplianceTrendChart pulse={trendPulse} />
-          <RequestForecastSection
-            user={user}
-            controlledOfficeId={modelOffice}
-            externalRun={models.forecast}
-            preloadedOffices={offices}
-            preloadedServices={services}
-            scopeLabel={forecastScopeNote}
-            embedded
-            onRunChange={(nextRun, runOfficeId) => {
-              const effective = runOfficeId ?? nextRun?.officeId;
-              if (nextRun && (!effective || modelOfficeRef.current === effective)) {
-                setModels((prev) => ({
-                  ...prev,
-                  forecast: { state: 'ok', value: nextRun, message: '' },
-                }));
-              }
-            }}
-          />
+          <div className="flex flex-col gap-4" data-testid="monitoring-stack">
+            <LateRiskPanel lateRisk={lateRiskView} loading={models.loading} actionHref="/late-risk" />
+            <KeyInsightsPanel insights={insightItems} />
+          </div>
         </div>
 
-        <div className={TWO_COLUMNS} data-testid="monitoring-row">
-          <LateRiskPanel lateRisk={lateRiskView} loading={models.loading} actionHref="/late-risk" />
-          <KeyInsightsPanel insights={insightItems} />
-        </div>
+        <RequestForecastSection
+          user={user}
+          controlledOfficeId={modelOffice}
+          externalRun={models.forecast}
+          preloadedOffices={offices}
+          preloadedServices={services}
+          scopeLabel={forecastScopeNote}
+          embedded
+          onRunChange={(nextRun, runOfficeId) => {
+            const effective = runOfficeId ?? nextRun?.officeId;
+            if (nextRun && (!effective || modelOfficeRef.current === effective)) {
+              setModels((prev) => ({
+                ...prev,
+                forecast: { state: 'ok', value: nextRun, message: '' },
+              }));
+            }
+          }}
+        />
       </div>
 
       <div {...tabPanelProps('dashboard', 'heatmap')} hidden={activeTab !== 'heatmap'} className="space-y-4 focus:outline-none">

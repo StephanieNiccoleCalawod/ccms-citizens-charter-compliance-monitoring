@@ -43,10 +43,6 @@ const FALLBACK_TONE = Object.freeze({
 export default function LateRiskPanel({ lateRisk, loading = false, actionHref = '/late-risk' }) {
   const { categories = [], total = 0, state = 'ok', message = '', stale = false, asOf = null, officeName = '' } = lateRisk ?? {};
 
-  const highCategory = categories.find((c) => c.key === 'high');
-  const highCount = Number(highCategory?.count || 0);
-  const highRiskPct = total > 0 ? Math.round((highCount / total) * 1000) / 10 : 0;
-
   const description = state === 'pick' ? (
     'Choose an office above to see which open transactions are at risk of missing their deadline.'
   ) : (
@@ -63,12 +59,24 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
   return (
     <ChartCard
       id="risk"
-      title="Deadline Risk Monitoring"
+      title="Deadline Risk Summary"
+      badge={state === 'ok' ? (
+        <span className="inline-flex items-center rounded-full border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-[10px] font-bold text-[#64748B]">
+          {n(total)} Active
+        </span>
+      ) : null}
+      headerRight={actionHref ? (
+        <Link href={actionHref} className="font-sans text-xs font-semibold text-[#800000] hover:underline">
+          Chance of Finishing Late &rarr;
+        </Link>
+      ) : null}
       calculation={lateRisk?.calculation ?? null}
       calculationSubject="the deadline risk"
       description={description}
       empty={state === 'ok' && !loading && categories.length === 0}
-      emptyMessage="No open transactions to assess."
+      emptyVariant="success"
+      emptyTitle="No Open Transactions"
+      emptyMessage="There are currently no open transactions requiring deadline risk monitoring."
       table={state === 'ok' && categories.length > 0 ? {
         caption: 'Open transactions by deadline risk',
         columns: [
@@ -99,18 +107,6 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
         <p className="text-sm text-slate-600" data-testid="late-risk-pick-office">Select an office above to see its deadline risk.</p>
       ) : (
         <div data-testid="dashboard-late-risk" className="space-y-4">
-          {actionHref ? (
-            <div>
-              <Link
-                href={actionHref}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#202938] px-3.5 py-2 font-sans text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#800000]"
-              >
-                <span>View ranked open transactions</span>
-                <span aria-hidden="true">&rsaquo;</span>
-              </Link>
-            </div>
-          ) : null}
-
           {stale ? (
             <p className="text-xs text-amber-800">
               Showing saved results{asOf ? ` as of ${formatDateTime(asOf)}` : ''}.
@@ -118,14 +114,9 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
           ) : null}
 
           <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-2 font-sans text-xs">
-              <span className="font-medium text-[#64748B]">
-                Risk breakdown ({n(total)} open transaction{total === 1 ? '' : 's'})
-              </span>
-              <span data-testid="late-risk-high-pct" className="font-mono font-bold text-[#800000]">
-                {highRiskPct}% High Risk
-              </span>
-            </div>
+            <p className="font-sans text-xs font-medium text-[#64748B]">
+              Predictive probability of open transactions exceeding SLA
+            </p>
 
             <div
               role="img"
@@ -152,6 +143,7 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
           <ul className="grid gap-3 sm:grid-cols-3">
             {categories.map((c) => {
               const tone = CARD_TONE[c.key] ?? FALLBACK_TONE;
+              const pct = total > 0 ? Math.round((c.count / total) * 1000) / 10 : 0;
               return (
                 <li
                   key={c.key}
@@ -163,10 +155,13 @@ export default function LateRiskPanel({ lateRisk, loading = false, actionHref = 
                       <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${tone.dot}`} />
                       <span>{c.label} Risk</span>
                     </span>
-                    <span className={`font-mono text-xl font-bold tabular-nums ${tone.count}`}>
-                      {n(c.count)}
+                    <span className="text-right">
+                      <span className={`block font-mono text-xl font-bold tabular-nums ${tone.count}`}>
+                        {pct}%
+                      </span>
+                      <span className="block font-sans text-[11px] text-[#64748B]">{n(c.count)} txns</span>
                     </span>
-                    <span className="sr-only">{c.label}: {n(c.count)}</span>
+                    <span className="sr-only">{c.label}: {pct}%, {n(c.count)} transactions</span>
                   </div>
                   {c.description ? (
                     <p className="mt-2 font-sans text-xs leading-relaxed text-[#64748B]">

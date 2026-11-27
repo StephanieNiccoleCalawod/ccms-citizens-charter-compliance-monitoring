@@ -36,7 +36,7 @@ let writer;
 let core;
 before(async () => {
   const switchState = { STAFF_HOLD_RESUME: true };
-  setSwitchGate({ all: async () => ({ ...switchState }), isEnabled: async (key) => switchState[key] === true, reset() {} });
+  setSwitchGate({ all: async () => ({ ...switchState }), isEnabledForOffice: async (key) => switchState[key] === true, reset() {} });
   process.env.SERVICE_KEY = SERVICE_KEY;
   process.env.LOGS_WRITER_PASSWORD = 'tt2-e2e-writer-pw';
   process.env.OVERSIGHT_APP_PASSWORD = 'tt2-e2e-app-pw';

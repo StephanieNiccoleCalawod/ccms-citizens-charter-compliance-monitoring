@@ -35,6 +35,15 @@ export default function ComplaintStatus({ initialRef = '' }) {
     <div className="min-h-screen bg-slate-50">
       <PublicHeader />
       <main className="mx-auto max-w-xl px-4 py-8">
+        <div className="mb-4">
+          <Link
+            href="/complaint"
+            data-testid="complaint-status-back-link"
+            className="inline-flex items-center gap-2 rounded text-sm font-semibold text-[#800000] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] focus-visible:ring-offset-2"
+          >
+            <span aria-hidden="true">&larr;</span> Back
+          </Link>
+        </div>
         <form className="card space-y-4 p-6" onSubmit={(event) => { event.preventDefault(); check(ref); }} noValidate data-testid="complaint-status-form">
           <h1 className="text-xl font-bold text-maroon-950">Check the status of a complaint</h1>
           <div>

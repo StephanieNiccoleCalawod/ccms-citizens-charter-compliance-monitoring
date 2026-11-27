@@ -6,6 +6,7 @@ import ErrorBanner from '../../../components/feedback/ErrorBanner.js';
 import AccountShell from '../../../components/layout/AccountShell.js';
 import LoadingState from '../../../components/ui/LoadingState.js';
 import TableShell, { Table, Th } from '../../../components/ui/TableShell.js';
+import TableState from '../../../components/ui/TableState.js';
 import { getSessionPolicy } from '../../../lib/api/account.js';
 import { SESSION_POLICY_OFF_NOTE, formatLimit } from '../../../lib/ui/account.js';
 
@@ -44,13 +45,19 @@ export function SecurityAndSessions() {
               </tr>
             }
           >
-            {policy.roles.map((row) => (
-              <tr key={row.role} className="tr-row">
-                <td className="td font-semibold text-slate-900">{row.role_label}</td>
-                <td className="td">{formatLimit(row.idle_minutes)}</td>
-                <td className="td">{formatLimit(row.absolute_minutes)}</td>
-              </tr>
-            ))}
+            {policy.roles.length === 0 ? (
+              <TableState colSpan={3} icon="shield" title="No Session Policies Available">
+                No sign-in limits were returned by the Identity service.
+              </TableState>
+            ) : (
+              policy.roles.map((row) => (
+                <tr key={row.role} className="tr-row">
+                  <td className="td td-primary">{row.role_label}</td>
+                  <td className="td td-num">{formatLimit(row.idle_minutes)}</td>
+                  <td className="td td-num">{formatLimit(row.absolute_minutes)}</td>
+                </tr>
+              ))
+            )}
           </Table>
         </TableShell>
       </div>

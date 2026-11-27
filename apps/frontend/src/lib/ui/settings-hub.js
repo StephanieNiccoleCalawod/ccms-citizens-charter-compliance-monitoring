@@ -15,7 +15,7 @@ export const HUB_GROUPS = Object.freeze([
     { label: 'Notification Center', hint: 'Every notice from the bell in one list: search, filter and mark as read.', href: '/settings/notifications', roles: BELL },
   ] },
   { id: 'transactions', title: 'Transactions', links: [
-    { label: 'Transaction settings', hint: 'Hold, counters, automatic closing and which offices may record past transactions.', href: '/settings/transactions', roles: ALL, readOnlyFor: [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE] },
+    { label: 'Transaction settings', hint: 'Hold, counters and automatic closing.', href: '/settings/transactions', roles: ALL, readOnlyFor: [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE] },
   ] },
   { id: 'calendar', title: 'Working hours and terms', links: [
     { label: 'Working hours and academic terms', hint: 'The campus and office schedules, and the terms from the Syllabus Management System.', href: '/calendar', roles: ALL, readOnlyFor: [ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF, ROLES.EXECUTIVE] },

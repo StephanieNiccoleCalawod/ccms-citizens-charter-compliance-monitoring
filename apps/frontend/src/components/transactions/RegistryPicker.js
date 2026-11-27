@@ -5,8 +5,9 @@ import { searchRegistry } from '../../lib/api/registry.js';
 import { formatDate } from '../../lib/ui/date-format.js';
 import { REGISTRY_NOTE_MAX, REGISTRY_REASONS, isSearchable, registryNeedsReason } from '../../lib/ui/start-transaction.js';
 import SearchInput from '../forms/SearchInput.js';
+import { FieldError } from '../forms/Field.js';
+import Checkbox from '../ui/Checkbox.js';
 
-const FieldError = ({ id, children }) => (children ? <p id={id} className="mt-1 text-xs text-red-700">{children}</p> : null);
 const SEARCH_DELAY_MS = 350;
 
 /**
@@ -122,19 +123,13 @@ export default function RegistryPicker({ clientType, value, onChange, errors = {
       ) : null}
 
       {value.choice !== 'match' ? (
-        <label className="flex items-start gap-3 text-sm text-slate-800">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon"
-            checked={value.choice === 'not_found'}
-            disabled={disabled}
-            onChange={(e) => choose(e.target.checked ? { choice: 'not_found', record: null } : { choice: 'none', reason: '', note: '' })}
-          />
-          <span>
-            Not in the registry
-            <span className="block text-xs text-slate-500">The transaction still starts. It is flagged &quot;not in registry&quot; with the reason you choose.</span>
-          </span>
-        </label>
+        <Checkbox
+          checked={value.choice === 'not_found'}
+          disabled={disabled}
+          onChange={(e) => choose(e.target.checked ? { choice: 'not_found', record: null } : { choice: 'none', reason: '', note: '' })}
+          label="Not in the registry"
+          description={<>The transaction still starts. It is flagged &quot;not in registry&quot; with the reason you choose.</>}
+        />
       ) : null}
       <FieldError id="start-registry-error">{errors.registry}</FieldError>
 

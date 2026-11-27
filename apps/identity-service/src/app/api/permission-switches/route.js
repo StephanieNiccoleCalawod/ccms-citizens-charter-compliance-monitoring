@@ -12,7 +12,7 @@ export const GET = route(async (request) => {
   return json(await getSwitchesView(await getDb()), 200, { 'cache-control': 'no-store' });
 });
 
-// PUT /permission-switches — Super Admin only; { switches: { KEY: true|false } }; only the four keys; audited before and after.
+// PUT /permission-switches — Super Admin only; { switches: { KEY: true|false | { enabled, scope, office_ids } } }; only the four keys; audited before and after.
 export const PUT = route(async (request) => {
   const user = await superAdminOnly(request);
   return json(await updateSwitches(await getDb(), user, await readJson(request), { ipAddress: clientIp(request) }), 200, { 'cache-control': 'no-store' });

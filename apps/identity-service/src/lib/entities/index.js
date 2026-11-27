@@ -37,16 +37,27 @@ export const Account = new EntitySchema({
   ],
 });
 
-// CC056: the four staff permission switches (default off). One row per switch; updated_by is the Super Admin who last changed it.
-// The CHECK on the key and the seed rows are created in after-sync / migrations/1794650000000-Cc056PermissionSwitches.js.
+// CC056: the four staff permission switches (default off, scope 'ALL'). One row per switch; updated_by is the Super Admin who last changed it.
+// The CHECKs and seed rows are created in after-sync / migrations/1794650000000-Cc056PermissionSwitches.js / 1795700000000-OfficeScopedPermissionSwitches.js.
 export const PermissionSwitch = new EntitySchema({
   name: 'PermissionSwitch',
   tableName: 'permission_switches',
   columns: {
     switchKey: { name: 'switch_key', type: 'varchar', length: 40, primary: true, primaryKeyConstraintName: 'permission_switches_pkey' },
     enabled: { type: 'boolean', default: false },
+    scope: { type: 'varchar', length: 10, default: () => "'ALL'" },
     updatedBy: { name: 'updated_by', type: 'uuid', nullable: true },
     updatedAt: { name: 'updated_at', type: 'timestamptz', default: () => 'now()' },
+  },
+});
+
+// Offices allowed when a permission switch has scope = 'SPECIFIC'. office_id is a plain UUID owned by Core (no cross-DB FK).
+export const PermissionSwitchOffice = new EntitySchema({
+  name: 'PermissionSwitchOffice',
+  tableName: 'permission_switch_offices',
+  columns: {
+    switchKey: { name: 'switch_key', type: 'varchar', length: 40, primary: true, primaryKeyConstraintName: 'permission_switch_offices_pkey' },
+    officeId: { name: 'office_id', type: 'uuid', primary: true, primaryKeyConstraintName: 'permission_switch_offices_pkey' },
   },
 });
 
@@ -182,4 +193,4 @@ export const AccountPermissionGrant = new EntitySchema({
   indices: [{ name: 'account_permission_grants_account_idx', columns: ['accountId', 'status'] }],
 });
 
-export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit, PermissionSwitch, AccountLastLogin, ClerkAccountLink, ClerkAccessRequest, ClerkInvitation, AccessRequest, AccountPermissionGrant];
+export const entities = [Account, RefreshToken, PasswordResetToken, OutboxEvent, RateLimitHit, PermissionSwitch, PermissionSwitchOffice, AccountLastLogin, ClerkAccountLink, ClerkAccessRequest, ClerkInvitation, AccessRequest, AccountPermissionGrant];

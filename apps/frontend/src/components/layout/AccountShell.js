@@ -6,13 +6,12 @@ import { usePathname } from 'next/navigation';
 import { landingForRole } from 'ccms-shared/nav';
 import { ROLE_LABELS } from 'ccms-shared/roles';
 import { activeNavHref } from '../../lib/auth/permissions.js';
-import { accountNavGroups, accountNavItems } from '../../lib/ui/account-nav.js';
+import { accountNavGroups, accountNavItems, defaultSettingsHref, navSegments } from '../../lib/ui/account-nav.js';
 import { BRAND } from '../../lib/constants/brand.js';
 import { ROLE_NOT_RECOGNIZED, ROLE_NOT_RECOGNIZED_MESSAGE, isRoleAllowed } from '../../lib/auth/guards.js';
 import { getAccessToken, redirectToLogin, refreshSession, sessionRejection } from '../../lib/auth/session.js';
 import { useSignOut } from '../../lib/auth/useSignOut.js';
 import { initials } from '../../lib/ui/account.js';
-import { useScrollSpy } from '../../lib/ui/scroll-spy.js';
 import Breadcrumb from '../navigation/Breadcrumb.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ResultModal from '../feedback/ResultModal.js';
@@ -23,31 +22,37 @@ import PageHeader from './PageHeader.js';
 import IconButton from '../ui/IconButton.js';
 import RowActionMenu from '../ui/RowActionMenu.js';
 import SessionGuard from '../auth/SessionGuard.js';
+import { MY_ACCOUNT_ICON, SETTINGS_ICON, SIGN_OUT_ICON } from './account-menu-icons.js';
 
 /**
- * The dedicated Account Settings layout: its own sidebar (My account, the Settings hub pages, Sign out) and content
- * area, separate from the main CCMS dashboard shell (AppShell) and its sidebar. Reached from the account dropdown in
- * AppShell's header ("My account" / "Settings"), and used by every page that sidebar links to, so the whole section
- * keeps one consistent chrome. Every item routes to an existing page (see lib/ui/account-nav.js); none is new.
- * `scrollSpy`: for the Settings general page, which renders every settings section inline. The Settings group's
- * items then scroll to their own section (by `scrollId`) instead of navigating, and the sidebar highlights
- * whichever section is currently in view.
+ * The dedicated Account Settings layout: its own sidebar (My account, the per-page Settings tabs, Sign out) and
+ * content area, separate from the main CCMS dashboard shell (AppShell) and its sidebar. Reached from the account
+ * dropdown in AppShell's header ("My account" / "Settings"), and used by every page that sidebar links to, so the
+ * whole section keeps one consistent chrome. Every item routes directly to its own standalone page (see
+ * lib/ui/account-nav.js).
  */
-export default function AccountShell({ title, subtitle, eyebrow, breadcrumb, headerRight, allowedRoles, pageClassName, titleClassName, subtitleClassName, scrollSpy = false, children }) {
+export default function AccountShell({ title, subtitle, eyebrow, breadcrumb, headerRight, allowedRoles, pageClassName, titleClassName, subtitleClassName, children }) {
   const pathname = usePathname();
   const [state, setState] = useState({ status: 'loading', user: null, message: null });
   const [menuOpen, setMenuOpen] = useState(false); // the sidebar, as a drawer below md
   const [settingsOpen, setSettingsOpen] = useState(true);
+  const [openSubgroups, setOpenSubgroups] = useState({ workflow: true }); // Office & Access Management tree
+  const [seenHref, setSeenHref] = useState(null);
   const signOutControl = useSignOut();
   const signOutButtonRef = useRef(null);
   const avatarButtonRef = useRef(null);
 
-  // Computed ahead of the loading/error early returns below, so this hook is always called in the same order.
-  // On a page with `scrollSpy`, the Settings group's items scroll to their own section instead of navigating
-  // (see the per-item rendering further down); scrollIds is empty, and the hook a no-op, everywhere else.
   const groups = state.user ? accountNavGroups(state.user.role) : [];
-  const scrollIds = scrollSpy ? (groups.find((g) => g.id === 'settings')?.items ?? []).filter((i) => i.scrollId).map((i) => i.scrollId) : [];
-  const { activeId: activeScrollId, goTo: scrollTo } = useScrollSpy(scrollIds);
+
+  // Opening a child page directly (or navigating to it) expands its tree so the active item is visible. Adjusted
+  // during render (not in an effect) so there is no flash of a collapsed tree.
+  const currentHref = state.user ? activeNavHref(accountNavItems(state.user.role), pathname) : null;
+  if (currentHref !== seenHref) {
+    setSeenHref(currentHref);
+    const activeItem = state.user ? accountNavItems(state.user.role).find((item) => item.href === currentHref) : null;
+    if (activeItem?.group && !openSubgroups[activeItem.group]) setOpenSubgroups((prev) => ({ ...prev, [activeItem.group]: true }));
+    if (activeItem && !settingsOpen && groups.find((g) => g.id === 'settings')?.items.includes(activeItem)) setSettingsOpen(true);
+  }
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -112,21 +117,34 @@ export default function AccountShell({ title, subtitle, eyebrow, breadcrumb, hea
   const settingsGroupActive = groups.find((g) => g.id === 'settings')?.items.some((item) => item.href === activeHref) ?? false;
   const allowed = isRoleAllowed(user, allowedRoles);
 
+  function renderNavItem(item) {
+    const active = item.href === activeHref;
+    const itemClassName = `group relative flex h-[38px] w-full items-center rounded-lg px-3.5 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-[#E5B53A] ${
+      active ? 'bg-[#783535] font-semibold text-white shadow-sm' : 'text-white/80 hover:bg-white/10 hover:text-white'
+    }`;
+    return (
+      <Link href={item.href} aria-current={active ? 'page' : undefined} onClick={() => setMenuOpen(false)} className={itemClassName}>
+        {active && <span className="absolute left-1 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[#E5B53A]" aria-hidden="true" />}
+        <span className="truncate">{item.label}</span>
+      </Link>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-page md:flex">
       {!menuOpen ? null : <div className="fixed inset-0 z-30 bg-slate-900/40 md:hidden" onClick={() => setMenuOpen(false)} aria-hidden="true" />}
       <aside
         id="account-sidebar"
         aria-label="Account settings sidebar"
-        className={`font-sans fixed inset-y-0 left-0 z-40 w-72 shrink-0 overflow-y-auto border-r border-line bg-white transition-transform duration-200 md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 md:visible md:self-start ${
+        className={`font-sans fixed inset-y-0 left-0 z-40 w-72 shrink-0 overflow-y-auto bg-[#3D0606] text-white transition-transform duration-200 md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 md:visible md:self-start ${
           menuOpen ? 'visible translate-x-0' : 'invisible -translate-x-full'
         }`}
       >
-        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-line px-4">
-          <BrandMark size={32} />
+        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-[#3D0606] px-4">
+          <BrandMark size={36} />
           <div className="min-w-0">
-            <p className="truncate text-xs font-bold leading-tight tracking-tight text-ink">{BRAND.campus}</p>
-            <p className="truncate text-[10px] font-semibold leading-tight text-maroon-700 mt-0.5">Account Settings</p>
+            <p className="truncate text-xs font-bold leading-tight tracking-tight text-white">{BRAND.campus}</p>
+            <p className="truncate text-[10px] font-semibold leading-tight text-[#E5B53A] mt-0.5">Account Settings</p>
           </div>
         </div>
 
@@ -142,7 +160,7 @@ export default function AccountShell({ title, subtitle, eyebrow, breadcrumb, hea
                     onClick={() => setSettingsOpen((v) => !v)}
                     aria-expanded={open}
                     aria-controls={`account-group-${group.id}`}
-                    className="mb-2 flex w-full items-center justify-between rounded-md px-3.5 py-1 text-[10px] font-bold uppercase leading-4 tracking-[0.12em] text-ink-muted hover:text-maroon-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-maroon-700"
+                    className="mb-2 flex w-full items-center justify-between rounded-md px-3.5 py-1 text-[10px] font-bold uppercase leading-4 tracking-[0.12em] text-[#E5B53A] hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-[#E5B53A]"
                   >
                     {group.title.toUpperCase()}
                     <svg aria-hidden="true" viewBox="0 0 20 20" className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -150,33 +168,38 @@ export default function AccountShell({ title, subtitle, eyebrow, breadcrumb, hea
                     </svg>
                   </button>
                 ) : (
-                  <p className="mb-2 px-3.5 text-[10px] font-bold uppercase leading-4 tracking-[0.12em] text-ink-muted">{group.title.toUpperCase()}</p>
+                  <p className="mb-2 px-3.5 text-[10px] font-bold uppercase leading-4 tracking-[0.12em] text-[#E5B53A]">{group.title.toUpperCase()}</p>
                 )}
                 {open ? (
                   <ul id={`account-group-${group.id}`} className="space-y-0.5">
-                    {group.items.map((item) => {
-                      const isScrollLink = scrollSpy && Boolean(item.scrollId);
-                      const active = isScrollLink ? activeScrollId === item.scrollId : item.href === activeHref;
-                      const itemClassName = `group relative flex h-[38px] w-full items-center rounded-lg px-3.5 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-maroon-700 ${
-                        active ? 'bg-maroon-50 font-semibold text-maroon-800' : 'text-ink-muted hover:bg-surface-muted hover:text-ink'
-                      }`;
-                      const itemContent = (
-                        <>
-                          {active && <span className="absolute left-1 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-brand" aria-hidden="true" />}
-                          <span className="truncate">{item.label}</span>
-                        </>
-                      );
+                    {navSegments(group.items).map((segment) => {
+                      if (segment.kind === 'single') {
+                        return <li key={segment.item.href}>{renderNavItem(segment.item)}</li>;
+                      }
+                      // Transaction settings, Roles and permissions, and Access requests: separate pages under one
+                      // non-clickable "Office & Access Management" heading with its own chevron and connector.
+                      // Institution code is a sibling above it, never its parent.
+                      const subOpen = openSubgroups[segment.groupKey] !== false;
+                      const panelId = `account-subgroup-${segment.groupKey}`;
                       return (
-                        <li key={item.href}>
-                          {isScrollLink ? (
-                            <button type="button" aria-current={active ? 'page' : undefined} onClick={() => { scrollTo(item.scrollId); setMenuOpen(false); }} className={itemClassName}>
-                              {itemContent}
-                            </button>
-                          ) : (
-                            <Link href={item.href} aria-current={active ? 'page' : undefined} onClick={() => setMenuOpen(false)} className={itemClassName}>
-                              {itemContent}
-                            </Link>
-                          )}
+                        <li key={segment.items[0].href}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenSubgroups((prev) => ({ ...prev, [segment.groupKey]: !subOpen }))}
+                            aria-expanded={subOpen}
+                            aria-controls={panelId}
+                            className="flex h-[38px] w-full items-center justify-between rounded-lg px-3.5 text-left text-sm font-medium text-white/80 transition-all duration-150 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-[#E5B53A]"
+                          >
+                            <span className="truncate">{segment.label}</span>
+                            <svg aria-hidden="true" viewBox="0 0 20 20" className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${subOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="m5 8 5 5 5-5" />
+                            </svg>
+                          </button>
+                          <div id={panelId} className={`grid transition-[grid-template-rows] duration-200 ease-out ${subOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                            <ul className={`ml-[18px] min-h-0 space-y-0.5 overflow-hidden border-l-2 border-white/20 pl-2.5 ${subOpen ? '' : 'invisible'}`}>
+                              {segment.items.map((item) => <li key={item.href}>{renderNavItem(item)}</li>)}
+                            </ul>
+                          </div>
                         </li>
                       );
                     })}
@@ -187,7 +210,7 @@ export default function AccountShell({ title, subtitle, eyebrow, breadcrumb, hea
           })}
 
           <div>
-            <p className="mb-2 px-3.5 text-[10px] font-bold uppercase leading-4 tracking-[0.12em] text-ink-muted">ACCOUNT ACTIONS</p>
+            <p className="mb-2 px-3.5 text-[10px] font-bold uppercase leading-4 tracking-[0.12em] text-[#E5B53A]">ACCOUNT ACTIONS</p>
             <ul className="space-y-0.5">
               <li>
                 <button
@@ -198,7 +221,7 @@ export default function AccountShell({ title, subtitle, eyebrow, breadcrumb, hea
                     signOutControl.request();
                   }}
                   disabled={signOutControl.busy}
-                  className="flex h-[38px] w-full items-center rounded-lg px-3.5 text-left text-sm font-medium text-red-700 transition-all duration-150 hover:bg-red-50 focus:outline-none focus-visible:ring-1 focus-visible:ring-maroon-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-[38px] w-full items-center rounded-lg px-3.5 text-left text-sm font-medium text-white/80 transition-all duration-150 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-[#E5B53A] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {signOutControl.busy ? 'Signing out…' : 'Sign out'}
                 </button>
@@ -242,9 +265,9 @@ export default function AccountShell({ title, subtitle, eyebrow, breadcrumb, hea
                 </>
               }
               items={[
-                { label: 'My account', href: '/account', active: activeHref === '/account' },
-                { label: 'Settings', href: '/settings', active: settingsGroupActive },
-                { label: signOutControl.busy ? 'Signing out…' : 'Sign out', disabled: signOutControl.busy, onSelect: signOutControl.request },
+                { label: 'My account', href: '/account', icon: MY_ACCOUNT_ICON, active: activeHref === '/account' },
+                { label: 'Settings', href: defaultSettingsHref(user.role) ?? '/settings', icon: SETTINGS_ICON, active: settingsGroupActive },
+                { label: signOutControl.busy ? 'Signing out…' : 'Sign out', icon: SIGN_OUT_ICON, disabled: signOutControl.busy, onSelect: signOutControl.request },
               ]}
             />
           </div>

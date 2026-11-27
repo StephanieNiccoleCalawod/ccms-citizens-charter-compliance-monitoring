@@ -12,7 +12,7 @@ import AppShell from '../../components/layout/AppShell.js';
 import Modal from '../../components/modals/Modal.js';
 import TransactionDetail from '../../components/transactions/TransactionDetail.js';
 import StartTransactionForm from '../../components/transactions/StartTransactionForm.js';
-import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
+import DiscardChangesDialog from '../../components/dialogs/DiscardChangesDialog.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import StatusBadge from '../../components/ui/StatusBadge.js';
 import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
@@ -30,6 +30,7 @@ import { TRANSACTION_PAGE_ROLES, isTransactionReadOnly } from '../../lib/auth/pe
 import { statusLabel } from '../../lib/ui/start-transaction.js';
 import SearchableSelect from '../../components/forms/SearchableSelect.js';
 import { officeName } from '../../lib/ui/names.js';
+import { useDiscardGuard } from '../../lib/ui/useDiscardGuard.js';
 
 const COLUMNS = 9;
 const READ_ONLY_COLUMNS = COLUMNS - 1; // no Counter column (CC027 / K14)
@@ -40,8 +41,8 @@ function DateTimeCell({ value }) {
   const { date, time } = splitDateTime(formatDateTime(value) || '-');
   return (
     <>
-      <span className="block font-semibold text-slate-900">{date}</span>
-      {time ? <span className="block text-slate-500">{time}</span> : null}
+      <span className="block tabular-nums text-ink">{date}</span>
+      {time ? <span className="td-secondary tabular-nums">{time}</span> : null}
     </>
   );
 }
@@ -72,7 +73,7 @@ function TransactionList({ user }) {
   const [addOpen, setAddOpen] = useState(false); // the Add Transaction modal
   const [addDirty, setAddDirty] = useState(false); // something typed or chosen in it
   const [addBusy, setAddBusy] = useState(false); // the new transaction is being sent
-  const [discardAsk, setDiscardAsk] = useState(false); // "discard what you entered?"
+  const addGuard = useDiscardGuard(addDirty, () => { setAddOpen(false); setAddDirty(false); });
   const latest = useRef(0); // the newest request; an older answer that arrives late is thrown away
 
   async function run(filters, page, size) {
@@ -95,11 +96,6 @@ function TransactionList({ user }) {
 
   // After something changed inside the modal: read the same page again with the same filters (the table keeps its view).
   const refreshList = useCallback(() => run(applied, state.page, pageSize), [applied, state.page, pageSize]);
-
-  function closeAdd() {
-    if (addDirty) setDiscardAsk(true);
-    else setAddOpen(false);
-  }
 
   // A transaction was started in the modal: close it, say so, and read the list again from page 1 (newest first) with the same filters.
   function handleCreated() {
@@ -271,7 +267,30 @@ function TransactionList({ user }) {
           {state.loading && state.items.length === 0 ? (
             <TableState colSpan={columns} kind="loading">Loading transactions...</TableState>
           ) : state.items.length === 0 ? (
-            <TableState colSpan={columns}>{emptyMessage({ error: state.error, filtered })}</TableState>
+            state.error ? (
+              <TableState colSpan={columns} kind="error">{emptyMessage({ error: state.error, filtered })}</TableState>
+            ) : filtered ? (
+              <TableState
+                colSpan={columns}
+                variant="search"
+                title="No Matching Transactions Found"
+                actionLabel="Clear Filters"
+                onAction={clear}
+              >
+                {emptyMessage({ error: null, filtered: true })} Try adjusting your search or filter selections.
+              </TableState>
+            ) : (
+              <TableState
+                colSpan={columns}
+                icon="document"
+                title="No Transactions Yet"
+                actionLabel={readOnly ? null : '+ Add Transaction'}
+                onAction={readOnly ? null : () => setAddOpen(true)}
+                actionVariant="primary"
+              >
+                {emptyMessage({ error: null, filtered: false })} Service transactions recorded for {campusWide ? 'the campus' : 'your office'} will appear here.
+              </TableState>
+            )
           ) : (
             state.items.map((t) => {
               const result = complianceState(t);
@@ -279,18 +298,18 @@ function TransactionList({ user }) {
               return (
                 <tr key={t.transaction_id} className="tr-row" data-testid="tx-row">
                   <td className="td">
-                    <span className="whitespace-nowrap font-mono font-semibold text-maroon-800">{t.tracking_no}</span>
-                    {t.is_backdated === true ? <span className="block text-xs text-slate-500">Entered after the fact</span> : null}
-                    {t.started_outside_hours === true ? <span className="block text-xs text-slate-500">Started outside working hours</span> : null}
+                    <span className="td-id text-maroon-800">{t.tracking_no}</span>
+                    {t.is_backdated === true ? <span className="td-secondary">Entered after the fact</span> : null}
+                    {t.started_outside_hours === true ? <span className="td-secondary">Started outside working hours</span> : null}
                   </td>
                   <td className="td">
-                    <span className="block font-semibold text-slate-900">{t.service_name}</span>
+                    <span className="block td-medium">{t.service_name}</span>
                   </td>
-                  <td className="td"><span className="block font-semibold text-slate-900">{officeName(t)}</span></td>
+                  <td className="td">{officeName(t)}</td>
                   {readOnly ? null : <td className="td">{t.counter_label || '-'}</td>}
                   <td className="td whitespace-nowrap">
                     <StatusBadge variant={String(t.status).toLowerCase()}>{statusLabel(t.status)}</StatusBadge>
-                    {decision ? <span className="mt-1 block text-xs text-slate-600" data-testid="tx-outcome">{decision}</span> : null}
+                    {decision ? <span className="td-secondary" data-testid="tx-outcome">{decision}</span> : null}
                   </td>
                   <td className="td whitespace-nowrap"><DateTimeCell value={t.started_at} /></td>
                   <td className="td whitespace-nowrap"><DateTimeCell value={t.ended_at} /></td>
@@ -301,7 +320,7 @@ function TransactionList({ user }) {
                       onClick={() => setSelectedId(t.transaction_id)}
                       aria-label={`View details of ${t.tracking_no}`}
                       aria-haspopup="dialog"
-                      className="rounded text-xs font-semibold text-maroon-800 hover:text-maroon-950 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-1"
+                      className="row-action"
                     >
                       View Details
                     </button>
@@ -341,24 +360,12 @@ function TransactionList({ user }) {
         flushBody
         fullScreenOnMobile
         dirty={addDirty}
-        onClose={addBusy ? undefined : closeAdd}
+        onClose={addBusy ? undefined : addGuard.requestClose}
       >
-        {addOpen && !readOnly ? <StartTransactionForm key="add" user={user} embedded onCreated={handleCreated} onCancel={closeAdd} onDirtyChange={setAddDirty} onBusyChange={setAddBusy} /> : null}
+        {addOpen && !readOnly ? <StartTransactionForm key="add" user={user} embedded onCreated={handleCreated} onCancel={addGuard.requestClose} onDirtyChange={setAddDirty} onBusyChange={setAddBusy} /> : null}
       </Modal>
 
-      <ConfirmDialog
-        open={discardAsk}
-        title="Discard this transaction?"
-        message="What you entered has not been saved. If you close now, it will be lost."
-        confirmLabel="Discard"
-        danger
-        onConfirm={() => {
-          setDiscardAsk(false);
-          setAddOpen(false);
-          setAddDirty(false);
-        }}
-        onCancel={() => setDiscardAsk(false)}
-      />
+      <DiscardChangesDialog open={addGuard.askDiscard} onConfirm={addGuard.confirmDiscard} onCancel={addGuard.cancelDiscard} />
     </div>
   );
 }

@@ -188,7 +188,8 @@ describe('the "Add working hours" modal: the weekly schedule only', () => {
 
   it('keeps the unsaved-changes guard and blocks closing while saving', () => {
     assert.match(modal, /dirty=\{dirty\}/);
-    assert.match(modal, /onClose=\{saving \? undefined : onClose\}/);
+    assert.match(modal, /const closeGuard = useDiscardGuard\(dirty, onClose\)/);
+    assert.match(modal, /onClose=\{saving \? undefined : closeGuard\.requestClose\}/);
     assert.match(modal, /const run = useSingleSubmit\(\)/);
   });
 

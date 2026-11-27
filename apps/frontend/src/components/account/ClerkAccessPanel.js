@@ -280,8 +280,8 @@ export default function ClerkAccessPanel({ active = true }) {
       header: 'Signed In As / CCMS Account',
       render: (row) => (
         <>
-          <p className="font-semibold text-slate-900">{row.primary}</p>
-          {row.secondary ? <p className="text-xs text-slate-500">{row.secondary}</p> : null}
+          <p className="td-primary">{row.primary}</p>
+          {row.secondary ? <p className="td-secondary">{row.secondary}</p> : null}
         </>
       ),
     },
@@ -290,8 +290,8 @@ export default function ClerkAccessPanel({ active = true }) {
       header: 'Last Sign-in / Approved',
       render: (row) => (
         <>
-          <p className="text-slate-900">{row.date ? formatDateTime(row.date) || '—' : '—'}</p>
-          <p className="text-xs text-slate-500">{row.dateLabel}</p>
+          <p className="td-num">{row.date ? formatDateTime(row.date) || '—' : '—'}</p>
+          <p className="td-secondary">{row.dateLabel}</p>
         </>
       ),
     },
@@ -392,7 +392,12 @@ export default function ClerkAccessPanel({ active = true }) {
         data={visible}
         keyExtractor={(row) => row.key}
         loading={loading}
+        emptyVariant={filters.q.trim() || filters.status ? 'search' : 'neutral'}
+        emptyIcon={filters.q.trim() || filters.status ? 'search' : 'users'}
+        emptyTitle={filters.q.trim() || filters.status ? 'No Matching Clerk Accounts' : 'No Clerk Accounts Available'}
         emptyMessage={clerkAccessEmptyMessage(filters)}
+        emptyActionLabel={filters.q.trim() || filters.status ? 'Clear Filters' : null}
+        onEmptyAction={filters.q.trim() || filters.status ? () => setFilters({ q: '', status: '' }) : null}
         minWidth="56rem"
       />
 

@@ -8,8 +8,8 @@ import BrandMark from '../ui/BrandMark.js';
 import { BRAND } from '../../lib/constants/brand.js';
 import { DIRECTORY_PATH, directoryHref } from '../../lib/ui/public-directory.js';
 
-// The public landing page (signed out, "/"): the campus photo under a maroon wash, the headline, a search box and the way into the
-// Service Directory. Searching or Browse all services opens the existing directory (DIRECTORY_PATH); nothing is fetched here.
+// The public landing page (signed out, "/"): the campus photo under a maroon wash, the headline, a search box, a primary
+// queue-ticket CTA (/queue/take), Service Directory CTA (DIRECTORY_PATH), and inline complaint link (/complaint); nothing is fetched here.
 export default function LandingHero() {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -71,16 +71,47 @@ export default function LandingHero() {
             </button>
           </form>
 
-          <div className="mt-5 flex flex-wrap items-center gap-3 sm:gap-4" data-testid="hero-actions">
-            <Link href={DIRECTORY_PATH} className="inline-flex items-center gap-3 rounded-xl bg-[#FFDF00] px-6 py-3.5 text-base font-bold text-[#2B0A0D] transition hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#570D12]">
-              Browse all services <span aria-hidden="true">&rarr;</span>
+          <div className="mt-5 flex flex-wrap items-center gap-3" data-testid="hero-actions">
+            <Link
+              href="/queue/take"
+              data-testid="hero-take-queue"
+              className="inline-flex items-center gap-2.5 rounded-xl border border-[#F5C518] bg-[#F5C518] px-5 py-3 text-[15px] font-bold text-[#2B0A0D] shadow-sm transition hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#570D12]"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+                <path d="M13 5v2" />
+                <path d="M13 17v2" />
+                <path d="M13 11v2" />
+              </svg>
+              Take a Queue Number
             </Link>
-            {/* The 2px border is taken out of the padding, so this button is exactly as tall and as wide-padded as the one beside it. */}
-            <Link href="/complaint" data-testid="hero-file-complaint" className="inline-flex items-center rounded-xl border-2 border-white/85 px-[22px] py-3 text-base font-bold text-white transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFDF00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#570D12]">
-              File a Complaint
+            <Link
+              href={DIRECTORY_PATH}
+              className="inline-flex items-center gap-2.5 rounded-xl border border-white/25 bg-white/[0.04] px-5 py-3 text-[15px] font-bold text-white transition hover:border-white/40 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFDF00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#570D12]"
+            >
+              Browse all services
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
             </Link>
           </div>
-          <p className="mt-5 max-w-md text-sm text-white/85">Every service shows its requirements, steps, and processing time.</p>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-white/80 sm:text-[13px]">
+            <p>Every service shows its requirements, steps, and processing time.</p>
+            <Link
+              href="/complaint"
+              data-testid="hero-file-complaint"
+              className="inline-flex items-center gap-1.5 font-semibold text-[#F5C518] transition hover:text-[#FFDF00] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFDF00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#570D12]"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <path d="M12 7v4" />
+                <path d="M12 15h.01" />
+              </svg>
+              File a complaint <span aria-hidden="true">&rarr;</span>
+            </Link>
+          </div>
         </div>
       </main>
       <PublicFooter />

@@ -3,7 +3,7 @@ import { Account } from './entities/index.js';
 import { toAccountDto } from './accounts.js';
 import { NO_PASSWORD_MARKER } from './accounts.js';
 import { activeGrantsFor } from './access-requests.js';
-import { readSwitchValues } from './permission-switches.js';
+import { readSwitchValuesForOffice } from './permission-switches.js';
 import { kickOutbox } from './outbox.js';
 import { hashPassword, passwordProblem, verifyPassword } from './passwords.js';
 import { hashToken } from './tokens.js';
@@ -17,7 +17,7 @@ export async function getMe(db, user) {
   if (!account || !account.isActive) throw Errors.unauthorized('Your session has ended. Please sign in again.', 'SESSION_ENDED');
   const dto = toAccountDto(account);
   const [login] = rowsOf(await db.query('SELECT last_login_at FROM account_last_login WHERE account_id = $1', [user.id]));
-  const switches = await readSwitchValues(db);
+  const switches = await readSwitchValuesForOffice(db, dto.office_id);
   // S8-52: the extra access the Super Admin granted, so the screens open what the server will now allow. Only Office Head and Office Staff can have any.
   const extraAccess = dto.role === ROLES.OFFICE_HEAD || dto.role === ROLES.OFFICE_STAFF
     ? (await activeGrantsFor(db, user.id)).grants.map(({ permission_key: key, ends_on: endsOn }) => ({ permission_key: key, ends_on: endsOn }))

@@ -233,9 +233,17 @@ export default function RegistryOverview({ summary, onImportClick }) {
               ) : error ? (
                 <TableState colSpan={4} kind="error">The summary could not be loaded.</TableState>
               ) : !data || data.programs.length === 0 ? (
-                <TableState colSpan={4}>No registry records yet. Use Import Registry above to add some.</TableState>
+                <TableState colSpan={4} icon="users" title="No Registry Records Yet">
+                  No registry records yet. Use Import Registry above to add some.
+                </TableState>
               ) : displayedPrograms.length === 0 ? (
-                <TableState colSpan={4}>
+                <TableState
+                  colSpan={4}
+                  variant="search"
+                  title="No Matching Academic Programs"
+                  actionLabel="Clear Search"
+                  onAction={() => setProgramQuery('')}
+                >
                   No academic programs match &ldquo;{programQuery.trim()}&rdquo;.
                 </TableState>
               ) : (
@@ -256,22 +264,22 @@ export default function RegistryOverview({ summary, onImportClick }) {
                             {p.program_code}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block whitespace-normal break-words font-sans text-sm font-semibold leading-snug text-[#202938] group-hover:text-[#800000]">
+                            <span className="block whitespace-normal break-words td-primary group-hover:text-pup-maroon">
                               {p.degree_title}
                             </span>
-                            <span className="mt-0.5 block font-sans text-xs text-[#64748B]">
+                            <span className="td-secondary">
                               Click to inspect {p.program_code} roster
                             </span>
                           </span>
                         </button>
                       </td>
-                      <td className="td text-center font-sans text-sm font-medium tabular-nums text-[#202938]">
+                      <td className="td text-center td-num">
                         {n(p.enrolled)}
                       </td>
-                      <td className="td text-center font-sans text-sm font-medium tabular-nums text-[#202938]">
+                      <td className="td text-center td-num">
                         {n(p.alumni)}
                       </td>
-                      <td className="td text-center font-sans text-sm font-bold tabular-nums text-[#202938]">
+                      <td className="td text-center td-num font-semibold">
                         {n(p.total)}
                       </td>
                     </tr>
@@ -280,17 +288,17 @@ export default function RegistryOverview({ summary, onImportClick }) {
                     className="tr-summary"
                     data-testid="registry-program-summary-footer"
                   >
-                    <td className="td text-left font-sans text-sm font-bold text-ink">
+                    <td className="td text-left font-bold text-ink">
                       All programs ({n(displayedTotals.count)}{' '}
                       {displayedTotals.count === 1 ? 'Academic Program' : 'Academic Programs'})
                     </td>
-                    <td className="td text-center font-sans text-sm font-bold tabular-nums text-[#202938]">
+                    <td className="td text-center td-num font-bold">
                       {n(displayedTotals.enrolled)}
                     </td>
-                    <td className="td text-center font-sans text-sm font-bold tabular-nums text-[#202938]">
+                    <td className="td text-center td-num font-bold">
                       {n(displayedTotals.alumni)}
                     </td>
-                    <td className="td text-center font-sans text-sm font-bold tabular-nums text-[#800000]">
+                    <td className="td text-center td-num font-bold text-pup-maroon">
                       {n(displayedTotals.total)}
                     </td>
                   </tr>
@@ -367,13 +375,40 @@ export default function RegistryOverview({ summary, onImportClick }) {
               ) : directoryState.status === 'failed' ? (
                 <TableState colSpan={6} kind="error">{directoryState.message}</TableState>
               ) : directoryState.status === 'idle' ? (
-                <TableState colSpan={6}>
+                <TableState
+                  colSpan={6}
+                  icon="search"
+                  title={selectedProgram ? `Inspecting ${selectedProgram}` : 'Search Student & Alumni Directory'}
+                  actionLabel={selectedProgram ? 'Show All Programs' : null}
+                  onAction={selectedProgram ? () => setSelectedProgram('') : null}
+                >
                   {selectedProgram
                     ? `Inspecting ${selectedProgram} (${getProgramDegreeTitle(selectedProgram)}). Enter a student number or at least 3 letters of a name above to look up records.`
                     : 'Enter a complete student number or at least 3 letters of a student or alumni name above to search the directory.'}
                 </TableState>
               ) : directoryItems.length === 0 ? (
-                <TableState colSpan={6}>
+                <TableState
+                  colSpan={6}
+                  variant="search"
+                  title={
+                    selectedProgram && directoryState.items.length > 0
+                      ? `No Matching Records in ${selectedProgram}`
+                      : 'No Matching Directory Records'
+                  }
+                  actionLabel={
+                    selectedProgram && directoryState.items.length > 0
+                      ? 'Show All Programs'
+                      : 'Clear Search'
+                  }
+                  onAction={
+                    selectedProgram && directoryState.items.length > 0
+                      ? () => setSelectedProgram('')
+                      : () => {
+                          setDirectoryQuery('');
+                          runDirectorySearch('');
+                        }
+                  }
+                >
                   {selectedProgram && directoryState.items.length > 0
                     ? `No matching records in ${selectedProgram}. Select "Show all programs" to view ${n(directoryState.items.length)} match(es) from other programs.`
                     : 'No matching student or alumni records found in the directory.'}
@@ -381,10 +416,10 @@ export default function RegistryOverview({ summary, onImportClick }) {
               ) : (
                 directoryItems.map((person) => (
                   <tr key={person.student_number} className="tr-row">
-                    <td className="td font-sans text-sm font-semibold tabular-nums text-[#202938]">
+                    <td className="td td-id">
                       {person.student_number}
                     </td>
-                    <td className="td font-sans text-sm font-semibold text-[#202938]">
+                    <td className="td td-medium">
                       {person.full_name}
                     </td>
                     <td className="td">
@@ -392,12 +427,12 @@ export default function RegistryOverview({ summary, onImportClick }) {
                         <span className="inline-flex shrink-0 items-center rounded border border-[#F3C5C5] bg-[#FDF2F2] px-2 py-0.5 font-sans text-xs font-bold tracking-wide text-[#800000]">
                           {person.program}
                         </span>
-                        <span className="whitespace-normal break-words font-sans text-xs text-[#64748B]">
+                        <span className="whitespace-normal break-words td-muted">
                           {getProgramDegreeTitle(person.program)}
                         </span>
                       </div>
                     </td>
-                    <td className="td text-center font-sans text-sm tabular-nums text-[#202938]">
+                    <td className="td text-center td-num">
                       {person.year_level ? `Year ${person.year_level}` : '—'}
                     </td>
                     <td className="td text-center">
@@ -405,7 +440,7 @@ export default function RegistryOverview({ summary, onImportClick }) {
                         {person.status === 'ENROLLED' ? 'Enrolled' : 'Alumni'}
                       </StatusBadge>
                     </td>
-                    <td className="td text-center font-sans text-xs">
+                    <td className="td text-center tabular-nums">
                       {person.is_expired ? (
                         <span className="font-semibold text-amber-800">
                           Expired{person.valid_until ? ` (${formatDate(person.valid_until)})` : ''}
@@ -415,7 +450,7 @@ export default function RegistryOverview({ summary, onImportClick }) {
                           Valid until {formatDate(person.valid_until)}
                         </span>
                       ) : (
-                        <span className="text-[#64748B]">Permanent alumni record</span>
+                        <span className="td-muted">Permanent alumni record</span>
                       )}
                     </td>
                   </tr>

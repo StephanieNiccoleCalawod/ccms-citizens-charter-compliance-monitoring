@@ -43,7 +43,7 @@ export function RowHeader({ className = '', children, ...props }) {
 export function GroupRow({ colSpan, children, className = '' }) {
   return (
     <tr className="bg-surface-muted">
-      <th scope="colgroup" colSpan={colSpan} className={`td text-left text-xs font-bold uppercase tracking-wide text-ink-muted ${className}`.trim()}>
+      <th scope="colgroup" colSpan={colSpan} className={`td py-2 text-left font-sans text-[11px] font-bold not-italic uppercase tracking-wider text-ink-muted ${className}`.trim()}>
         {children}
       </th>
     </tr>
@@ -56,7 +56,7 @@ export function Table({ head, children, busy = false, minWidth, label, className
     // relative: visually hidden labels (a sr-only header like "Details") are positioned inside this box, so they
     // scroll with the table instead of widening the whole page on a phone.
     <div className="relative overflow-x-auto">
-      <table className={`w-full text-left ${className}`.trim()} style={minWidth ? { minWidth } : undefined} aria-busy={busy || undefined} aria-label={label}>
+      <table className={`w-full font-sans text-left ${className}`.trim()} style={minWidth ? { minWidth } : undefined} aria-busy={busy || undefined} aria-label={label}>
         <thead className="table-head">{head}</thead>
         <tbody className="divide-y divide-table-divider bg-white">{children}</tbody>
       </table>

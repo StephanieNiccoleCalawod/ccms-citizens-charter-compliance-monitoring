@@ -10,6 +10,7 @@ import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import ErrorBanner from '../feedback/ErrorBanner.js';
 import { FieldError, RequiredMark } from '../forms/Field.js';
 import Button from '../ui/Button.js';
+import StatusBadge from '../ui/StatusBadge.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 import RatingsSection from '../ratings/RatingsSection.js';
@@ -17,6 +18,7 @@ import LockedNotice from '../access/LockedNotice.js';
 import { canRequestAccess } from '../../lib/ui/access.js';
 import SignatureLines from './SignatureLines.js';
 
+/** The one figures table, reused as-is for the on-screen view and the printed document - same rows, same totals, one calculation. */
 function FiguresTable({ report }) {
   const rows = figureRows(report);
   const heads = ['Received', 'On time', 'Late', 'Closed automatically', 'On-time rate', 'Cancelled', 'Auto-closed', 'Pending now', 'Not in registry', 'Queue wait'];
@@ -26,15 +28,25 @@ function FiguresTable({ report }) {
         <Table label="Report figures" minWidth="56rem" head={<tr><Th>Service</Th>{heads.map((h) => <Th key={h} align="right">{h}</Th>)}</tr>}>
           {rows.map((r) => (
             <tr key={r.key} className={r.total ? 'tr-summary font-bold' : 'tr-row'}>
-              <td className="td">{r.label}</td>
-              {[r.received, r.onTime, r.late, r.closedAutomatically, r.rate, r.cancelled, r.autoClosed, r.pending, r.notInRegistry, r.queueWait].map((v, i) => <td key={i} className="td text-right tabular-nums">{v}</td>)}
+              <td className={`td ${r.total ? 'font-bold' : 'td-primary'}`}>{r.label}</td>
+              {[r.received, r.onTime, r.late, r.closedAutomatically, r.rate, r.cancelled, r.autoClosed, r.pending, r.notInRegistry, r.queueWait].map((v, i) => <td key={i} className={`td text-right tabular-nums${!r.total && i === 4 ? ' font-semibold' : ''}`}>{v}</td>)}
             </tr>
           ))}
         </Table>
       </TableShell>
-      <p className="mt-2 text-xs text-ink-muted">{report.figures?.basis}</p>
-      <p className="mt-1 text-xs text-ink-muted">Queue wait: minutes from taking a queue ticket to the start of the transaction, for transactions started with a ticket. It is not part of compliance.</p>
     </div>
+  );
+}
+
+/** The report's methodology notes: the same text, whether the caller wraps it in a collapsible <details> (on screen) or shows it plainly (the printed document, which has no way to expand a closed disclosure). */
+function ReportNotesList({ report }) {
+  return (
+    <ul className="list-disc space-y-1 pl-5">
+      <li>Received counts by transaction start date; results are based on the transaction end date.</li>
+      <li>Auto-closed transactions count as late.</li>
+      <li>Queue wait: minutes from taking a queue ticket to the start of the transaction, for transactions started with a ticket. It is not part of compliance.</li>
+      {report.figures?.basis ? <li>{report.figures.basis}</li> : null}
+    </ul>
   );
 }
 
@@ -91,7 +103,37 @@ export default function ReportDetail({ report, role, generatedBy, onBack, onOpen
           {banner.targetId ? <button type="button" className="btn-link" onClick={() => onOpen({ report_id: banner.targetId })}>Open that version</button> : null}
         </div>
       ) : null}
-      <article className="report-print-area card space-y-4 p-6" data-testid="report-sheet">
+
+      {/* On-screen view: a clean app page focused on the data, not the formal document. */}
+      <header className="card space-y-3 p-4 sm:p-6 print:hidden" data-testid="report-page-header">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="title-page">Office Accomplishment Report</h1>
+            <p className="mt-0.5 text-base font-semibold text-ink">{report.office_name ?? 'Office'}</p>
+          </div>
+          <StatusBadge variant={report.status} data-testid="report-status-badge">{STATUS_LABEL[report.status] ?? report.status}</StatusBadge>
+        </div>
+        <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <div><dt className="inline font-semibold">Period: </dt><dd className="inline">{periodSentence(report)}</dd></div>
+          <div><dt className="inline font-semibold">Version: </dt><dd className="inline">{versionText(report).replace('Version ', '')}</dd></div>
+          <div><dt className="inline font-semibold">Generated: </dt><dd className="inline">{formatDateTime(report.generated_at)}</dd></div>
+          {report.published_at ? <div><dt className="inline font-semibold">Published: </dt><dd className="inline" data-testid="report-published-by">{manage ? publishedByText(report) : formatDateTime(report.published_at)}</dd></div> : null}
+        </dl>
+        {report.status === 'DRAFT' ? <p className="font-semibold text-amber-800">Draft: the figures are not official until the report is published.</p> : null}
+        {report.supersede_reason ? <p><span className="font-semibold">Reason for this version: </span>{report.supersede_reason}</p> : null}
+      </header>
+
+      <div className="card space-y-4 p-4 sm:p-6 print:hidden" data-testid="report-onscreen-body">
+        <FiguresTable report={report} />
+        <RatingsSection officeId={report.office_id} from={report.period_from} to={report.period_to} />
+        <details className="rounded-lg border border-line bg-surface-muted p-3 text-sm text-ink-muted" data-testid="report-notes">
+          <summary className="cursor-pointer font-semibold text-ink">Report notes</summary>
+          <div className="mt-2"><ReportNotesList report={report} /></div>
+        </details>
+      </div>
+
+      {/* The official printed document: shown only in Print / Save as PDF (see .report-print-area and @page report in globals.css). */}
+      <article className="report-print-area hidden card space-y-4 p-6 print:block" data-testid="report-sheet">
         <header className="flex items-start gap-3 border-b border-slate-200 pb-3">
           <img src="/pup-logo.png" alt="" className="h-12 w-12 shrink-0" />
           <div>
@@ -105,14 +147,16 @@ export default function ReportDetail({ report, role, generatedBy, onBack, onOpen
           <div><dt className="inline font-semibold">Version: </dt><dd className="inline">{versionText(report).replace('Version ', '')} ({STATUS_LABEL[report.status] ?? report.status})</dd></div>
           <div><dt className="inline font-semibold">Generated: </dt><dd className="inline">{formatDateTime(report.generated_at)}</dd></div>
           {generatedBy ? <div><dt className="inline font-semibold">Printed by: </dt><dd className="inline">{generatedBy}</dd></div> : null}
-          {report.published_at ? <div><dt className="inline font-semibold">Published: </dt><dd className="inline" data-testid="report-published-by">{manage ? publishedByText(report) : formatDateTime(report.published_at)}</dd></div> : null}
+          {report.published_at ? <div><dt className="inline font-semibold">Published: </dt><dd className="inline">{manage ? publishedByText(report) : formatDateTime(report.published_at)}</dd></div> : null}
           {report.status === 'DRAFT' ? <div className="sm:col-span-2 font-semibold text-amber-800">Draft: the figures are not official until the report is published.</div> : null}
           {report.supersede_reason ? <div className="sm:col-span-2"><dt className="inline font-semibold">Reason for this version: </dt><dd className="inline">{report.supersede_reason}</dd></div> : null}
         </dl>
         <FiguresTable report={report} />
         <RatingsSection officeId={report.office_id} from={report.period_from} to={report.period_to} />
+        <div className="text-xs text-ink-muted"><ReportNotesList report={report} /></div>
         <SignatureLines />
       </article>
+
       <ConfirmDialog open={confirm === 'publish'} title="Publish this report?" confirmLabel="Publish" busy={busy === 'publish'} busyLabel="Publishing…" onConfirm={doPublish} onCancel={() => setConfirm(null)}
         message="Publishing freezes these figures as the official record for this office and period. A later change needs a new version with a reason." />
       <ConfirmDialog open={confirm === 'correct'} title="Correct with a new version" confirmLabel="Start new version" busy={busy === 'correct'} busyLabel="Starting…" onConfirm={doCorrect} onCancel={() => setConfirm(null)}

@@ -17,6 +17,7 @@ import { CANCEL_MESSAGES, CANCEL_REASON_MAX, cancelErrorResult, cancelReconcileB
 import { HOLD_REASON_MAX, canHold, canResume, formatHeldMinutes, holdActionError, loadErrorResult, validateHoldReason } from '../../lib/ui/hold-transaction.js';
 import { REGISTRY_STATUS_LABELS, clientTypeLabel, formatStandardDuration, registryReasonLabel, statusLabel } from '../../lib/ui/start-transaction.js';
 import ElapsedTime from '../ui/ElapsedTime.js';
+import Checkbox from '../ui/Checkbox.js';
 import { officeName } from '../../lib/ui/names.js';
 import { starterLabels } from '../../lib/ui/account-position.js';
 import { queueWaitText } from '../../lib/ui/queue.js';
@@ -495,20 +496,14 @@ export default function TransactionDetail({ id, role, backHref, embedded = false
                 {reasonError ? <p id="complete-disapproval-reason-error" className="mt-1 text-xs text-red-700">{reasonError}</p> : null}
               </div>
               <div>
-                <label className="flex items-center gap-2 text-sm text-slate-800">
-                  <input id="complete-disapproval-notice" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={outcomeChoice.notice} disabled={busy === 'complete'} onChange={(e) => { const notice = e.target.checked; setOutcomeChoice((c) => ({ ...c, notice })); setOutcomeFieldErrors((x) => ({ ...x, disapproval_notice_given: undefined })); }} aria-invalid={noticeError ? true : undefined} aria-describedby={noticeError ? 'complete-disapproval-notice-error' : undefined} />
-                  {NOTICE_LABEL}
-                </label>
+                <Checkbox id="complete-disapproval-notice" checked={outcomeChoice.notice} disabled={busy === 'complete'} onChange={(e) => { const notice = e.target.checked; setOutcomeChoice((c) => ({ ...c, notice })); setOutcomeFieldErrors((x) => ({ ...x, disapproval_notice_given: undefined })); }} aria-invalid={noticeError ? true : undefined} aria-describedby={noticeError ? 'complete-disapproval-notice-error' : undefined} label={NOTICE_LABEL} />
                 {noticeError ? <p id="complete-disapproval-notice-error" className="mt-1 text-xs text-red-700">{noticeError}</p> : null}
               </div>
             </div>
           ) : null}
         </fieldset>
         <div className="mt-4 space-y-3">
-          <label className="flex items-center gap-2 text-sm text-slate-800">
-            <input id="complete-manual-end" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={manualEnd.enabled} disabled={busy === 'complete'} onChange={(e) => { setManualEnd({ ...EMPTY_MANUAL_END, enabled: e.target.checked }); setManualErrors({}); }} />
-            Enter end time manually
-          </label>
+          <Checkbox id="complete-manual-end" checked={manualEnd.enabled} disabled={busy === 'complete'} onChange={(e) => { setManualEnd({ ...EMPTY_MANUAL_END, enabled: e.target.checked }); setManualErrors({}); }} label="Enter end time manually" />
           {manualEnd.enabled ? (
             <div className="space-y-3">
               <p className="text-xs text-slate-500">Use this when the work finished earlier and is being recorded now. Times are Manila time (Asia/Manila). The end must be after the start ({formatDateTime(tx.started_at) || '-'}) and not in the future.</p>

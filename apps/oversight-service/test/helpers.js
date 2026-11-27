@@ -16,7 +16,18 @@ export const tokens = {};
 
 // CC056: a stand-in for the Identity switches (all off, the production default). Tests turn one on to check the staff views.
 export const switchState = { STAFF_BACKDATE: false, STAFF_HOLD_RESUME: false, STAFF_VIEW_COMPLAINTS: false, STAFF_VIEW_REPORTS: false };
-const fakeGate = { all: async () => ({ ...switchState }), isEnabled: async (key) => switchState[key] === true, reset() {} };
+const isSwitchOn = (key, officeId) => {
+  const val = switchState[key];
+  if (typeof val === 'boolean') return val;
+  if (val instanceof Set) return val.has(String(officeId ?? '').toLowerCase());
+  if (Array.isArray(val)) return val.map((id) => String(id).toLowerCase()).includes(String(officeId ?? '').toLowerCase());
+  return false;
+};
+export const fakeGate = {
+  all: async (officeId) => Object.fromEntries(Object.keys(switchState).map((k) => [k, isSwitchOn(k, officeId)])),
+  isEnabledForOffice: async (key, officeId) => isSwitchOn(key, officeId),
+  reset() {},
+};
 
 export async function setupTestEnv() {
   setSwitchGate(fakeGate);

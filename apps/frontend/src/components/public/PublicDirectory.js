@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import ErrorBanner from '../feedback/ErrorBanner.js';
+import EmptyState from '../ui/EmptyState.js';
 import SearchInput from '../forms/SearchInput.js';
 import Modal from '../modals/Modal.js';
 import Pager from '../navigation/Pager.js';
@@ -167,22 +168,32 @@ export default function PublicDirectory({ catalogue }) {
           {state.loading && !state.error ? <p className="mt-6 text-sm" style={{ color: MUTED }} role="status">Loading services…</p> : null}
 
           {empty ? (
-            <div className="mt-6 rounded-xl border bg-white px-6 py-12 text-center" style={{ borderColor: DIVIDER }}>
-              {state.all.length === 0 && !narrowed ? (
-                <>
-                  <p className="font-semibold">No services are published yet</p>
-                  <p className="mx-auto mt-1 max-w-sm text-sm" style={{ color: MUTED }}>The list of services will appear here once the offices publish them. Please check back soon.</p>
-                </>
-              ) : (
-                <>
-                  <p className="font-semibold">{search ? `No services match "${search}"` : 'No services match these filters'}</p>
-                  <p className="mx-auto mt-1 max-w-sm text-sm" style={{ color: MUTED }}>
-                    {search ? 'Check the spelling, or try a shorter service or office name.' : 'Try another office or processing time. Services with working days are not counted as under 10 or 20 minutes.'}
-                  </p>
-                  <button type="button" className="btn-primary mt-5" onClick={resetFilters}>Show all services</button>
-                </>
-              )}
-            </div>
+            state.all.length === 0 && !narrowed ? (
+              <EmptyState
+                role="status"
+                surface="card"
+                icon="document"
+                title="No Services Published Yet"
+                className="mt-6"
+              >
+                The list of services will appear here once the offices publish them. Please check back soon.
+              </EmptyState>
+            ) : (
+              <EmptyState
+                role="status"
+                surface="card"
+                variant="search"
+                title={search ? `No Services Match "${search}"` : 'No Matching Services Found'}
+                actionLabel="Show All Services"
+                onAction={resetFilters}
+                actionVariant="primary"
+                className="mt-6"
+              >
+                {search
+                  ? 'Check the spelling, or try a shorter service or office name.'
+                  : 'Try another office or processing time. Services with working days are not counted as under 10 or 20 minutes.'}
+              </EmptyState>
+            )
           ) : null}
 
           {items.length > 0 ? (

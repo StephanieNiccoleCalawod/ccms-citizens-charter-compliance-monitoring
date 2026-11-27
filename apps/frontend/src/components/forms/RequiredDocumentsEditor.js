@@ -1,6 +1,7 @@
 'use client';
 
 import { DOCUMENT_NAME_MAX, DOCUMENT_NOTES_MAX, addDocumentRow, removeDocumentRow, setDocumentRow } from '../../lib/ui/service-form.js';
+import Checkbox from '../ui/Checkbox.js';
 
 /**
  * The "Required documents" list on the Add Service form: one row per document with its name, a Required tick and optional notes.
@@ -32,10 +33,9 @@ export default function RequiredDocumentsEditor({ id, documents, onChange, descr
                 Remove
               </button>
             </div>
-            <label className="mt-2 inline-flex items-center gap-2 text-sm text-slate-700">
-              <input type="checkbox" checked={doc.is_mandatory} onChange={(e) => onChange(setDocumentRow(documents, index, { is_mandatory: e.target.checked }))} />
-              Required (the client must bring it)
-            </label>
+            <div className="mt-2">
+              <Checkbox label="Required (the client must bring it)" checked={doc.is_mandatory} onChange={(e) => onChange(setDocumentRow(documents, index, { is_mandatory: e.target.checked }))} />
+            </div>
             <div className="mt-2">
               <label className="mb-1 block text-xs font-medium text-slate-600" htmlFor={`${id}-doc-${index}-notes`}>
                 Notes (optional)

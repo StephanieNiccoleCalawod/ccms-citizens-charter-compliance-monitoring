@@ -84,7 +84,7 @@ function IssueTable({ issues }) {
           >
             {shown.map((issue, index) => (
               <tr key={`${issue.row}-${index}`} className="tr-row">
-                <td className="td font-semibold text-slate-900">{issue.row ?? '-'}</td>
+                <td className="td td-num font-semibold">{issue.row ?? '-'}</td>
                 <td className="td">{issue.message}</td>
               </tr>
             ))}

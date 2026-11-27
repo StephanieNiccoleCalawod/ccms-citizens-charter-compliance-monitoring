@@ -28,7 +28,7 @@ export default function PeopleReportSheet({ report, officeName, personName, gene
         <Table label="Report by person" minWidth="56rem" head={<tr><Th>Person</Th>{PEOPLE_HEADINGS.map((h) => <Th key={h} align="right">{h}</Th>)}</tr>}>
           {rows.map((r) => (
             <tr key={r.key} className={r.key === 'total' ? 'tr-summary font-bold' : 'tr-row'}>
-              <td className="td">{r.label}</td>
+              <td className={`td ${r.key === 'total' ? 'font-bold' : 'td-primary'}`}>{r.label}</td>
               {[r.handled, r.onTime, r.late, r.typical, r.paused, r.autoClosed, r.cancelled, r.open, r.rating, r.complaints].map((v, i) => <td key={i} className="td text-right tabular-nums">{v}</td>)}
             </tr>
           ))}

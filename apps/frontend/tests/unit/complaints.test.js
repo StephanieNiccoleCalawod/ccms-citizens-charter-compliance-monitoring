@@ -79,7 +79,10 @@ describe('complaint pages', () => {
     assert.doesNotMatch(text, /\bofficers?\b/i);
     assert.match(text, /Submit complaint/);
   });
-  it('the public header links to the form', () => {
-    assert.match(read('components/layout/PublicHeader.js'), /href="\/complaint"/);
+  it('the landing page links to the form, PublicHeader stays clean, and the complaint pages have a Back link', () => {
+    assert.match(read('components/public/LandingHero.js'), /href="\/complaint"/);
+    assert.doesNotMatch(read('components/layout/PublicHeader.js'), /href="\/complaint"|href="\/queue\/take"/);
+    assert.match(read('components/complaints/ComplaintForm.js'), /href="\/"[\s\S]*?&larr;<\/span>\s*Back/);
+    assert.match(read('components/complaints/ComplaintStatus.js'), /href="\/complaint"[\s\S]*?&larr;<\/span>\s*Back/);
   });
 });

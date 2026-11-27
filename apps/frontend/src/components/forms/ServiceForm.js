@@ -22,6 +22,7 @@ import {
 import DateHint from './DateHint.js';
 import { FieldError, FieldWarning, RequiredMark } from './Field.js';
 import ProcedureStepsEditor from './ProcedureStepsEditor.js';
+import Checkbox from '../ui/Checkbox.js';
 import RequiredDocumentsEditor from './RequiredDocumentsEditor.js';
 
 export { EMPTY_SERVICE_FORM, formToBody, serviceToForm } from '../../lib/ui/service-form.js';
@@ -321,10 +322,8 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
                 key={t.value}
                 className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-sm ${checked ? 'border-maroon-800 bg-maroon-50 font-semibold text-maroon-900' : 'border-slate-300 text-slate-700'}`}
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   data-field={index === 0 ? 'transaction_types' : undefined}
-                  className="mt-0.5 accent-pup-maroon"
                   checked={checked}
                   onChange={() => toggleType(t.value)}
                 />
@@ -352,20 +351,16 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
           aria-describedby={describe('fees')}
         />
         <FieldError id={`${id}-fees-error`}>{fieldError('fees')}</FieldError>
-        <label className="mt-2 flex items-start gap-2 text-sm text-slate-800" htmlFor={`${id}-has-fee`}>
-          <input
+        <div className="mt-2">
+          <Checkbox
             id={`${id}-has-fee`}
             data-field="has_fee"
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon"
+            label="This service charges a fee"
+            description="Turn this off for a free service. Staff can attach a proof of payment only when it is on."
             checked={form.has_fee !== false}
             onChange={(e) => change({ has_fee: e.target.checked }, 'has_fee')}
           />
-          <span>
-            This service charges a fee
-            <span className="block text-xs text-slate-500">Turn this off for a free service. Staff can attach a proof of payment only when it is on.</span>
-          </span>
-        </label>
+        </div>
       </div>
 
       <div>
@@ -399,10 +394,8 @@ export default function ServiceForm({ id, form, setForm, errors, offices, isNew,
               const checked = form.allowed_client_types.includes(t.value);
               return (
                 <label key={t.value} className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-sm ${checked ? 'border-maroon-800 bg-maroon-50 font-semibold text-maroon-900' : 'border-slate-300 text-slate-700'}`}>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     data-field={index === 0 ? 'allowed_client_types' : undefined}
-                    className="mt-0.5 accent-pup-maroon"
                     checked={checked}
                     onChange={() => toggleAllowed(t.value)}
                   />

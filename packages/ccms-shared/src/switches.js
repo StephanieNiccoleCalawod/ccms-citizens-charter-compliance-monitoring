@@ -16,14 +16,18 @@ export function identityBaseUrl(env = process.env) {
   return raw.endsWith('/api') ? raw : `${raw}/api`;
 }
 
+const officeKeyOf = (officeId) => (typeof officeId === 'string' ? officeId.trim().toLowerCase() : '');
+
 export function createSwitchGate({ env = process.env, fetchImpl = fetch, now = () => Date.now(), ttlMs = SWITCH_CACHE_MS, timeoutMs = 3000 } = {}) {
-  let cached = null; // { at, ttl, value }
-  let inflight = null;
-  async function load() {
+  const cache = new Map(); // officeKey -> { at, ttl, value }
+  const inflight = new Map(); // officeKey -> Promise
+
+  async function load(officeKey) {
     const base = identityBaseUrl(env);
     if (!base || !env.SERVICE_KEY) return { value: allOff(), ttl: FAILURE_CACHE_MS };
     try {
-      const response = await fetchImpl(`${base}/internal/permission-switches`, { headers: { accept: 'application/json', 'x-service-key': env.SERVICE_KEY }, signal: AbortSignal.timeout(timeoutMs) });
+      const query = officeKey ? `?office_id=${encodeURIComponent(officeKey)}` : '';
+      const response = await fetchImpl(`${base}/internal/permission-switches${query}`, { headers: { accept: 'application/json', 'x-service-key': env.SERVICE_KEY }, signal: AbortSignal.timeout(timeoutMs) });
       if (!response.ok) return { value: allOff(), ttl: FAILURE_CACHE_MS };
       const body = await response.json();
       const value = allOff();
@@ -33,23 +37,33 @@ export function createSwitchGate({ env = process.env, fetchImpl = fetch, now = (
       return { value: allOff(), ttl: FAILURE_CACHE_MS };
     }
   }
-  async function all() {
+
+  async function allForOffice(officeId) {
+    const officeKey = officeKeyOf(officeId);
+    const cached = cache.get(officeKey);
     if (cached && now() - cached.at < cached.ttl) return cached.value;
-    inflight ??= load().then((result) => { cached = { at: now(), ...result }; return result.value; }).finally(() => { inflight = null; });
-    return inflight;
+    let pending = inflight.get(officeKey);
+    if (!pending) {
+      pending = load(officeKey)
+        .then((result) => { cache.set(officeKey, { at: now(), ...result }); return result.value; })
+        .finally(() => { inflight.delete(officeKey); });
+      inflight.set(officeKey, pending);
+    }
+    return pending;
   }
+
   return {
-    all,
-    isEnabled: async (key) => SWITCH_KEYS.includes(key) && (await all())[key] === true,
-    reset: () => { cached = null; },
+    all: allForOffice,
+    isEnabledForOffice: async (key, officeId) => SWITCH_KEYS.includes(key) && (await allForOffice(officeId))[key] === true,
+    reset: () => { cache.clear(); },
   };
 }
 
 /**
- * Office Staff may do a gated action only when its switch is on. Every other role is not decided by a switch and passes
- * (their own rules apply elsewhere). 403 SWITCH_OFF otherwise, including when Identity cannot be reached.
+ * Office Staff may do a gated action only when its switch is on for their office. Every other role is not decided by a switch
+ * and passes (their own rules apply elsewhere). 403 SWITCH_OFF otherwise, including when Identity cannot be reached.
  */
 export async function requireSwitchForStaff(user, key, gate) {
   if (user?.role !== ROLES.OFFICE_STAFF) return;
-  if (!(await gate.isEnabled(key))) throw Errors.forbidden('This action is not turned on for staff accounts. Ask your Super Admin.', 'SWITCH_OFF');
+  if (!(await gate.isEnabledForOffice(key, user.officeId))) throw Errors.forbidden('This action is not turned on for staff accounts. Ask your Super Admin.', 'SWITCH_OFF');
 }

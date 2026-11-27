@@ -44,12 +44,17 @@ export function minutesText(minutes) {
   return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`;
 }
 
+/** Completed transactions of one bucket (the totals, or one group): outcomes.completed when the server sends it, else on-time + late + awaiting result. */
+function completedCountOf(b, r) {
+  return b.outcomes?.completed != null ? count(b.outcomes.completed) : count(r.on_time) + count(r.late) + count(r.awaiting_result);
+}
+
 /** The tiles of one bucket (the totals of the answer, or one group). */
 export function tilesFor(bucket) {
   // DEF-16: the KPI answer is { ..., totals, groups }; the figures are under `totals`. A bare bucket (one group) is read as it is.
   const b = bucket?.totals ?? bucket ?? {};
   const r = b.results ?? {};
-  const completedCount = b.outcomes?.completed != null ? count(b.outcomes.completed) : count(r.on_time) + count(r.late) + count(r.awaiting_result);
+  const completedCount = completedCountOf(b, r);
   return [
     { key: 'received', label: 'Received', value: count(b.received) },
     { key: 'completed', label: 'Completed', value: completedCount },
@@ -74,6 +79,7 @@ export function staffRows(groups, names = new Map()) {
       id: g.user_id,
       name: names.get(g.user_id) || 'Staff member',
       received: count(g.received),
+      completed: completedCountOf(g, g.results ?? {}),
       onTime: count(g.results?.on_time),
       late: count(g.results?.late_total ?? g.results?.late),
       rate: g.results?.on_time_rate ?? null,
@@ -116,6 +122,22 @@ export function officeRows(groups, names = new Map()) {
 
 /** Sort office comparison rows on Campus Home by any table column; rows without a rate stay last when sorting by rate. */
 export function sortOfficeRows(rows, sort) {
+  if (!sort?.key) return rows;
+  const dir = sort.direction === 'desc' ? -1 : 1;
+  return [...(rows ?? [])].sort((a, b) => {
+    if (sort.key === 'name') return dir * (a.name.localeCompare(b.name) || String(a.id).localeCompare(String(b.id)));
+    if (sort.key === 'rate') {
+      if (a.rate === null && b.rate === null) return a.name.localeCompare(b.name);
+      if (a.rate === null) return 1;
+      if (b.rate === null) return -1;
+    }
+    const diff = Number(a[sort.key] ?? 0) - Number(b[sort.key] ?? 0);
+    return diff !== 0 ? dir * diff : a.name.localeCompare(b.name);
+  });
+}
+
+/** Sort the per-staff table (Office Head) by any column; rows without a rate stay last when sorting by rate. Mirrors sortOfficeRows. */
+export function sortStaffRows(rows, sort) {
   if (!sort?.key) return rows;
   const dir = sort.direction === 'desc' ? -1 : 1;
   return [...(rows ?? [])].sort((a, b) => {

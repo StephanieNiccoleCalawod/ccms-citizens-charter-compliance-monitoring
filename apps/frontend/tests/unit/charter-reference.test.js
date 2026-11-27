@@ -48,7 +48,7 @@ describe('the service detail page opens its document and edit forms (source chec
   it('Add Document opens an empty form, Edit Document opens the chosen document, and Cancel and the close button end it', () => {
     assert.ok(page.includes('setDoc({ ...EMPTY_DOC })'));
     assert.ok(page.includes('setDoc({ document_id: d.document_id, document_name: d.document_name, is_mandatory: d.is_mandatory, notes: d.notes ?? \'\' })'));
-    assert.ok(page.includes('onClose={saving ? undefined : () => setDoc(null)}'));
+    assert.ok(page.includes('onClose={saving ? undefined : docGuard.requestClose}'));
     assert.ok(page.includes('{docErrors.document_name}'), 'the validation message shows under the name');
   });
 });

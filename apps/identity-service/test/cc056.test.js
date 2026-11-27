@@ -6,7 +6,7 @@ import { GET as meRoute } from '../src/app/api/me/route.js';
 import { PUT as passwordRoute } from '../src/app/api/me/password/route.js';
 import { GET as switchesGet, PUT as switchesPut } from '../src/app/api/permission-switches/route.js';
 import { POST as loginRoute } from '../src/app/api/auth/login/route.js';
-import { PASSWORD, outboxEvents, refreshTokenFrom, req, seedAccount, setupTestEnv, tokenFor } from './helpers.js';
+import { PASSWORD, OFFICE_A, OFFICE_B, OFFICE_INACTIVE, outboxEvents, refreshTokenFrom, req, seedAccount, setupTestEnv, tokenFor } from './helpers.js';
 
 let env;
 let ds;
@@ -15,20 +15,23 @@ before(async () => {
   ds = env.ds;
 });
 after(() => env?.cleanup());
-afterEach(() => ds.query(`UPDATE permission_switches SET enabled = false`));
+afterEach(async () => {
+  await ds.query('DELETE FROM permission_switch_offices');
+  await ds.query("UPDATE permission_switches SET enabled = false, scope = 'ALL'");
+});
 
-const as = async (role) => {
-  const account = await seedAccount(ds, { role });
+const as = async (role, officeId) => {
+  const account = await seedAccount(ds, { role, officeId });
   return { account, token: await tokenFor(account) };
 };
 const KEYS = ['STAFF_BACKDATE', 'STAFF_HOLD_RESUME', 'STAFF_VIEW_COMPLAINTS', 'STAFF_VIEW_REPORTS'];
 
 describe('CC056 permission switches', () => {
-  it('starts with exactly the four switches, all off', async () => {
+  it('starts with exactly the four switches, all off with ALL scope', async () => {
     const { token } = await as(ROLES.SUPER_ADMIN);
     const body = await (await switchesGet(req('GET', '/permission-switches', { token }))).json();
     assert.deepEqual(body.switches.map((s) => s.key).sort(), KEYS);
-    assert.ok(body.switches.every((s) => s.enabled === false));
+    assert.ok(body.switches.every((s) => s.enabled === false && s.scope === 'ALL' && Array.isArray(s.office_ids) && s.office_ids.length === 0));
     assert.ok(body.matrix.rows.length > 5);
     assert.ok(body.matrix.roles.some((r) => r.role === ROLES.OFFICE_STAFF));
   });
@@ -88,6 +91,82 @@ describe('CC056 permission switches', () => {
     const res = await internalRoute(req('GET', '/internal/permission-switches', { headers: { 'x-service-key': process.env.SERVICE_KEY } }));
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), { switches: { STAFF_BACKDATE: true, STAFF_HOLD_RESUME: false, STAFF_VIEW_COMPLAINTS: false, STAFF_VIEW_REPORTS: false } });
+  });
+
+  it('office-scoped switches persist specific offices, resolve per office in internal & /me, and preserve legacy boolean toggles', async () => {
+    const { token } = await as(ROLES.SUPER_ADMIN);
+    const priorAudits = (await outboxEvents(ds, 'PERMISSION_SWITCH_CHANGED')).filter((e) => e.entity_id === 'STAFF_BACKDATE');
+    const saveRes = await switchesPut(req('PUT', '/permission-switches', {
+      token,
+      body: { switches: { STAFF_BACKDATE: { enabled: true, scope: 'SPECIFIC', office_ids: [OFFICE_B.toUpperCase(), OFFICE_A, OFFICE_A] } } },
+    }));
+    assert.equal(saveRes.status, 200);
+    const savedBody = await saveRes.json();
+    const backdate = savedBody.switches.find((s) => s.key === 'STAFF_BACKDATE');
+    assert.equal(backdate.enabled, true);
+    assert.equal(backdate.scope, 'SPECIFIC');
+    assert.deepEqual(backdate.office_ids, [OFFICE_A, OFFICE_B]);
+
+    // Repeat identical update writes no extra audit event.
+    const allAudits = (await outboxEvents(ds, 'PERMISSION_SWITCH_CHANGED')).filter((e) => e.entity_id === 'STAFF_BACKDATE');
+    assert.equal(allAudits.length, priorAudits.length + 1);
+    const scopedAudits = allAudits.filter((e) => e.after_value?.scope === 'SPECIFIC');
+    assert.equal(scopedAudits.length, 1);
+    assert.deepEqual(scopedAudits[0].before_value, { switch: 'STAFF_BACKDATE', enabled: false, scope: 'ALL', office_ids: [] });
+    assert.deepEqual(scopedAudits[0].after_value, { switch: 'STAFF_BACKDATE', enabled: true, scope: 'SPECIFIC', office_ids: [OFFICE_A, OFFICE_B] });
+    await switchesPut(req('PUT', '/permission-switches', {
+      token,
+      body: { switches: { STAFF_BACKDATE: { enabled: true, scope: 'SPECIFIC', office_ids: [OFFICE_B, OFFICE_A] } } },
+    }));
+    assert.equal((await outboxEvents(ds, 'PERMISSION_SWITCH_CHANGED')).filter((e) => e.entity_id === 'STAFF_BACKDATE').length, priorAudits.length + 1);
+
+    // Internal endpoint resolves SPECIFIC switches per office_id, and never turns them on without a matching office.
+    const intFor = async (query = '') => (await internalRoute(req('GET', `/internal/permission-switches${query}`, { headers: { 'x-service-key': process.env.SERVICE_KEY } }))).json();
+    assert.equal((await intFor()).switches.STAFF_BACKDATE, false);
+    assert.equal((await intFor('?office_id=not-a-uuid')).switches.STAFF_BACKDATE, false);
+    assert.equal((await intFor(`?office_id=${OFFICE_A}`)).switches.STAFF_BACKDATE, true);
+    assert.equal((await intFor(`?office_id=${OFFICE_B.toUpperCase()}`)).switches.STAFF_BACKDATE, true);
+    assert.equal((await intFor(`?office_id=${OFFICE_INACTIVE}`)).switches.STAFF_BACKDATE, false);
+
+    // /me reflects office-scoped switches for Office Staff in allowed vs excluded offices.
+    const staffA = await as(ROLES.OFFICE_STAFF, OFFICE_A);
+    const staffC = await as(ROLES.OFFICE_STAFF, OFFICE_INACTIVE);
+    const meA = await (await meRoute(req('GET', '/me', { token: staffA.token }))).json();
+    const meC = await (await meRoute(req('GET', '/me', { token: staffC.token }))).json();
+    assert.equal(meA.what_i_can_do.find((r) => r.switch_key === 'STAFF_BACKDATE').switch_on, true);
+    assert.equal(meC.what_i_can_do.find((r) => r.switch_key === 'STAFF_BACKDATE').switch_on, false);
+
+    // Legacy boolean toggle keeps existing scope/offices intact when turning off and back on.
+    await switchesPut(req('PUT', '/permission-switches', { token, body: { switches: { STAFF_BACKDATE: false } } }));
+    assert.equal((await intFor(`?office_id=${OFFICE_A}`)).switches.STAFF_BACKDATE, false);
+    const afterBoolOff = await (await switchesGet(req('GET', '/permission-switches', { token }))).json();
+    assert.equal(afterBoolOff.switches.find((s) => s.key === 'STAFF_BACKDATE').scope, 'SPECIFIC');
+    assert.deepEqual(afterBoolOff.switches.find((s) => s.key === 'STAFF_BACKDATE').office_ids, [OFFICE_A, OFFICE_B]);
+    await switchesPut(req('PUT', '/permission-switches', { token, body: { switches: { STAFF_BACKDATE: true } } }));
+    assert.equal((await intFor(`?office_id=${OFFICE_A}`)).switches.STAFF_BACKDATE, true);
+    assert.equal((await intFor(`?office_id=${OFFICE_INACTIVE}`)).switches.STAFF_BACKDATE, false);
+
+    // Disabling with ALL resets scope and clears permission_switch_offices.
+    await switchesPut(req('PUT', '/permission-switches', { token, body: { switches: { STAFF_BACKDATE: { enabled: false, scope: 'ALL', office_ids: [] } } } }));
+    const resetView = await (await switchesGet(req('GET', '/permission-switches', { token }))).json();
+    assert.equal(resetView.switches.find((s) => s.key === 'STAFF_BACKDATE').scope, 'ALL');
+    assert.deepEqual(resetView.switches.find((s) => s.key === 'STAFF_BACKDATE').office_ids, []);
+    assert.equal((await ds.query('SELECT count(*)::int AS n FROM permission_switch_offices'))[0].n, 0);
+  });
+
+  it('rejects invalid scope or office_ids payloads without modifying anything', async () => {
+    const { token } = await as(ROLES.SUPER_ADMIN);
+    for (const bad of [
+      { switches: { STAFF_BACKDATE: { enabled: true, scope: 'SPECIFIC', office_ids: [] } } },
+      { switches: { STAFF_BACKDATE: { enabled: true, scope: 'SPECIFIC', office_ids: ['not-a-uuid'] } } },
+      { switches: { STAFF_BACKDATE: { enabled: true, scope: 'ALL', office_ids: [OFFICE_A] } } },
+      { switches: { STAFF_BACKDATE: { enabled: true, scope: 'TEAM' } } },
+      { switches: { STAFF_BACKDATE: { enabled: 'yes', scope: 'ALL' } } },
+      { switches: { STAFF_BACKDATE: { enabled: true, scope: 'ALL', extra: 1 } } },
+    ]) {
+      const res = await switchesPut(req('PUT', '/permission-switches', { token, body: bad }));
+      assert.equal(res.status, 400, JSON.stringify(bad));
+    }
   });
 });
 

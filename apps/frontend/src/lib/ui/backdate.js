@@ -1,3 +1,5 @@
+import { ROLES } from 'ccms-shared/roles';
+
 // Rules for recording a past transaction (CC026), as pure functions (no React, no network). The clock is passed in.
 //
 // The Operations service owns everything that matters: it reads started_at / ended_at, refuses the future and an end that is
@@ -144,17 +146,13 @@ export function completionBody(manual) {
 }
 
 /**
- * S8-53: may this person record a past transaction for this office? The Super Admin always may; anyone else only when the office's
- * switch is on. An office the screen could not read stays open (the server still refuses with OFFICE_BACKDATE_NOT_ALLOWED).
+ * May this person record a past transaction? Super Admin and Office Head always may (their roles are never switch-gated);
+ * Office Staff only when the office-scoped STAFF_BACKDATE switch in GET /me ("what_i_can_do") is on (or they hold a
+ * RECORD_PAST_TRANSACTIONS extra-access grant, checked separately). Anything unclear stays closed for Office Staff
+ * (the server still enforces both the switch and the grant).
  */
-export function officeAllowsPast(office, role) {
-  if (role === 'SUPER_ADMIN') return true;
-  if (!office || typeof office.allow_backdated_transactions !== 'boolean') return true;
-  return office.allow_backdated_transactions;
+export function roleAllowsPast(me, role) {
+  if (role === ROLES.SUPER_ADMIN || role === ROLES.OFFICE_HEAD) return true;
+  if (role !== ROLES.OFFICE_STAFF) return false;
+  return (me?.what_i_can_do ?? []).some((item) => item.switch_key === 'STAFF_BACKDATE' && item.switch_on === true);
 }
-
-export const BACKDATE_OFFICE_MESSAGES = {
-  saved: (name, on) => `${name} can ${on ? 'now' : 'no longer'} record past transactions.`,
-  failed: 'The change was not saved. Please try again.',
-  denied: 'Only a Super Admin can change this.',
-};

@@ -12,6 +12,7 @@ import {
 } from '../../lib/ui/forecast.js';
 import { notify } from '../../lib/ui/notify.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
+import EmptyState from '../ui/EmptyState.js';
 import TableShell, { Table, Th } from '../ui/TableShell.js';
 import CalculationInfo from '../analytics/CalculationInfo.js';
 import RequestForecastChart from './RequestForecastChart.js';
@@ -83,7 +84,7 @@ function ForecastTable({ run, officeName }) {
         >
           {visible.map((r) => (
             <tr key={`${r.kind}-${r.date}`} className={`tr-row ${r.kind === 'Expected' ? 'bg-[#FFFBEB]' : ''}`} data-testid="forecast-table-row">
-              <td className="td">{r.dateText}</td>
+              <td className="td td-num">{r.dateText}</td>
               <td className="td text-right tabular-nums">{r.actual == null ? '-' : n(r.actual)}</td>
               <td className="td text-right font-semibold tabular-nums">{r.expected == null ? '-' : n(r.expected)}</td>
               <td className="td text-right tabular-nums text-ink-muted">{r.range || '-'}</td>
@@ -239,8 +240,11 @@ export default function RequestForecastSection({
         <div className="min-w-[14rem] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 id="request-forecast-heading" className={embedded ? 'title-card text-[#202938]' : 'text-base font-semibold text-slate-900'}>
-              Expected Requests
+              Expected Requests Forecast (Recorded vs. Projected)
             </h3>
+            <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 font-sans text-[10px] font-bold uppercase tracking-wide text-violet-700">
+              ARIMA + Academic Calendar Model
+            </span>
             <CalculationInfo calculation={activeRun?.calculations?.forecast ?? null} subject="the expected requests" testId="forecast-calc" />
           </div>
           {selectedOfficeName ? (
@@ -303,7 +307,9 @@ export default function RequestForecastSection({
       {/* Content */}
       {!officeId && !activeLoading && (
         <div className={boxClass} data-testid="forecast-pick-office">
-          <p className="text-sm text-slate-600">Choose an office above to see how many requests to expect next week.</p>
+          <EmptyState surface="subtle" size="compact" icon="building" title="Select an Office">
+            Choose an office above to see how many requests to expect next week.
+          </EmptyState>
         </div>
       )}
       {activeLoading && <LoadingSkeleton />}
@@ -320,8 +326,17 @@ export default function RequestForecastSection({
 
           {emptyMessage && (
             <div className={boxClass} data-testid={activeRun.status === 'TOO_FEW' ? 'forecast-too-few' : 'forecast-not-enough-history'}>
-              <p className="text-sm text-slate-700">{emptyMessage}</p>
-              {activeRun.status === 'TOO_FEW' ? <p className="mt-1 text-xs text-slate-500">Choose All services to see the office forecast.</p> : null}
+              <EmptyState
+                surface="subtle"
+                size="compact"
+                icon="chart"
+                title={activeRun.status === 'TOO_FEW' ? 'Not Enough Service History' : 'Not Enough Request History Yet'}
+                supportingInfo={activeRun.status === 'TOO_FEW' ? 'Select "All services (office level)" above to view the office-wide forecast.' : null}
+                actionLabel={activeRun.status === 'TOO_FEW' && serviceId ? 'Show Office Forecast' : null}
+                onAction={activeRun.status === 'TOO_FEW' && serviceId ? () => setServiceId('') : null}
+              >
+                {emptyMessage}
+              </EmptyState>
             </div>
           )}
 
@@ -362,7 +377,16 @@ export default function RequestForecastSection({
 
       {!activeLoading && !activeError && officeId && !activeRun && (
         <div className={boxClass} data-testid="forecast-empty">
-          <p className="text-sm text-slate-500">No forecast available yet. One is created automatically every night; a Super Admin can also recalculate it.</p>
+          <EmptyState
+            surface="subtle"
+            size="compact"
+            icon="chart"
+            title="No Forecast Available Yet"
+            actionLabel={isSuperAdmin ? 'Recalculate' : null}
+            onAction={isSuperAdmin ? () => setConfirmRetrain(true) : null}
+          >
+            No forecast available yet. One is created automatically every night; a Super Admin can also recalculate it.
+          </EmptyState>
         </div>
       )}
 

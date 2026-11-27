@@ -354,15 +354,15 @@ describe('Add Transaction opens in a modal on the Transactions page (source chec
   });
   it('the modal has the width of the other CCMS form modals (max-w-2xl), an X, is full screen on mobile and shows the one shared form', () => {
     assert.ok(list.includes('title="Add Transaction"'));
-    for (const flag of ['widthClass="max-w-2xl"', 'showClose', 'fullScreenOnMobile', 'onCancel={closeAdd}']) assert.ok(list.includes(flag), flag);
+    for (const flag of ['widthClass="max-w-2xl"', 'showClose', 'fullScreenOnMobile', 'onCancel={addGuard.requestClose}']) assert.ok(list.includes(flag), flag);
     assert.ok(read('src/app/services/page.js').includes('widthClass="max-w-2xl"'), 'same width as Add Service');
     assert.ok(list.includes('<StartTransactionForm key="add" user={user} embedded'));
     assert.ok(page.includes('<StartTransactionForm user={user} />'), 'the separate page uses the same component');
   });
   it('closing with entered data asks first, and cannot happen while the request is sending', () => {
-    assert.ok(list.includes('onClose={addBusy ? undefined : closeAdd}'));
-    assert.ok(list.includes('if (addDirty) setDiscardAsk(true);'));
-    assert.ok(list.includes('title="Discard this transaction?"'));
+    assert.ok(list.includes('onClose={addBusy ? undefined : addGuard.requestClose}'));
+    assert.ok(list.includes('const addGuard = useDiscardGuard(addDirty, () => { setAddOpen(false); setAddDirty(false); });'));
+    assert.ok(list.includes('<DiscardChangesDialog open={addGuard.askDiscard} onConfirm={addGuard.confirmDiscard} onCancel={addGuard.cancelDiscard} />'));
   });
   it('on success the modal closes, a success message with the tracking number shows, and the list is read again from page 1 with the same filters', () => {
     assert.ok(form.includes('if (embedded && onCreated) onCreated(transaction);'));
@@ -512,6 +512,6 @@ describe('Late entry wording (source checks, not a browser)', () => {
     assert.ok(!form.includes('All times are Manila time (Asia/Manila). The standard in force'));
   });
   it('the checkbox is the same one: same id, same toggle', () => {
-    assert.ok(form.includes('id="start-past" type="checkbox"') && form.includes('checked={past.enabled} onChange={(e) => togglePast(e.target.checked)}'));
+    assert.ok(form.includes('id="start-past"') && form.includes('checked={past.enabled}') && form.includes('onChange={(e) => togglePast(e.target.checked)}'));
   });
 });

@@ -27,7 +27,7 @@ export default function KeyInsightsPanel({ insights = [] }) {
     <section aria-labelledby="key-insights-title" className="card flex h-full flex-col min-w-0 p-5" data-testid="insights-sentences">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <h3 id="key-insights-title" className="title-card text-[#202938]">Key Insights</h3>
+          <h3 id="key-insights-title" className="title-card text-[#202938]">Key Operational Insights</h3>
           <p className="mt-1 font-sans text-xs text-[#64748B] sm:text-sm">
             Automatically detected findings that need your attention.
           </p>
@@ -45,8 +45,16 @@ export default function KeyInsightsPanel({ insights = [] }) {
       </div>
 
       {insights.length === 0 ? (
-        <EmptyState role="status" data-testid="insights-sentences-empty" className="mt-4 flex-1">
-          No findings to report yet.
+        <EmptyState
+          role="status"
+          surface="subtle"
+          size="compact"
+          variant="success"
+          title="No Operational Warnings"
+          data-testid="insights-sentences-empty"
+          className="mt-4 flex flex-1"
+        >
+          No compliance, volume, or deadline-risk warnings require attention right now.
         </EmptyState>
       ) : (
         <ul className="mt-4 flex-1 space-y-3">
@@ -60,7 +68,7 @@ export default function KeyInsightsPanel({ insights = [] }) {
                 <li
                   key={s.id}
                   data-testid="insight-card-sla"
-                  className="rounded-xl border border-[#F3C5C5] bg-[#FDF2F2]/80 p-4"
+                  className="rounded-lg border border-l-4 border-[#E2E8F0] border-l-[#800000] bg-white p-4"
                 >
                   <div className="flex items-start gap-3">
                     <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#F3C5C5] bg-white text-[#800000]">
@@ -93,10 +101,10 @@ export default function KeyInsightsPanel({ insights = [] }) {
               <li
                 key={s.id}
                 data-testid={`insight-card-${s.kind || 'attention'}`}
-                className={`rounded-xl border p-3.5 ${
+                className={`rounded-lg border border-l-4 bg-white p-3.5 ${
                   isPositive
-                    ? 'border-emerald-200 bg-emerald-50/50'
-                    : 'border-[#E2E8F0] bg-[#F8FAFC]'
+                    ? 'border-[#E2E8F0] border-l-emerald-500'
+                    : 'border-[#E2E8F0] border-l-amber-400'
                 }`}
               >
                 <div className="flex items-start gap-3">

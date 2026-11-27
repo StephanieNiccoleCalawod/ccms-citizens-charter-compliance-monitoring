@@ -9,7 +9,9 @@ import { confirmDelete } from '../../lib/ui/notice-delete.js';
 import NoticeDetailModal from './NoticeDetailModal.js';
 import StatCard from '../ui/StatCard.js';
 import Button from '../ui/Button.js';
+import Checkbox from '../ui/Checkbox.js';
 import EmptyState from '../ui/EmptyState.js';
+import LoadingState from '../ui/LoadingState.js';
 
 const ICONS = {
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
@@ -127,14 +129,32 @@ export default function NotificationCenter() {
         {shown.length > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-slate-50 px-5 py-2.5" data-testid="nc-select-bar">
             <label className="flex cursor-pointer items-center gap-2.5 text-sm font-semibold text-slate-700">
-              <input type="checkbox" checked={allChosen} onChange={toggleAll} className="h-4 w-4 rounded border-slate-300 accent-maroon-800" data-testid="nc-select-all" />
+              <Checkbox checked={allChosen} onChange={toggleAll} data-testid="nc-select-all" />
               {chosen.length ? `${chosen.length} selected` : 'Select all'}
             </label>
             <Button variant="danger" size="sm" disabled={chosen.length === 0} onClick={() => removeKeys(chosen)} data-testid="nc-delete-selected">Delete selected{chosen.length ? ` (${chosen.length})` : ''}</Button>
           </div>
         ) : null}
         {shown.length === 0 ? (
-          <div className="p-6">{state.loaded ? <EmptyState role="status" title={state.items.length ? 'No notices match' : 'No notifications'}>{state.items.length ? 'Try another word or filter.' : 'New notices will appear here.'}</EmptyState> : <p className="text-sm text-slate-600">Loading…</p>}</div>
+          <div className="p-6">
+            {state.loaded ? (
+              <EmptyState
+                role="status"
+                surface="plain"
+                variant={state.items.length ? 'search' : 'neutral'}
+                icon={state.items.length ? 'search' : 'bell'}
+                title={state.items.length ? 'No Matching Notifications' : 'No Notifications Yet'}
+                actionLabel={state.items.length ? 'Reset Filters' : null}
+                onAction={state.items.length ? () => { setQuery(''); setTab('all'); } : null}
+              >
+                {state.items.length ? 'No notifications match your current search or filter tab.' : 'New notices will appear here.'}
+              </EmptyState>
+            ) : (
+              <div className="flex justify-center py-4">
+                <LoadingState>Loading notifications…</LoadingState>
+              </div>
+            )}
+          </div>
         ) : (
           <ul className="space-y-3 p-4">
             {shown.map((item) => {
@@ -143,7 +163,7 @@ export default function NotificationCenter() {
               return (
                 <li key={item.key} className="flex items-stretch gap-3">
                   <label className="flex shrink-0 cursor-pointer items-center pl-1" aria-label={`Select notification: ${look.label}`}>
-                    <input type="checkbox" checked={selected.has(item.key)} onChange={() => toggle(item.key)} className="h-4 w-4 rounded border-slate-300 accent-maroon-800" data-testid="nc-select" />
+                    <Checkbox checked={selected.has(item.key)} onChange={() => toggle(item.key)} data-testid="nc-select" />
                   </label>
                   <button type="button" onClick={() => { mark([item.key]); setDetail(item); }} data-testid="nc-item"
                     className={`flex min-w-0 flex-1 items-start gap-4 rounded-xl text-left border p-4 hover:border-maroon-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-maroon-700 ${item.read ? 'border-line bg-white' : 'border-maroon-100 bg-maroon-50/60'}`}>

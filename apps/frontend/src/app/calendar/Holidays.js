@@ -11,6 +11,8 @@ import { RequiredMark } from '../../components/forms/Field.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppliesToSetting from '../../components/calendar/AppliesToSetting.js';
 import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
+import DiscardChangesDialog from '../../components/dialogs/DiscardChangesDialog.js';
+import EmptyState from '../../components/ui/EmptyState.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import DateHint from '../../components/forms/DateHint.js';
 import Modal from '../../components/modals/Modal.js';
@@ -19,9 +21,11 @@ import { CATALOGUE_SETTINGS_API, OFFICES_API } from '../../lib/api/catalogue.js'
 import { apiFetch } from '../../lib/auth/session.js';
 import { suspensionTimes, timeInputValue, unmatchedErrorMessages } from '../../lib/ui/time-input.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
+import { useDiscardGuard } from '../../lib/ui/useDiscardGuard.js';
 import StatusBanner from '../../components/feedback/StatusBanner.js';
 import { FieldError } from '../../components/forms/Field.js';
 import IconButton from '../../components/ui/IconButton.js';
+import Checkbox from '../../components/ui/Checkbox.js';
 import {
   REASON_CATEGORIES,
   REASON_NOT_STORED_NOTICE,
@@ -79,6 +83,7 @@ export default function Holidays({ canWrite = false, onChanged }) {
   const [setting, setSetting] = useState({ loading: true, enabled: false, error: null });
   const enabled = setting.enabled === true;
   const formDirty = useFormDirty(form);
+  const formGuard = useDiscardGuard(formDirty, () => setForm(null));
   // CC058: set when a save came back without the reason fields, i.e. the calendar service did not keep them (see lib/ui/suspension-reason.js).
   const [reasonNotice, setReasonNotice] = useState(false);
 
@@ -381,7 +386,15 @@ export default function Holidays({ canWrite = false, onChanged }) {
                   {formatDate(selected)}
                 </h3>
                 {selectedEntries.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-500">No holidays on this date.</p>
+                  <EmptyState
+                    surface="subtle"
+                    size="compact"
+                    icon="calendar"
+                    title="No Holidays on This Date"
+                    className="mt-3"
+                  >
+                    No holidays or suspensions fall on {formatDate(selected)}.
+                  </EmptyState>
                 ) : (
                   <ul className="mt-3 space-y-3">
                     {selectedEntries.map((entry) => {
@@ -462,7 +475,29 @@ export default function Holidays({ canWrite = false, onChanged }) {
             {state.loading ? (
               <p className="py-8 text-center text-sm text-slate-500">Loading entries…</p>
             ) : visibleRows.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-700">No holidays in registry</p>
+              filters.search.trim() || filters.type || appliesFilter ? (
+                <EmptyState
+                  surface="subtle"
+                  size="compact"
+                  variant="search"
+                  title="No Matching Holidays Found"
+                  actionLabel="Clear Filters"
+                  onAction={() => setFilters({ search: '', type: '', applies_to: '' })}
+                  className="mt-3"
+                >
+                  No holidays or suspensions match your active search or filters for {MONTH_NAMES[month.month - 1]} {month.year}.
+                </EmptyState>
+              ) : (
+                <EmptyState
+                  surface="subtle"
+                  size="compact"
+                  icon="calendar"
+                  title="No Holidays in Registry"
+                  className="mt-3"
+                >
+                  No holidays or suspensions are recorded for {MONTH_NAMES[month.month - 1]} {month.year}.
+                </EmptyState>
+              )
             ) : (
               <ul className="mt-3 divide-y divide-slate-100">
                 {visibleRows.map(({ entry, date }) => {
@@ -589,10 +624,10 @@ export default function Holidays({ canWrite = false, onChanged }) {
             open={form !== null}
             title={form?.id ? 'Edit holiday or suspension' : 'Add holiday or suspension'}
             dirty={formDirty}
-            onClose={saving ? undefined : () => setForm(null)}
+            onClose={saving ? undefined : formGuard.requestClose}
             footer={
               <>
-                <button type="button" className="btn-secondary" onClick={() => setForm(null)} disabled={saving}>
+                <button type="button" className="btn-secondary" onClick={formGuard.requestClose} disabled={saving}>
                   Cancel
                 </button>
                 <SubmitButton form="exception-form" busy={saving} label="Save" busyLabel={form?.id ? 'Updating…' : 'Creating…'} />
@@ -767,16 +802,15 @@ export default function Holidays({ canWrite = false, onChanged }) {
                   </div>
                 ) : null}
                 <div>
-                  <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" checked={form.is_recurring} disabled={form.exception_type === 'SUSPENSION'} onChange={(e) => setForm({ ...form, is_recurring: e.target.checked })} />
-                    Repeats every year on this date
-                  </label>
+                  <Checkbox label="Repeats every year on this date" checked={form.is_recurring} disabled={form.exception_type === 'SUSPENSION'} onChange={(e) => setForm({ ...form, is_recurring: e.target.checked })} />
                   {form.exception_type === 'SUSPENSION' ? <p className="mt-1 text-xs text-slate-500">Suspensions cannot be recurring.</p> : null}
                   {fieldErrors.is_recurring ? <p className="mt-1 text-xs text-red-700">{fieldErrors.is_recurring}</p> : null}
                 </div>
               </form>
             ) : null}
           </Modal>
+
+          <DiscardChangesDialog open={formGuard.askDiscard} onConfirm={formGuard.confirmDiscard} onCancel={formGuard.cancelDiscard} />
 
           <ConfirmDialog
             open={confirm !== null}

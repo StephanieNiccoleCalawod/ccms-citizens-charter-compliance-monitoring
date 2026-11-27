@@ -18,6 +18,7 @@ import { ROLES, ROLE_LABELS, ROLE_LIST, isOfficeBound } from 'ccms-shared/roles'
 import AppShell from '../../components/layout/AppShell.js';
 import ClerkAccessPanel from '../../components/account/ClerkAccessPanel.js';
 import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
+import DiscardChangesDialog from '../../components/dialogs/DiscardChangesDialog.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import Modal from '../../components/modals/Modal.js';
 import RowActionMenu from '../../components/ui/RowActionMenu.js';
@@ -35,6 +36,7 @@ import { apiFetch } from '../../lib/auth/session.js';
 import { authProvider, clerkEnabled } from '../../lib/auth/provider.js';
 import { accountPasswordMode } from '../../lib/ui/clerk-access.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
+import { useDiscardGuard } from '../../lib/ui/useDiscardGuard.js';
 import { POSITION_MAX, accountBody, accountToForm, accountsParams, positionCounter, positionError, positionLabel } from '../../lib/ui/account-position.js';
 import { FieldError } from '../../components/forms/Field.js';
 
@@ -64,6 +66,7 @@ function AccountsManager() {
   useEffect(() => { loadGrants(); }, [loadGrants]);
   const grantsOf = (account) => grants.filter((g) => g.account_id === account.account_id);
   const formDirty = useFormDirty(form);
+  const formGuard = useDiscardGuard(formDirty, () => setForm(null));
 
   // Fallback focus. The control that started an action (a row's "⋮" button, or Add Account) is
   // remembered in pendingTrigger. Once the action has finished and its dialogs are closed, and ONLY
@@ -306,13 +309,40 @@ function AccountsManager() {
         >
               {list.loading ? (
                 <TableState colSpan={7} kind="loading">Loading accounts…</TableState>
+              ) : list.error && list.items.length === 0 ? (
+                <TableState colSpan={7} kind="error">{list.error}</TableState>
               ) : list.items.length === 0 ? (
-                <TableState colSpan={7}>No accounts match.</TableState>
+                filters.q.trim() || filters.role || filters.office_id || filters.status !== 'active' ? (
+                  <TableState
+                    colSpan={7}
+                    variant="search"
+                    title="No Matching Accounts Found"
+                    actionLabel="Clear Filters"
+                    onAction={() => {
+                      setFilters({ ...NO_FILTERS });
+                      setAppliedQuery('');
+                      setPage(1);
+                    }}
+                  >
+                    No accounts match your current search or filter selections.
+                  </TableState>
+                ) : (
+                  <TableState
+                    colSpan={7}
+                    icon="users"
+                    title="No Accounts Yet"
+                    actionLabel="+ Add Account"
+                    onAction={() => openForm(null)}
+                    actionVariant="primary"
+                  >
+                    No user accounts have been created yet.
+                  </TableState>
+                )
               ) : (
                 pageSlice(list.items, page, pageSize).rows.map((account) => (
                   <tr key={account.account_id} className={`tr-row ${account.is_active ? '' : 'bg-table-hover'}`}>
                     <td className="td">
-                      <p className="font-semibold text-slate-900">{account.full_name}</p>
+                      <p className="td-primary">{account.full_name}</p>
                       <p className="text-xs text-slate-500">{account.employee_no}</p>
                     </td>
                     <td className="td" data-testid="account-position">{positionLabel(account.position)}</td>
@@ -352,10 +382,10 @@ function AccountsManager() {
         open={form !== null}
         title={form?.id ? 'Edit Account' : 'Add Account'}
         dirty={formDirty}
-        onClose={busy ? undefined : () => setForm(null)}
+        onClose={busy ? undefined : formGuard.requestClose}
         footer={
           <>
-            <button type="button" className="btn-secondary" onClick={() => setForm(null)} disabled={busy}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={formGuard.requestClose} disabled={busy}>Cancel</button>
             <SubmitButton form="account-form" busy={busy} label="Save" busyLabel={form?.id ? 'Updating…' : 'Creating…'} />
           </>
         }
@@ -439,6 +469,7 @@ function AccountsManager() {
       </Modal>
 
       {accessFor ? <AccountAccessModal account={accessFor} grants={grantsOf(accessFor)} onClose={() => setAccessFor(null)} onChanged={loadGrants} /> : null}
+      <DiscardChangesDialog open={formGuard.askDiscard} onConfirm={formGuard.confirmDiscard} onCancel={formGuard.cancelDiscard} />
       <ConfirmDialog
         open={confirm !== null}
         title={confirm?.type === 'reset' ? 'Send password reset link?' : 'Deactivate account?'}

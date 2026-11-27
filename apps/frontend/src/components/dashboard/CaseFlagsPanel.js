@@ -17,21 +17,21 @@ export default function CaseFlagsPanel({ overview, ratings = [], ratingsLoading 
   // visible even when every list is still empty — otherwise a still-loading "low rating" list looks identical to "no flags at all".
   if (!holds.length && !cancellations.length && !low.length && !ratingsLoading) return null;
   const holdCols = [
-    { key: 'tracking_no', header: 'Transaction', render: (r) => (r.can_open ? <Link href={`/transactions/${encodeURIComponent(r.transaction_id)}`} className="row-action px-0 font-mono">{r.tracking_no}</Link> : <span className="font-mono">{r.tracking_no}</span>) },
-    { key: 'service', header: 'Service', render: (r) => nameOf(r.service_id, names.services, r.service_code) },
-    { key: 'held', header: 'On hold', align: 'right', render: (r) => holdMinutesText(r.held_minutes) },
+    { key: 'tracking_no', header: 'Transaction', render: (r) => (r.can_open ? <Link href={`/transactions/${encodeURIComponent(r.transaction_id)}`} className="row-action px-0 tabular-nums">{r.tracking_no}</Link> : <span className="td-id">{r.tracking_no}</span>) },
+    { key: 'service', header: 'Service', render: (r) => <span className="td-medium">{nameOf(r.service_id, names.services, r.service_code)}</span> },
+    { key: 'held', header: 'On hold', align: 'right', render: (r) => <span className="td-num font-semibold">{holdMinutesText(r.held_minutes)}</span> },
   ];
   const cancelRows = cancellations.flatMap((o) => (o.days ?? []).map((d) => ({ ...d, office_id: o.office_id, usual_max: o.usual_max })));
   const cancelCols = [
-    { key: 'office', header: 'Office', render: (r) => nameOf(r.office_id, names.offices) },
-    { key: 'day', header: 'Day', render: (r) => formatDate(r.day) },
-    { key: 'n', header: 'Cancelled or auto-closed', align: 'right', render: (r) => r.cancelled },
-    { key: 'usual', header: 'Usual at most', align: 'right', render: (r) => r.usual_max },
+    { key: 'office', header: 'Office', render: (r) => <span className="td-primary">{nameOf(r.office_id, names.offices)}</span> },
+    { key: 'day', header: 'Day', className: 'tabular-nums', render: (r) => formatDate(r.day) },
+    { key: 'n', header: 'Cancelled or auto-closed', align: 'right', render: (r) => <span className="td-num font-semibold">{r.cancelled}</span> },
+    { key: 'usual', header: 'Usual at most', align: 'right', className: 'tabular-nums', render: (r) => r.usual_max },
   ];
   const lowCols = [
-    { key: 'service', header: 'Service', render: (r) => r.service_name },
-    { key: 'avg', header: 'Average', align: 'right', render: (r) => starsText(r.average) },
-    { key: 'count', header: 'Ratings', align: 'right', render: (r) => r.count },
+    { key: 'service', header: 'Service', render: (r) => <span className="td-primary">{r.service_name}</span> },
+    { key: 'avg', header: 'Average', align: 'right', render: (r) => <span className="td-num font-semibold">{starsText(r.average)}</span> },
+    { key: 'count', header: 'Ratings', align: 'right', className: 'tabular-nums', render: (r) => r.count },
   ];
   const block = (id, title, note, table) => (
     <section aria-labelledby={`flags-${id}`} data-testid={`flags-${id}`}>

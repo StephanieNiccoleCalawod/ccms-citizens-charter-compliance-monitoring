@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
 import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
+import DiscardChangesDialog from '../../components/dialogs/DiscardChangesDialog.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
 import OfficeCodeField from '../../components/forms/OfficeCodeField.js';
@@ -24,6 +25,7 @@ import { CATALOGUE_SETTINGS_API, OFFICES_API } from '../../lib/api/catalogue.js'
 import { apiFetch } from '../../lib/auth/session.js';
 import { INSTITUTION_UNAVAILABLE_MESSAGE, officeCodeProblem, officePart, officeRequestBody, officeSaveError } from '../../lib/ui/office-code.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
+import { useDiscardGuard } from '../../lib/ui/useDiscardGuard.js';
 
 // office_code in this form is the OFFICE PART ("OSAS"); Core builds the full code "PUP-OSAS" from the institution code and sends it back.
 // currentCode: an existing office whose saved code does not start with the institution code yet (shown as a note).
@@ -39,6 +41,7 @@ export function OfficesManager() {
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null); // office being deactivated
   const formDirty = useFormDirty(form);
+  const formGuard = useDiscardGuard(formDirty, () => setForm(null));
 
   const reload = useCallback(async () => {
     try {
@@ -196,15 +199,36 @@ export function OfficesManager() {
         >
               {state.loading ? (
                 <TableState colSpan={4} kind="loading">Loading offices…</TableState>
+              ) : state.error && state.items.length === 0 ? (
+                <TableState colSpan={4} kind="error">{state.error}</TableState>
               ) : visible.length === 0 ? (
-                <TableState colSpan={4}>
-                  {state.items.length === 0 ? 'No offices yet. Add the first office from the Citizen’s Charter.' : 'No offices match your search or filter.'}
-                </TableState>
+                state.items.length === 0 ? (
+                  <TableState
+                    colSpan={4}
+                    icon="building"
+                    title="No Offices Yet"
+                    actionLabel={prefix ? '+ Add Office' : null}
+                    onAction={prefix ? () => openForm(null) : null}
+                    actionVariant="primary"
+                  >
+                    No offices yet. Add the first office from the Citizen’s Charter.
+                  </TableState>
+                ) : (
+                  <TableState
+                    colSpan={4}
+                    variant="search"
+                    title="No Matching Offices Found"
+                    actionLabel="Clear Filters"
+                    onAction={() => { setSearch(''); setStatus('active'); }}
+                  >
+                    No offices match your search or filter.
+                  </TableState>
+                )
               ) : (
                 visible.map((office) => (
                   <tr key={office.office_id} className={`tr-row ${office.is_active ? '' : 'bg-table-hover'}`}>
-                    <td className="td">{office.office_name}</td>
-                    <td className="td whitespace-nowrap font-mono font-semibold text-slate-700" data-testid="office-code">{office.office_code}</td>
+                    <td className="td td-primary">{office.office_name}</td>
+                    <td className="td whitespace-nowrap td-medium tabular-nums" data-testid="office-code">{office.office_code}</td>
                     <td className="td">
                       <StatusBadge variant={office.is_active ? 'active' : 'inactive'}>{office.is_active ? 'Active' : 'Inactive'}</StatusBadge>
                     </td>
@@ -231,10 +255,10 @@ export function OfficesManager() {
         open={form !== null}
         title={form?.id ? 'Edit Office' : 'Add Office'}
         dirty={formDirty}
-        onClose={saving ? undefined : () => setForm(null)}
+        onClose={saving ? undefined : formGuard.requestClose}
         footer={
           <>
-            <button type="button" className="btn-secondary" onClick={() => setForm(null)} disabled={saving}>
+            <button type="button" className="btn-secondary" onClick={formGuard.requestClose} disabled={saving}>
               Cancel
             </button>
             <SubmitButton form="office-form" busy={saving} label="Save" busyLabel={form?.id ? 'Updating…' : 'Creating…'} />
@@ -260,6 +284,8 @@ export function OfficesManager() {
           </form>
         ) : null}
       </Modal>
+
+      <DiscardChangesDialog open={formGuard.askDiscard} onConfirm={formGuard.confirmDiscard} onCancel={formGuard.cancelDiscard} />
 
       <ConfirmDialog
         open={confirm !== null}

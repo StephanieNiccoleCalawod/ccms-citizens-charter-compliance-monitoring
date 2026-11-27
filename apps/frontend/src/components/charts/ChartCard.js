@@ -76,8 +76,8 @@ export function DataTable({ caption, columns, rows }) {
       >
         {rows.map((row, i) => (
           <tr key={i} className="tr-row">
-            {columns.map((c) => (
-              <td key={c.key} className={`td ${c.align === 'right' ? 'text-right' : ''}`}>
+            {columns.map((c, idx) => (
+              <td key={c.key} className={`td ${c.align === 'right' ? 'text-right td-num' : idx === 0 ? 'td-medium' : ''}`.trim()}>
                 {row[c.key] ?? '-'}
               </td>
             ))}
@@ -99,6 +99,11 @@ export default function ChartCard({
   legend = null,
   empty = false,
   emptyMessage = 'No data to show yet.',
+  emptyTitle = null,
+  emptyVariant = 'neutral',
+  emptyIcon = 'chart',
+  emptySupport = null,
+  emptyAction = null,
   table = null,
   footer = null,
   className = '',
@@ -134,7 +139,17 @@ export default function ChartCard({
 
       <div className="mt-4 flex-1">
         {empty ? (
-          <EmptyState role="status" data-testid={`${id}-empty`}>
+          <EmptyState
+            role="status"
+            surface="subtle"
+            size="compact"
+            variant={emptyVariant}
+            icon={emptyIcon}
+            title={emptyTitle}
+            supportingInfo={emptySupport}
+            action={emptyAction}
+            data-testid={`${id}-empty`}
+          >
             {emptyMessage}
           </EmptyState>
         ) : viewMode === 'table' && table ? (

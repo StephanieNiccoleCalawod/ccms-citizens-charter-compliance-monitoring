@@ -39,7 +39,9 @@ import {
 
 const root = (path) => fileURLToPath(new URL(`../../${path}`, import.meta.url));
 const read = (path) => readFileSync(root(path), 'utf8');
-const dashboardFiles = () => readdirSync(root('src/components/dashboard')).map((f) => `src/components/dashboard/${f}`);
+const dashboardFiles = () => readdirSync(root('src/components/dashboard'), { withFileTypes: true })
+  .filter((entry) => entry.isFile())
+  .map((entry) => `src/components/dashboard/${entry.name}`);
 // Everything the Dashboard's analytics are written in, as one text (for source checks).
 const dashboardSource = () => dashboardFiles().map(read).join('\n');
 const CAMPUS = { ok: true, kind: 'campus', officeId: null };

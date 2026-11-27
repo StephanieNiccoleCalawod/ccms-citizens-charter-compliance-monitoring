@@ -49,11 +49,13 @@ describe('CC039 Take a ticket', () => {
     assert.match(offline.message, /Cannot reach/);
   });
 
-  it('offers the three priority groups and asks for nothing personal', () => {
+  it('offers the three priority groups, asks for nothing personal, and has a Back link to the landing page', () => {
     assert.deepEqual(PRIORITY_OPTIONS.map((o) => o.value), ['', 'SENIOR_CITIZEN', 'PWD', 'PREGNANT']);
     const page = read('components/queue/TakeTicketForm.js');
     assert.ok(!/name="(name|email|phone)"|type="email"|autoComplete="name"/.test(page));
-    assert.match(read('components/layout/PublicHeader.js'), /href="\/queue\/take"/);
+    assert.match(page, /href="\/"[\s\S]*?&larr;<\/span>\s*Back/);
+    assert.match(read('components/public/LandingHero.js'), /href="\/queue\/take"/);
+    assert.doesNotMatch(read('components/layout/PublicHeader.js'), /href="\/queue\/take"/);
   });
 });
 

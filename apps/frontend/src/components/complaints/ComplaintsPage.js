@@ -14,6 +14,7 @@ import ErrorBanner from '../feedback/ErrorBanner.js';
 import { FieldError, RequiredMark } from '../forms/Field.js';
 import FilterBar from '../forms/FilterBar.js';
 import Button from '../ui/Button.js';
+import Checkbox from '../ui/Checkbox.js';
 import DataTable from '../ui/DataTable.js';
 import StatusBadge from '../ui/StatusBadge.js';
 
@@ -125,11 +126,11 @@ export default function ComplaintsPage({ user }) {
   if (complaint) return <Detail key={complaint.complaint_id} complaint={complaint} role={user.role} onBack={() => { setComplaint(null); load(); }} onChanged={setComplaint} />;
 
   const columns = [
-    { key: 'reference', header: 'Reference', render: (c) => c.reference },
+    { key: 'reference', header: 'Reference', render: (c) => <span className="td-id">{c.reference}</span> },
     ...(ownOffice ? [] : [{ key: 'office', header: 'Office', render: (c) => officeName.get(c.office_id) ?? '-' }]),
     { key: 'category', header: 'Category', render: (c) => c.category_label },
-    { key: 'filed', header: 'Filed', render: (c) => formatDateTime(c.created_at) },
-    { key: 'due', header: 'Due', render: (c) => <span className={c.overdue ? 'font-bold text-red-800' : ''}>{dueText(c)}</span> },
+    { key: 'filed', header: 'Filed', className: 'tabular-nums', render: (c) => formatDateTime(c.created_at) },
+    { key: 'due', header: 'Due', className: 'tabular-nums', render: (c) => <span className={c.overdue ? 'font-semibold text-red-700' : ''}>{dueText(c)}</span> },
     { key: 'status', header: 'Status', render: (c) => <span className="inline-flex items-center"><Status status={c.status} /><Overdue show={c.overdue} /></span> },
     { key: 'open', header: <span className="sr-only">Actions</span>, align: 'right', render: (c) => <button type="button" className="row-action" onClick={() => open(c)} disabled={opening} aria-label={`Open complaint ${c.reference}`}>Open</button> },
   ];
@@ -150,10 +151,17 @@ export default function ComplaintsPage({ user }) {
           <select id="cf-status" className="input select-chevron" value={filters.status} onChange={setFilter('status')}>
             {STATUS_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select></div>
-        <label className="flex min-h-[38px] items-center gap-2 text-sm text-slate-700"><input type="checkbox" className="h-4 w-4" checked={filters.overdue} onChange={(e) => { setPage(1); setFilters((f) => ({ ...f, overdue: e.target.checked })); }} /> Overdue only</label>
+        <label className="flex min-h-[38px] items-center gap-2 text-sm text-slate-700"><Checkbox checked={filters.overdue} onChange={(e) => { setPage(1); setFilters((f) => ({ ...f, overdue: e.target.checked })); }} /> Overdue only</label>
       </FilterBar>
       <DataTable label="Complaints" columns={columns} data={list.items} keyExtractor={(c) => c.complaint_id} loading={list.loading} error={list.error || null}
-        rowClassName={(c) => (c.overdue ? 'bg-red-50' : '')} emptyMessage="No complaints." minWidth="52rem"
+        rowClassName={(c) => (c.overdue ? 'bg-red-50' : '')}
+        emptyVariant={filtered ? 'search' : 'neutral'}
+        emptyIcon={filtered ? 'search' : 'inbox'}
+        emptyTitle={filtered ? 'No Matching Complaints Found' : 'No Complaints Yet'}
+        emptyMessage={filtered ? 'No complaints match your current filter selections.' : 'There are currently no citizen complaints recorded for this scope.'}
+        emptyActionLabel={filtered ? 'Clear Filters' : null}
+        onEmptyAction={filtered ? () => { setFilters(NO_FILTERS); setPage(1); } : null}
+        minWidth="52rem"
         pagination={{ page, pageSize, total: list.total, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }} />
       {!canHandleComplaints(user.role) ? <p className="text-xs text-slate-500">You can read complaints here. Super Admin and Office Heads acknowledge and resolve them.</p> : null}
     </div>

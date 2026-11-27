@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import EmptyState from '../ui/EmptyState.js';
 import { FULL_CENTER_HREF, NOTICE_TABS, kindStyle, unavailableMessage } from '../../lib/ui/notifications.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 
@@ -52,7 +53,22 @@ export default function NotificationPanel({ items, unreadCount, loaded, partial,
       </div>
       {partial ? <p role="status" className="border-b border-slate-100 bg-amber-50 px-4 py-1.5 text-xs text-amber-900">{unavailableMessage(failed)}</p> : null}
       <ul className="max-h-[28rem] overflow-y-auto">
-        {shown.length === 0 ? <li className="px-4 py-6 text-sm text-slate-600">{loaded ? EMPTY[tab] ?? 'No notifications.' : 'Loading…'}</li> : shown.map((item) => {
+        {shown.length === 0 ? (
+          <li className="p-4">
+            {loaded ? (
+              <EmptyState
+                surface="plain"
+                size="compact"
+                icon="bell"
+                title={tab === 'unread' ? 'No Unread Notifications' : 'No Notifications'}
+              >
+                {EMPTY[tab] ?? 'No notifications.'}
+              </EmptyState>
+            ) : (
+              <p className="py-4 text-center text-sm text-slate-600">Loading…</p>
+            )}
+          </li>
+        ) : shown.map((item) => {
           const look = kindStyle(item.kind);
           const when = item.kind === 'COMPLAINT' || item.kind === 'CALENDAR' ? formatDateTime(item.at) : null;
           return (

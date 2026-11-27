@@ -5,7 +5,7 @@ import RecordOption from '../forms/RecordOption.js';
 import SubmitButton from '../../components/ui/SubmitButton.js';
 import { notify } from '../../lib/ui/notify.js';
 import { saveFailureMessage, savedMessage } from '../../lib/ui/save-feedback.js';
-import { RequiredMark } from '../forms/Field.js';
+import { FieldError, RequiredMark } from '../forms/Field.js';
 import SearchableSelect from '../forms/SearchableSelect.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -13,15 +13,16 @@ import { ROLES } from 'ccms-shared/roles';
 import StatusBanner from '../feedback/StatusBanner.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import { classificationLabel } from '../../lib/api/catalogue.js';
-import { getServiceStandardAsOf, listOfficesForPast, listRecordsOnDate } from '../../lib/api/backdate.js';
+import { getServiceStandardAsOf, listRecordsOnDate } from '../../lib/api/backdate.js';
 import { getSettings, listCounters } from '../../lib/api/operations.js';
 import { getServiceDetail, getServiceStandard, listOpenTransactions, listSelectableServices, postTransaction } from '../../lib/api/transactions.js';
-import { getExtraAccessKeys } from '../../lib/api/account.js';
-import { canRequestAccess, hasExtraAccess } from '../../lib/ui/access.js';
+import { getCachedMe } from '../../lib/api/account.js';
+import { canRequestAccess, extraAccessKeys, hasExtraAccess } from '../../lib/ui/access.js';
 import LockedNotice from '../access/LockedNotice.js';
-import { BACKDATE_MESSAGES, BACKDATE_REASON_MAX, EMPTY_PAST, backdateErrors, isAmbiguousWrite, manilaDateOf, officeAllowsPast, pastStandardMessage, withBackdate } from '../../lib/ui/backdate.js';
+import { BACKDATE_MESSAGES, BACKDATE_REASON_MAX, EMPTY_PAST, backdateErrors, isAmbiguousWrite, manilaDateOf, pastStandardMessage, roleAllowsPast, withBackdate } from '../../lib/ui/backdate.js';
 import { COMPLIANCE_LABELS, complianceState, describeElapsed, describeVariance } from '../../lib/ui/complete-transaction.js';
 import StatusBadge from '../ui/StatusBadge.js';
+import Checkbox from '../ui/Checkbox.js';
 import RegistryPicker from './RegistryPicker.js';
 import { getQueueBoard } from '../../lib/api/queue.js';
 import { queueWaitText, ticketPickerOptions } from '../../lib/ui/queue.js';
@@ -67,8 +68,6 @@ function Section({ title, children, id, flat = false }) {
   );
 }
 
-const FieldError = ({ id, children }) => (children ? <p id={id} className="mt-1 text-xs text-red-700">{children}</p> : null);
-
 /**
  * The Start Transaction form with everything it does (service search, standard in force, required documents, client, past
  * transaction, validation, submit). Shown on its own page, and inside the Transactions modal (embedded):
@@ -98,7 +97,6 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
   const [past, setPast] = useState({ ...EMPTY_PAST }); // "Record past transaction": what the person typed (Manila time)
   const [pastStandard, setPastStandard] = useState({ state: 'idle', data: null, message: null }); // the standard of the day of the typed start
   const [lock, setLock] = useState(null); // after an unclear past write: null | { checked, state, records }
-  const [offices, setOffices] = useState([]); // for the per-office switch for past transactions (S8-53)
   const latestPastStandard = useRef(0);
   const submittingRef = useRef(false); // set synchronously, so a double click cannot send two requests
   const latestService = useRef(0); // an answer for a service that is no longer chosen is ignored
@@ -109,7 +107,6 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     listSelectableServices()
       .then((items) => !cancelled && setServices({ loading: false, items, error: null }))
       .catch((err) => !cancelled && setServices({ loading: false, items: [], error: err.status === 403 ? 'You do not have permission to see the services.' : 'The services could not be loaded. Reload the page to try again.' }));
-    listOfficesForPast().then((items) => !cancelled && setOffices(items)).catch(() => {});
     getSettings()
       .then((data) => !cancelled && setSettings({ loaded: true, countersEnabled: data.counters_enabled === true, error: null }))
       .catch(() => !cancelled && setSettings({ loaded: false, countersEnabled: false, error: 'The counter setting could not be loaded, so a transaction cannot be started yet. Reload the page to try again.' }));
@@ -128,11 +125,16 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
     [services.items],
   );
   const items = useMemo(() => requirementItems(documents.items), [documents.items]);
-  // S8-52: a granted "Record past transactions" opens the late-entry section even when the office setting is off (the server checks the grant for the person's own office).
-  const [grantKeys, setGrantKeys] = useState(null);
-  useEffect(() => { let alive = true; getExtraAccessKeys().then((keys) => alive && setGrantKeys(keys)); return () => { alive = false; }; }, []);
+  // Office-scoped STAFF_BACKDATE switch (in /me what_i_can_do) or a granted RECORD_PAST_TRANSACTIONS extra-access permission opens Late entry for Office Staff; Super Admin and Office Head are always allowed.
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    getCachedMe().then((data) => alive && setMe(data ?? {}));
+    return () => { alive = false; };
+  }, []);
+  const grantKeys = me === null ? null : extraAccessKeys(me);
   const hasPastGrant = hasExtraAccess(grantKeys, 'RECORD_PAST_TRANSACTIONS');
-  const pastAllowed = officeAllowsPast(offices.find((o) => o.office_id === selected?.office_id), user.role) || hasPastGrant;
+  const pastAllowed = roleAllowsPast(me, user.role) || hasPastGrant;
   useEffect(() => {
     if (!pastAllowed && past.enabled) togglePast(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -549,13 +551,13 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
         ? <LockedNotice permissionKey="RECORD_PAST_TRANSACTIONS" role={user.role} message="Recording a transaction that already happened is not open for your office. You don’t have access to this yet." />
         : null}
       {pastAllowed ? <Section flat={embedded} title="Late entry" id="past-heading">
-        <label className="flex items-start gap-3 text-sm text-slate-800">
-          <input id="start-past" type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={past.enabled} onChange={(e) => togglePast(e.target.checked)} />
-          <span>
-            This was already done. I am recording it now.
-            <span className="block text-xs text-slate-500">Enter the real start and end time. A reason is required, and this transaction will be marked as a late entry in the records. Times are Philippine time. The service standard that was in effect on the start date is used automatically.</span>
-          </span>
-        </label>
+        <Checkbox
+          id="start-past"
+          checked={past.enabled}
+          onChange={(e) => togglePast(e.target.checked)}
+          label="This was already done. I am recording it now."
+          description="Enter the real start and end time. A reason is required, and this transaction will be marked as a late entry in the records. Times are Philippine time. The service standard that was in effect on the start date is used automatically."
+        />
         {past.enabled ? (
           <div className="mt-4 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -565,10 +567,9 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
                 <FieldError id="start-past-start-error">{fieldErrors.started_at}</FieldError>
               </div>
               <div>
-                <label className="flex items-center gap-2 pt-6 text-sm text-slate-800">
-                  <input id="start-manual-end" type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-pup-maroon" checked={past.manual_end} onChange={(e) => setPast((p) => ({ ...p, manual_end: e.target.checked, ended_at: e.target.checked ? p.ended_at : '' }))} />
-                  Enter end time manually
-                </label>
+                <div className="pt-6">
+                  <Checkbox id="start-manual-end" checked={past.manual_end} onChange={(e) => setPast((p) => ({ ...p, manual_end: e.target.checked, ended_at: e.target.checked ? p.ended_at : '' }))} label="Enter end time manually" />
+                </div>
               </div>
             </div>
             {past.manual_end ? (
@@ -699,21 +700,15 @@ export default function StartTransactionForm({ user, embedded = false, onCreated
               <ul className="space-y-2">
                 {items.map((item) => (
                   <li key={item.id}>
-                    <label className="flex items-start gap-3 text-sm text-slate-800">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-pup-maroon"
-                        checked={checks[item.id] === true}
-                        onChange={(e) => {
-                          setChecks((c) => ({ ...c, [item.id]: e.target.checked }));
-                          setFieldErrors((errors) => ({ ...errors, requirements: undefined }));
-                        }}
-                      />
-                      <span>
-                        {item.label}
-                        {item.notes ? <span className="block text-xs text-slate-500">{item.notes}</span> : null}
-                      </span>
-                    </label>
+                    <Checkbox
+                      checked={checks[item.id] === true}
+                      onChange={(e) => {
+                        setChecks((c) => ({ ...c, [item.id]: e.target.checked }));
+                        setFieldErrors((errors) => ({ ...errors, requirements: undefined }));
+                      }}
+                      label={item.label}
+                      description={item.notes || undefined}
+                    />
                   </li>
                 ))}
               </ul>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
+import EmptyState from '../../components/ui/EmptyState.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import StatusBanner from '../../components/feedback/StatusBanner.js';
 import { DAY_NAMES } from '../../lib/api/calendar.js';
@@ -66,7 +67,11 @@ function Records({ records, note, canRemove, onRemove }) {
         <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">{recordCount(records.length)}</span>
       </div>
       {records.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm text-slate-500">{note}</p>
+        <div className="flex flex-1 items-center justify-center p-6">
+          <EmptyState surface="plain" size="compact" icon="clock" title="No Custom Schedule Records">
+            {note}
+          </EmptyState>
+        </div>
       ) : (
         <ul className="divide-y divide-line">
           {records.map((record) => (

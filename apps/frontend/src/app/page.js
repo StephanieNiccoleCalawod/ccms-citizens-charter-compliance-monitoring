@@ -1,16 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../components/layout/AppShell.js';
 import DashboardAnalytics from '../components/dashboard/DashboardAnalytics.js';
+import OfficeHeadDashboard from '../components/dashboard/office-head/OfficeHeadDashboard.js';
 import LandingHero from '../components/public/LandingHero.js';
 import { mightBeSignedIn, refreshSession } from '../lib/auth/session.js';
 
-// Signed in: the main Dashboard inside the app shell, consolidated around live analytics and monitoring.
+// Signed in: the main Dashboard inside the app shell, consolidated around live analytics and monitoring. The
+// Office Head gets the unified Dashboard (their former Office Home folded in); every other role is unchanged.
 function SignedInHome() {
   return (
     <AppShell title="Dashboard" subtitle="Compliance, forecasting, and charter performance at a glance.">
-      {(user) => <DashboardAnalytics user={user} />}
+      {(user) => (user.role === ROLES.OFFICE_HEAD ? <OfficeHeadDashboard user={user} /> : <DashboardAnalytics user={user} />)}
     </AppShell>
   );
 }

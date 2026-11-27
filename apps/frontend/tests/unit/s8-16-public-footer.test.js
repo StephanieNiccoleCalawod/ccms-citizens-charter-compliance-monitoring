@@ -18,11 +18,18 @@ describe('S8-16 public footer and privacy notice', () => {
     const ok = charterReference({ NEXT_PUBLIC_CHARTER_URL: 'https://example.edu/charter', NEXT_PUBLIC_CHARTER_EDITION: '2nd Edition, 2025' });
     assert.equal(ok.note, "Standards follow the PUP Citizen's Charter, 2nd Edition, 2025.");
   });
-  it('a copyright line, and no social media or tracker in the footer (source check)', () => {
+  it('a copyright line, contact icon badges, space-between layout, and no social media or tracker in the footer (source check)', () => {
     assert.match(copyrightLine(2026), /^© 2026 Polytechnic University/);
     const footer = read('components/layout/PublicFooter.js');
     assert.doesNotMatch(footer, /facebook|twitter|instagram|youtube|google-analytics|gtag|<script|<iframe/i);
     assert.match(footer, /PRIVACY_PATH/);
+    assert.match(footer, /Contact &amp; Campus Location/);
+    assert.match(footer, /justify-between/);
+    assert.match(footer, /md:flex-row/);
+    assert.match(footer, /bg-\[#FFF1F2\]/);
+    assert.equal((footer.match(/<ContactIconBadge>/g) ?? []).length, 4);
+    assert.match(footer, /\(02\) 8287-8204/);
+    assert.match(footer, /formatFooterWebsite\(CONTACT\.website\)/);
   });
   it('the privacy page says what is collected, why, who sees it, how long and who to ask', () => {
     const page = read('app/privacy/page.js');

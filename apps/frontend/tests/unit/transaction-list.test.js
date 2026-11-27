@@ -219,7 +219,7 @@ describe('the table leads to the transaction details (source checks, not a brows
   it('View Details opens the modal (no navigation), and the tracking number is inert text', () => {
     assert.ok(page.includes('onClick={() => setSelectedId(t.transaction_id)}'));
     assert.doesNotMatch(page, /transactionHref|router.push/);
-    assert.ok(page.includes('<span className="whitespace-nowrap font-mono font-semibold text-maroon-800">{t.tracking_no}</span>'));
+    assert.ok(page.includes('<span className="td-id text-maroon-800">{t.tracking_no}</span>'));
     assert.match(page, /View Details/);
   });
   it('completion and cancelling are not recreated in the table: the modal reuses the shared detail component', () => {

@@ -224,3 +224,99 @@ describe('Phase 3 table, sorting, tabs and summary consistency', () => {
     assert.doesNotMatch(tabs, /border-gold-500/);
   });
 });
+
+describe('System-wide table typography standardization', () => {
+  it('globals.css defines centralized table tokens, DM Sans header/body utilities, and semantic cell utilities', () => {
+    for (const token of ['--table-font-family', '--table-head-size', '--table-body-size', '--table-row-height']) {
+      assert.ok(css.includes(`${token}:`), `missing ${token}`);
+    }
+    for (const util of ['@utility td-primary', '@utility td-id', '@utility td-medium', '@utility td-secondary', '@utility td-muted', '@utility td-num']) {
+      assert.ok(css.includes(util), `missing ${util}`);
+    }
+    const rowAction = /@utility row-action \{\s*@apply ([^;]+);/.exec(css)[1];
+    assert.ok(rowAction.split(/\s+/).includes('text-xs'), 'row-action uses the 12px table scale');
+    assert.ok(!rowAction.split(/\s+/).includes('text-sm'), 'row-action never enlarges table cells to text-sm');
+  });
+
+  it('no <Th> across the codebase overrides the burgundy table header with bg-white', () => {
+    for (const file of sources) {
+      const text = readFileSync(file, 'utf8');
+      for (const match of text.matchAll(/<Th\b[^>]*>/g)) {
+        assert.doesNotMatch(match[0], /\bbg-white\b/, `${rel(file)}: ${match[0]}`);
+      }
+    }
+  });
+
+  it('table cells use DM Sans + tabular-nums rather than font-mono', () => {
+    for (const file of [
+      'src/app/offices/page.js',
+      'src/app/transactions/page.js',
+      'src/app/logs/page.js',
+      'src/app/registry/RegistryOverview.js',
+      'src/components/home/KpiHome.js',
+      'src/components/dashboard/office-head/StaffPerformanceTab.js',
+      'src/components/dashboard/office-head/OperationsTab.js',
+      'src/components/dashboard/office-head/ComplaintsTab.js',
+      'src/components/dashboard/CaseFlagsPanel.js',
+    ]) {
+      assert.doesNotMatch(read(file), /\bfont-mono\b/, file);
+    }
+    const lateRisk = read('src/components/analytics/LateRiskSection.js');
+    const lateRiskTable = lateRisk.slice(lateRisk.indexOf('export function LateRiskTable'), lateRisk.indexOf('export default function LateRiskSection'));
+    assert.doesNotMatch(lateRiskTable, /\bfont-mono\b/, 'LateRiskTable');
+
+    const compliance = read('src/components/dashboard/office-head/ComplianceServiceTab.js');
+    const complianceTable = compliance.slice(compliance.indexOf('<DataTable'), compliance.indexOf('<ServiceCharterPanel'));
+    assert.doesNotMatch(complianceTable, /\bfont-mono\b/, 'ComplianceServiceTab DataTable');
+
+    const unusual = read('src/components/dashboard/UnusualCasesPanel.js');
+    const unusualTable = unusual.slice(unusual.indexOf('const unusualCols'), unusual.indexOf('const description'));
+    assert.doesNotMatch(unusualTable, /\bfont-mono\b/, 'UnusualCasesPanel columns');
+  });
+
+  it('dense tables do not enlarge body cells above text-xs with text-sm overrides', () => {
+    const matrix = read('src/components/account/RolesMatrix.js');
+    const matrixTable = matrix.slice(matrix.indexOf('<Table'));
+    assert.doesNotMatch(matrixTable, /\btext-sm\b/, 'RolesMatrix table');
+
+    const overview = read('src/app/registry/RegistryOverview.js');
+    const overviewTables = [...overview.matchAll(/<Table\b[\s\S]*?<\/Table>/g)].map((m) => m[0]);
+    assert.equal(overviewTables.length, 2);
+    for (const tbl of overviewTables) assert.doesNotMatch(tbl, /\btext-sm\b/, 'RegistryOverview tables');
+
+    const charter = read('src/components/dashboard/ServiceCharterPanel.js');
+    const charterCols = charter.slice(charter.indexOf('const charterCols'), charter.indexOf('const charterEmptyMessage'));
+    assert.doesNotMatch(charterCols, /\btext-sm\b/, 'ServiceCharterPanel table columns');
+
+    const ops = read('src/components/dashboard/office-head/OperationsTab.js');
+    const opsCols = ops.slice(ops.indexOf('const pendingColumns'), ops.indexOf('const additionalTiles'));
+    assert.doesNotMatch(opsCols, /\btext-sm\b/, 'OperationsTab pendingColumns');
+  });
+
+  it('keeps timestamps regular + tabular and emphasizes primary row identifiers consistently', () => {
+    const tx = read('src/app/transactions/page.js');
+    assert.match(tx, /<span className="block tabular-nums text-ink">\{date\}<\/span>/);
+    assert.match(tx, /<span className="td-secondary tabular-nums">\{time\}<\/span>/);
+    assert.doesNotMatch(tx, /<span className="block font-semibold text-slate-900">\{officeName\(t\)\}/);
+
+    const logs = read('src/app/logs/page.js');
+    assert.match(logs, /<span className="block tabular-nums text-ink">\{date\}<\/span>/);
+    assert.match(logs, /<span className="block td-primary"[^>]*>\{actorNameText\}<\/span>/);
+    assert.doesNotMatch(logs, /font-bold text-slate-900">\{office\.name\}/);
+    assert.doesNotMatch(logs, /font-bold text-slate-900">Campus-wide/);
+
+    for (const file of [
+      'src/app/accounts/page.js',
+      'src/app/offices/page.js',
+      'src/app/calendar/Terms.js',
+      'src/app/settings/Counters.js',
+      'src/components/reports/ReportsPage.js',
+      'src/components/reports/ReportDetail.js',
+      'src/components/reports/PeopleReportSheet.js',
+      'src/components/ratings/RatingsSection.js',
+      'src/components/home/KpiHome.js',
+    ]) {
+      assert.match(read(file), /\btd-primary\b/, file);
+    }
+  });
+});

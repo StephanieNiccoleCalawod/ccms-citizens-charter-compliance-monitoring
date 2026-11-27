@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
+import DiscardChangesDialog from '../../components/dialogs/DiscardChangesDialog.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import StatusBanner from '../../components/feedback/StatusBanner.js';
 import { FieldError } from '../../components/forms/Field.js';
@@ -11,6 +12,7 @@ import { getCampusSchedule, getOfficeSchedule, saveCampusSchedule, saveOfficeSch
 import { notify } from '../../lib/ui/notify.js';
 import { CAMPUS_SCOPE, inWeekOrder, sameRows, saveFailure, toDays, toRows, validateRows } from '../../lib/ui/office-schedule.js';
 import { saveFailureMessage } from '../../lib/ui/save-feedback.js';
+import { useDiscardGuard } from '../../lib/ui/useDiscardGuard.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
 import {
   PILL_DAYS,
@@ -102,6 +104,7 @@ export default function WorkingHoursModal({ scopes, initialScope, onClose, onSav
   }
 
   const dirty = !load.loading && !sameRows(rows, load.baseline);
+  const closeGuard = useDiscardGuard(dirty, onClose);
   const locked = load.loading || saving;
   const shift = sharedShift(rows);
   const lunch = sharedLunch(rows);
@@ -168,12 +171,12 @@ export default function WorkingHoursModal({ scopes, initialScope, onClose, onSav
         open
         title="Add working hours"
         showClose
-        onClose={saving ? undefined : onClose}
+        onClose={saving ? undefined : closeGuard.requestClose}
         dirty={dirty}
         widthClass="max-w-2xl"
         footer={
           <>
-            <Button variant="secondary" size="lg" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button variant="secondary" size="lg" onClick={closeGuard.requestClose} disabled={saving}>Cancel</Button>
             <Button type="submit" form="working-hours-form" variant="success" size="lg" disabled={locked || !anyWorking} loading={saving} loadingLabel="Saving…">
               Save & publish
             </Button>
@@ -275,6 +278,8 @@ export default function WorkingHoursModal({ scopes, initialScope, onClose, onSav
           </div>
         </form>
       </Modal>
+
+      <DiscardChangesDialog open={closeGuard.askDiscard} onConfirm={closeGuard.confirmDiscard} onCancel={closeGuard.cancelDiscard} />
 
       <ConfirmDialog
         open={confirmOpen}

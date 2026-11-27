@@ -1,9 +1,9 @@
 // CC026: record a transaction after the fact (backdated start and end), always with a reason, always flagged and audited.
 import { strict as assert } from 'node:assert';
-import { after, before, beforeEach, describe, it } from 'node:test';
+import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { POST as completeRoute } from '../src/app/api/transactions/[id]/complete/route.js';
 import { POST as startRoute } from '../src/app/api/transactions/route.js';
-import { NOT_IN_REGISTRY, OFFICE_A, SERVICE_A, SERVICE_B, USERS, at, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, tokens } from './helpers.js';
+import { NOT_IN_REGISTRY, OFFICE_A, OFFICE_B, SERVICE_A, SERVICE_B, USERS, at, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, switchState, tokens } from './helpers.js';
 
 let env;
 before(async () => {
@@ -13,8 +13,11 @@ before(async () => {
 after(async () => env?.teardown());
 beforeEach(async () => {
   env.core.reset();
-  for (const office of env.core.state.offices.values()) office.allow_backdated_transactions = true;
+  switchState.STAFF_BACKDATE = true;
   await resetData(env.ds);
+});
+afterEach(() => {
+  switchState.STAFF_BACKDATE = true;
 });
 
 const iso = (date, time) => `${date}T${time}:00+08:00`;
@@ -23,33 +26,28 @@ const start = (over = {}, token = tokens.officeStaffA) => call(startRoute, req('
 const complete = (id, payload, token = tokens.officeStaffA) => call(completeRoute, req('POST', `/transactions/${id}/complete`, { token, body: payload }), ctx(id));
 const audits = (action) => env.ds.query(`SELECT payload FROM audit_outbox WHERE payload->>'action' = $1 ORDER BY created_at`, [action]);
 
-describe('S8-53 office permission', () => {
-  it('refuses disabled-office backdating even with a forged permission, while live Start is unaffected', async () => {
-    env.core.state.offices.get(OFFICE_A).allow_backdated_transactions = false;
-    const denied = await start({ started_at: iso('2026-10-06', '10:00'), backdate_reason: 'Outage', allow_backdated_transactions: true });
+describe('per-office STAFF_BACKDATE enforcement', () => {
+  it('refuses backdating when STAFF_BACKDATE is off for that office, while live Start is unaffected', async () => {
+    switchState.STAFF_BACKDATE = [OFFICE_B];
+    const denied = await start({ started_at: iso('2026-10-06', '10:00'), backdate_reason: 'Outage' });
     assert.equal(denied.status, 403);
-    assert.equal(denied.body.error.message, 'This office is not allowed to record past transactions. Please ask the Super Admin.');
+    assert.equal(denied.body.error.code, 'SWITCH_OFF');
     assert.equal((await env.ds.query('SELECT count(*)::int AS n FROM transactions'))[0].n, 0);
     assert.equal((await audits('TRANSACTION_STARTED')).length, 0);
     assert.equal((await start()).status, 201);
   });
-  it('allows Super Admin when the office is off, still requiring a reason and recording the flag', async () => {
-    env.core.state.offices.get(OFFICE_A).allow_backdated_transactions = false;
+  it('allows Super Admin and Office Head when STAFF_BACKDATE is off, still requiring a reason and recording the flag', async () => {
+    switchState.STAFF_BACKDATE = false;
     assert.equal((await start({ started_at: iso('2026-10-06', '10:00') }, tokens.superAdmin)).status, 400);
-    const result = await start({ started_at: iso('2026-10-06', '10:00'), backdate_reason: 'Approved late entry' }, tokens.superAdmin);
-    assert.equal(result.status, 201);
-    assert.equal(result.body.is_backdated, true);
+    const adminResult = await start({ started_at: iso('2026-10-06', '10:00'), backdate_reason: 'Approved late entry' }, tokens.superAdmin);
+    assert.equal(adminResult.status, 201);
+    assert.equal(adminResult.body.is_backdated, true);
     assert.equal((await audits('TRANSACTION_BACKDATED')).length, 1);
+    const headResult = await start({ service_id: SERVICE_B, started_at: iso('2026-10-06', '10:00'), backdate_reason: 'Head late entry' }, tokens.officeHeadB);
+    assert.equal(headResult.status, 201);
   });
-  it('fails closed when office permission cannot be checked and keeps live entry working', async () => {
-    env.core.override(`GET /offices/${OFFICE_A}`, () => ({ status: 503, body: {} }));
-    const result = await start({ started_at: iso('2026-10-06', '10:00'), backdate_reason: 'Outage' });
-    assert.equal(result.status, 503);
-    assert.equal(result.body.error.code, 'OFFICE_BACKDATE_PERMISSION_UNAVAILABLE');
-    assert.equal((await start()).status, 201);
-  });
-  it('also blocks a manually backdated end before any completion is saved', async () => {
-    env.core.state.offices.get(OFFICE_A).allow_backdated_transactions = false;
+  it('also blocks a manually backdated end when STAFF_BACKDATE is off for that staff member’s office', async () => {
+    switchState.STAFF_BACKDATE = false;
     const row = await insertTransaction(env.ds, { started_by: USERS.staffA, started_at: new Date(at('2026-10-06', '10:00')) });
     assert.equal((await complete(row.transaction_id, { ended_at: iso('2026-10-09', '18:00'), backdate_reason: 'Late entry' })).status, 403);
     assert.equal((await env.ds.query('SELECT status FROM transactions WHERE transaction_id=$1', [row.transaction_id]))[0].status, 'IN_PROGRESS');

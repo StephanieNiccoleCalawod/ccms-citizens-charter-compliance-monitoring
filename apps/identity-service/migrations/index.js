@@ -7,10 +7,11 @@ import { ClerkAccountLinks1795100000000 } from './1795100000000-ClerkAccountLink
 import { Def19OptionalEmployeeNo1795200000000 } from './1795200000000-Def19OptionalEmployeeNo.js';
 import { ClerkInvitations1795300000000 } from './1795300000000-ClerkInvitations.js';
 import { AccessRequests1795400000000 } from './1795400000000-AccessRequests.js';
+import { OfficeScopedPermissionSwitches1795700000000 } from './1795700000000-OfficeScopedPermissionSwitches.js';
 
 // Ordered migrations. Naming: <13-digit epoch ms>-<Name>.js exporting class <Name><timestamp>. Append only: never edit
 // or reorder a migration that may have run on the hosted database; add a new one instead.
-export const migrations = [IdentityBaseline1793491200000, Cc046AccountPosition1794225600000, Cc046TrimmedPosition1794300400000, Cc056PermissionSwitches1794650000000, ClerkAccountLinks1795100000000, Def19OptionalEmployeeNo1795200000000, ClerkInvitations1795300000000, AccessRequests1795400000000];
+export const migrations = [IdentityBaseline1793491200000, Cc046AccountPosition1794225600000, Cc046TrimmedPosition1794300400000, Cc056PermissionSwitches1794650000000, ClerkAccountLinks1795100000000, Def19OptionalEmployeeNo1795200000000, ClerkInvitations1795300000000, AccessRequests1795400000000, OfficeScopedPermissionSwitches1795700000000];
 
 export const baseline = {
   allowedExtras: JSON.parse(readFileSync(new URL('./sprint5-schema.json', import.meta.url), 'utf8')),

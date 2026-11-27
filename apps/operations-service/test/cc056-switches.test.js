@@ -7,7 +7,7 @@ import { POST as holdRoute } from '../src/app/api/transactions/[id]/hold/route.j
 import { POST as resumeRoute } from '../src/app/api/transactions/[id]/resume/route.js';
 import { POST as startRoute } from '../src/app/api/transactions/route.js';
 import { setSwitchGate } from '../src/modules/transaction/switches.js';
-import { NOT_IN_REGISTRY, SERVICE_A, USERS, call, ctx, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, switchState, tokens } from './helpers.js';
+import { NOT_IN_REGISTRY, OFFICE_A, OFFICE_B, SERVICE_A, SERVICE_B, USERS, call, ctx, fakeGate, insertTransaction, req, resetData, seedCoreServices, setupTestEnv, switchState, tokens } from './helpers.js';
 
 let env;
 before(async () => {
@@ -70,6 +70,16 @@ describe('CC056 hold and resume', () => {
     switchState.STAFF_HOLD_RESUME = false;
     assert.equal((await resume(a.transaction_id)).status, 403);
   });
+
+  it('office-scoped switches allow staff in selected offices and block staff in unselected offices', async () => {
+    switchState.STAFF_HOLD_RESUME = [OFFICE_A];
+    const a = await mine();
+    const b = await insertTransaction(env.ds, { started_by: USERS.staffB, office_id: OFFICE_B, service_id: SERVICE_B });
+    assert.equal((await hold(a.transaction_id, tokens.officeStaffA)).status, 200);
+    const denied = await hold(b.transaction_id, tokens.officeStaffB);
+    assert.equal(denied.status, 403);
+    assert.equal(denied.body.error.code, 'SWITCH_OFF');
+  });
 });
 
 describe('CC056 backdating', () => {
@@ -96,6 +106,14 @@ describe('CC056 backdating', () => {
     assert.equal(r.body.is_backdated, true);
   });
 
+  it('office-scoped backdate switch allows Office A staff and blocks Office B staff', async () => {
+    switchState.STAFF_BACKDATE = [OFFICE_A];
+    assert.equal((await start({ started_at: past(), backdate_reason: 'Catalogue outage' }, tokens.officeStaffA)).status, 201);
+    const deniedB = await start({ service_id: SERVICE_B, started_at: past(), backdate_reason: 'Catalogue outage' }, tokens.officeStaffB);
+    assert.equal(deniedB.status, 403);
+    assert.equal(deniedB.body.error.code, 'SWITCH_OFF');
+  });
+
   it('an ordinary start is never gated; the Office Head can backdate with every switch off', async () => {
     assert.equal((await start({})).status, 201);
     const r = await start({ started_at: past(), backdate_reason: 'Catalogue outage' }, tokens.officeHeadA);
@@ -113,7 +131,7 @@ describe('CC056 the real gate against an unreachable Identity', () => {
       assert.equal(r.body.error.code, 'SWITCH_OFF');
       assert.equal((await hold((await theirs()).transaction_id, tokens.officeHeadA)).status, 200, 'heads are not decided by a switch');
     } finally {
-      setSwitchGate({ all: async () => ({ ...switchState }), isEnabled: async (k) => switchState[k] === true, reset() {} });
+      setSwitchGate(fakeGate);
     }
   });
 });

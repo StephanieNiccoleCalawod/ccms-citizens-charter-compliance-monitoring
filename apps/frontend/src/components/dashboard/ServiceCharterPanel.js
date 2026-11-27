@@ -144,14 +144,14 @@ export default function ServiceCharterPanel({
                 type="button"
                 onClick={() => openCharterCell(r)}
                 data-testid="charter-service-btn"
-                className="cursor-pointer rounded text-left font-sans text-sm font-semibold leading-snug text-[#202938] transition-colors hover:text-[#800000] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000]"
+                className="cursor-pointer rounded text-left td-primary transition-colors hover:text-pup-maroon hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon"
               >
                 {svcName}
               </button>
             ) : (
-              <span className="block font-sans text-sm font-semibold leading-snug text-[#202938]">{svcName}</span>
+              <span className="block td-primary">{svcName}</span>
             )}
-            <p className="font-sans text-xs text-[#64748B]">
+            <p className="td-secondary">
               <span>{officeName}</span>
             </p>
           </div>
@@ -163,7 +163,7 @@ export default function ServiceCharterPanel({
       header: 'Completed',
       width: '10%',
       align: 'center',
-      render: (r) => <span className="font-sans text-sm font-semibold tabular-nums text-[#202938]">{r.completed ?? 0}</span>,
+      render: (r) => <span className="td-num">{r.completed ?? 0}</span>,
     },
     {
       key: 'late',
@@ -178,7 +178,7 @@ export default function ServiceCharterPanel({
             className="flex items-center gap-2.5"
             title={lowSample ? `Fewer than ${minReliable} completed transactions — low sample` : undefined}
           >
-            <span className="w-5 shrink-0 text-right font-sans text-sm font-semibold tabular-nums text-[#202938]">
+            <span className="w-5 shrink-0 text-right td-num">
               {r.late ?? '—'}
             </span>
             <div
@@ -191,7 +191,7 @@ export default function ServiceCharterPanel({
             >
               <div className={`h-full rounded-full ${barColor}`} style={{ width: `${rate}%` }} />
             </div>
-            <span className="w-11 shrink-0 text-right font-sans text-xs font-semibold tabular-nums text-[#202938]">
+            <span className="w-11 shrink-0 text-right td-num font-semibold">
               {r.late_rate != null ? `${r.late_rate}%` : '—'}
             </span>
           </div>
@@ -296,6 +296,19 @@ export default function ServiceCharterPanel({
           keyExtractor={(r) => `${r.office_id}-${r.service_id}`}
           loading={loading}
           error={error}
+          emptyTitle={
+            scopedServices.length === 0
+              ? 'No Records for This Period'
+              : flagFilter === 'flagged'
+                ? 'No Flagged Services Found'
+                : flagFilter === 'too_few'
+                  ? 'No Matching Services Found'
+                  : 'No Matching Services Found'
+          }
+          emptyVariant={scopedServices.length === 0 ? 'neutral' : flagFilter === 'flagged' ? 'success' : 'search'}
+          emptyIcon={scopedServices.length === 0 ? 'chart' : undefined}
+          emptyActionLabel={scopedServices.length > 0 && flagFilter ? 'Show All Services' : undefined}
+          onEmptyAction={scopedServices.length > 0 && flagFilter ? () => setFlagFilter('') : undefined}
           emptyMessage={charterEmptyMessage}
           minWidth="52rem"
         />

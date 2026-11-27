@@ -73,25 +73,18 @@ export default function Terms() {
         >
           {state.loading ? (
             <TableState colSpan={3} kind="loading">Loading terms…</TableState>
+          ) : state.error ? (
+            <TableState colSpan={3} kind="error">{state.error}</TableState>
           ) : state.items.length === 0 ? (
-            <tr>
-              <td colSpan={3} className="px-6 py-14 text-center">
-                <svg aria-hidden="true" viewBox="0 0 24 24" className="mx-auto h-9 w-9 text-stone-400" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="5" width="18" height="16" rx="2" />
-                  <path d="M3 10h18M8 3v4M16 3v4" />
-                </svg>
-                <p className="mt-3 font-bold text-maroon-950">No academic terms yet</p>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                  The Syllabus Management System (SMS) has not provided any academic terms yet.
-                </p>
-              </td>
-            </tr>
+            <TableState colSpan={3} icon="calendar" title="No Academic Terms Yet">
+              The Syllabus Management System (SMS) has not provided any academic terms yet.
+            </TableState>
           ) : (
             state.items.map((term) => (
               <tr key={term.term_id ?? term.term_code} className="tr-row">
-                <td className="td font-semibold text-slate-900">{term.term_name}</td>
-                <td className="td">{formatDate(term.start_date) || '-'}</td>
-                <td className="td">{formatDate(term.end_date) || '-'}</td>
+                <td className="td td-primary">{term.term_name}</td>
+                <td className="td td-num">{formatDate(term.start_date) || '-'}</td>
+                <td className="td td-num">{formatDate(term.end_date) || '-'}</td>
               </tr>
             ))
           )}

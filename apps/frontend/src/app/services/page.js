@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../../components/layout/AppShell.js';
 import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
+import DiscardChangesDialog from '../../components/dialogs/DiscardChangesDialog.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import Modal from '../../components/modals/Modal.js';
 import DataTable from '../../components/ui/DataTable.js';
@@ -23,6 +24,7 @@ import { toQuery } from '../../lib/api/client.js';
 import { CATALOGUE_API, CLASSIFICATIONS, classificationLabel } from '../../lib/api/catalogue.js';
 import { apiFetch } from '../../lib/auth/session.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
+import { useDiscardGuard } from '../../lib/ui/useDiscardGuard.js';
 import { serviceSaveError } from '../../lib/ui/service-form.js';
 import { useSingleSubmit } from '../../lib/ui/useSingleSubmit.js';
 
@@ -62,6 +64,7 @@ function ServicesManager({ user }) {
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const formDirty = useFormDirty(form);
+  const formGuard = useDiscardGuard(formDirty, () => setForm(null));
   const once = useSingleSubmit();
 
   useEffect(() => {
@@ -288,36 +291,47 @@ function ServicesManager({ user }) {
         ) : null}
       </FilterBar>
 
-      <DataTable
-        columns={tableColumns}
-        data={pageSlice(state.items, page, pageSize).rows}
-        keyExtractor={(s) => s.service_id}
-        rowClassName={(s) => (s.is_active ? '' : 'bg-table-hover')}
-        loading={state.loading}
-        loadingMessage="Loading services…"
-        emptyMessage="No services match your filters."
-        summaryText={ownOfficeOnly ? 'Showing services of your office' : null}
-        totalCount={state.total}
-        countLabel="services"
-        pagination={{
-          page,
-          pageSize,
-          total: state.total,
-          onPage: setPage,
-          onPageSizeChange: changePageSize,
-          loading: state.loading,
-        }}
-      />
+      {(() => {
+        const hasFilters = Boolean(applied.search.trim() || applied.office_id || applied.classification || applied.status !== 'active');
+        return (
+          <DataTable
+            columns={tableColumns}
+            data={pageSlice(state.items, page, pageSize).rows}
+            keyExtractor={(s) => s.service_id}
+            rowClassName={(s) => (s.is_active ? '' : 'bg-table-hover')}
+            loading={state.loading}
+            loadingMessage="Loading services…"
+            emptyVariant={hasFilters ? 'search' : 'neutral'}
+            emptyIcon={hasFilters ? 'search' : 'document'}
+            emptyTitle={hasFilters ? 'No Matching Services Found' : 'No Services Available'}
+            emptyMessage={hasFilters ? 'No services match your filters.' : (ownOfficeOnly ? 'No active Citizen’s Charter services are registered for your office yet.' : 'No Citizen’s Charter services have been registered yet.')}
+            emptyActionLabel={hasFilters ? 'Clear Filters' : (isAdmin ? '+ Add Service' : null)}
+            onEmptyAction={hasFilters ? () => applyFilters({ search: '', office_id: '', classification: '', status: 'active' }) : (isAdmin ? () => openForm(null) : null)}
+            emptyActionVariant={hasFilters ? 'secondary' : 'primary'}
+            summaryText={ownOfficeOnly ? 'Showing services of your office' : null}
+            totalCount={state.total}
+            countLabel="services"
+            pagination={{
+              page,
+              pageSize,
+              total: state.total,
+              onPage: setPage,
+              onPageSizeChange: changePageSize,
+              loading: state.loading,
+            }}
+          />
+        );
+      })()}
 
       <Modal
         open={form !== null}
         title={form?.id ? 'Edit Service' : 'Add Service'}
         dirty={formDirty}
         widthClass="max-w-2xl"
-        onClose={saving ? undefined : () => setForm(null)}
+        onClose={saving ? undefined : formGuard.requestClose}
         footer={
           <>
-            <button type="button" className="btn-secondary" onClick={() => setForm(null)} disabled={saving}>
+            <button type="button" className="btn-secondary" onClick={formGuard.requestClose} disabled={saving}>
               Cancel
             </button>
             <SubmitButton form="service-form" busy={saving} label="Save" busyLabel={form?.id ? 'Updating…' : 'Creating…'} />
@@ -330,6 +344,8 @@ function ServicesManager({ user }) {
           </div>
         ) : null}
       </Modal>
+
+      <DiscardChangesDialog open={formGuard.askDiscard} onConfirm={formGuard.confirmDiscard} onCancel={formGuard.cancelDiscard} />
 
       <ConfirmDialog
         open={confirm !== null}

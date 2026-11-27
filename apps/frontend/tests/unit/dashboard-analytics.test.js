@@ -40,9 +40,9 @@ describe('AC1 / AC2: analytics are consolidated in the Dashboard and the service
 });
 
 describe('the sections, in order', () => {
-  const order = ['<DashboardHeader', '<ComplianceKpiGrid', '<Tabs', '<ComplianceTrendChart', '<RequestForecastSection', '<LateRiskPanel', '<KeyInsightsPanel', '<ComplianceHeatmap', '<ServiceCharterPanel', '<UnusualCasesPanel', '<AboutAnalyticsPanel'];
+  const order = ['<DashboardHeader', '<ComplianceKpiGrid', '<Tabs', '<ComplianceTrendChart', '<LateRiskPanel', '<KeyInsightsPanel', '<RequestForecastSection', '<ComplianceHeatmap', '<ServiceCharterPanel', '<UnusualCasesPanel', '<AboutAnalyticsPanel'];
 
-  it('header, KPI cards, horizontal analytics tabs, trend and forecast, late risk and key insights, heatmap, charter audit, unusual cases, about', () => {
+  it('header, KPI cards, horizontal analytics tabs, trend with risk/insights stacked beside it, forecast below, heatmap, charter audit, unusual cases, about', () => {
     const positions = order.map((tag) => container.indexOf(tag));
     assert.ok(positions.every((p) => p > 0), 'every section is used');
     assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'in the agreed order');
@@ -82,9 +82,9 @@ describe('the sections, in order', () => {
     assert.match(charter, /<StatusBadge/);
     const trend = read('src/components/dashboard/ComplianceTrendChart.js');
     assert.match(trend, /95% Charter Target/);
-    assert.match(trend, /Compare by office/);
+    assert.match(trend, /View Service Charter Breakdown/);
     const riskPanel = read('src/components/dashboard/LateRiskPanel.js');
-    assert.match(riskPanel, /Risk breakdown/);
+    assert.match(riskPanel, /Predictive probability of open transactions exceeding SLA/);
     assert.match(riskPanel, /Deadlines count working days only; holidays and weekends are excluded/);
     const keyInsights = read('src/components/dashboard/KeyInsightsPanel.js');
     assert.match(keyInsights, /Automatically detected findings that need your attention/);
@@ -98,12 +98,11 @@ describe('the sections, in order', () => {
 });
 
 describe('AC3 to AC7 / AC10: the two-column layout and the responsive rules', () => {
-  it('trend and forecast share one two-column row; late risk and key insights share another', () => {
+  it('trend shares one two-column row with late risk and key insights stacked beside it; the forecast is full width below', () => {
     assert.match(container, /export const TWO_COLUMNS = 'grid items-stretch gap-4 lg:grid-cols-2'/);
-    const rows = [...container.matchAll(/<div className=\{TWO_COLUMNS\} data-testid="(charts-row|monitoring-row)">([\s\S]*?)<\/div>/g)];
-    assert.deepEqual(rows.map((m) => m[1]), ['charts-row', 'monitoring-row']);
-    assert.match(rows[0][2], /<ComplianceTrendChart[\s\S]*<RequestForecastSection/);
-    assert.match(rows[1][2], /<LateRiskPanel[\s\S]*<KeyInsightsPanel/);
+    const [row] = [...container.matchAll(/<div className=\{TWO_COLUMNS\} data-testid="(charts-row)">([\s\S]*?)<\/div>\s*\n\s*<RequestForecastSection/g)];
+    assert.ok(row, 'charts-row is immediately followed by the full-width RequestForecastSection');
+    assert.match(row[2], /<ComplianceTrendChart[\s\S]*data-testid="monitoring-stack"[\s\S]*<LateRiskPanel[\s\S]*<KeyInsightsPanel/);
   });
 
   it('the four KPI cards share one row on desktop (one column on a phone)', () => {

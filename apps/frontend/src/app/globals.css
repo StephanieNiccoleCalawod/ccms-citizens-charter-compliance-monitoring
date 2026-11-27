@@ -22,6 +22,18 @@
   --color-line: #E2E8F0;
   --color-table-head: #800000;
   --color-table-hover: rgba(128, 0, 0, 0.04);
+  /* Table typography & spacing tokens */
+  --table-font-family: var(--font-sans);
+  --table-head-size: 0.6875rem;
+  --table-head-weight: 700;
+  --table-head-leading: 1.5;
+  --table-head-tracking: 0.05em;
+  --table-body-size: 0.75rem;
+  --table-body-weight: 400;
+  --table-body-leading: 1.375;
+  --table-row-height: 52px;
+  --table-cell-px: 1rem;
+  --table-cell-py: 0.625rem;
   /* Shadows */
   --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.05);
 
@@ -165,10 +177,10 @@
   @apply bg-table-head;
 }
 @utility th {
-  @apply px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-white;
+  @apply px-4 py-3 text-left font-sans text-[11px] font-bold not-italic uppercase leading-normal tracking-wider text-white;
 }
 @utility td {
-  @apply px-4 py-2.5 align-middle text-xs leading-snug text-ink;
+  @apply px-4 py-2.5 align-middle text-xs font-sans font-normal not-italic leading-snug text-ink;
 }
 /* A data row: about 52px tall, the same hover everywhere. */
 @utility tr-row {
@@ -177,6 +189,25 @@
 /* Summary / totals row inside a table footer or bottom total line. */
 @utility tr-summary {
   @apply h-[52px] border-t-2 border-line bg-surface-muted font-semibold text-ink;
+}
+/* Semantic table cell typography utilities (all DM Sans on the 12px table body scale). */
+@utility td-primary {
+  @apply font-sans text-xs font-semibold not-italic leading-snug text-ink;
+}
+@utility td-id {
+  @apply whitespace-nowrap font-sans text-xs font-semibold not-italic leading-snug tabular-nums text-ink;
+}
+@utility td-medium {
+  @apply font-sans text-xs font-medium not-italic leading-snug text-ink;
+}
+@utility td-secondary {
+  @apply mt-0.5 block font-sans text-xs font-normal not-italic leading-snug text-ink-muted;
+}
+@utility td-muted {
+  @apply font-sans text-xs font-normal not-italic leading-snug text-ink-muted;
+}
+@utility td-num {
+  @apply font-sans text-xs not-italic leading-snug tabular-nums text-ink;
 }
 /* Small square icon button inside a row (expand arrow, row menu): same size, border and radius everywhere. */
 @utility row-icon-button {
@@ -214,7 +245,7 @@
 
 /* Text-style action inside a table row or list: at least 24px tall so it is easy to hit. */
 @utility row-action {
-  @apply inline-flex min-h-6 items-center rounded px-1.5 text-sm font-semibold text-pup-maroon hover:bg-maroon-50 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 disabled:opacity-50;
+  @apply inline-flex min-h-6 items-center rounded px-1.5 font-sans text-xs font-semibold not-italic leading-snug text-pup-maroon hover:bg-maroon-50 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 disabled:opacity-50;
 }
 
 /* Public home hero: layered maroon and gold glow, CSS only (no image files). */
@@ -321,14 +352,51 @@
   .report-print-area h3 {
     break-after: avoid;
   }
+  /* Keep a section's heading glued to what follows it (e.g. the office header, or Service Ratings' own title). */
+  .report-print-area header,
+  .report-print-area section {
+    break-inside: avoid;
+  }
+  /* The signatures stay together, and only move to a fresh page as a whole rather than splitting across two. */
+  [data-testid="signature-lines"] {
+    break-inside: avoid;
+  }
   .report-print-area {
     page: report;
   }
+
+  /* The official report is a wide, multi-column table: optimize column widths and type size for A4 landscape
+     instead of shrinking the whole table to fit. The Service column gets the most room for long service names;
+     the ten figure columns share the rest evenly, numbers staying right-aligned and tabular. */
+  .report-print-area [data-testid="report-figures"] table {
+    table-layout: fixed;
+    width: 100%;
+    font-size: 9.5pt;
+    font-family: var(--font-sans);
+  }
+  .report-print-area [data-testid="report-figures"] th,
+  .report-print-area [data-testid="report-figures"] td {
+    padding: 4pt 5pt;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.25;
+  }
+  .report-print-area [data-testid="report-figures"] th:first-child,
+  .report-print-area [data-testid="report-figures"] td:first-child {
+    width: 20%;
+    text-align: left;
+  }
+  .report-print-area [data-testid="report-figures"] th:not(:first-child),
+  .report-print-area [data-testid="report-figures"] td:not(:first-child) {
+    width: 8%;
+  }
 }
 
-/* S8-55: one layout for A4 and Letter (the paper size is the printer's choice; the margins and the page numbers are ours). */
+/* S8-55 / landscape report: A4, landscape, for the official PUP accomplishment report - a wide table of per-service
+   figures needs the extra horizontal room, so the orientation is forced rather than left to the printer. */
 @page report {
-  margin: 16mm 14mm 18mm;
+  size: A4 landscape;
+  margin: 14mm 12mm 16mm;
   @bottom-center {
     content: "Page " counter(page) " of " counter(pages);
     font-size: 9pt;

@@ -44,7 +44,7 @@ export function TruncatedCell({
   const content = (
     <span
       ref={textRef}
-      className={`block font-semibold text-ink hover:underline ${expanded ? 'whitespace-normal break-words' : 'truncate'}`}
+      className={`block td-primary hover:underline ${expanded ? 'whitespace-normal break-words' : 'truncate'}`}
     >
       {text}
     </span>
@@ -88,7 +88,7 @@ export function TruncatedCell({
           </button>
         ) : null}
       </div>
-      {subtitle ? <p className="mt-0.5 text-xs text-ink-muted truncate" title={subtitle}>{subtitle}</p> : null}
+      {subtitle ? <p className="td-secondary truncate" title={subtitle}>{subtitle}</p> : null}
     </div>
   );
 }
@@ -131,6 +131,15 @@ export default function DataTable({
   loading = false,
   loadingMessage = 'Loading…',
   emptyMessage = 'No records found.',
+  emptyTitle = null,
+  emptyVariant = 'neutral',
+  emptyIcon,
+  emptySupport = null,
+  emptyAction = null,
+  emptyActionLabel = null,
+  onEmptyAction = null,
+  emptyActionHref = null,
+  emptyActionVariant = 'secondary',
   error = null,
   summaryText = null,
   totalCount = null,
@@ -156,7 +165,7 @@ export default function DataTable({
       <button
         type="button"
         onClick={() => onSortChange(col.key)}
-        className={`-mx-1.5 -my-1 inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 uppercase tracking-wider transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-gold ${alignBtn}`.trim()}
+        className={`-mx-1.5 -my-1 inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 font-sans text-[11px] font-bold not-italic leading-normal uppercase tracking-wider text-white transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-pup-gold ${alignBtn}`.trim()}
       >
         <span>{col.header}</span>
         <SortIcon direction={direction} />
@@ -214,7 +223,20 @@ export default function DataTable({
             <SkeletonRows columns={columns} />
           </>
         ) : data.length === 0 ? (
-          <TableState colSpan={colCount}>{emptyMessage}</TableState>
+          <TableState
+            colSpan={colCount}
+            variant={emptyVariant}
+            icon={emptyIcon}
+            title={emptyTitle}
+            supportingInfo={emptySupport}
+            action={emptyAction}
+            actionLabel={emptyActionLabel}
+            onAction={onEmptyAction}
+            actionHref={emptyActionHref}
+            actionVariant={emptyActionVariant}
+          >
+            {emptyMessage}
+          </TableState>
         ) : (
           data.map((item, idx) => {
             const customRowClass = typeof rowClassName === 'function' ? rowClassName(item, idx) : rowClassName;

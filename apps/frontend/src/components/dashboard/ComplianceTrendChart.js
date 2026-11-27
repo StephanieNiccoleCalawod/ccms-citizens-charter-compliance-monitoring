@@ -12,31 +12,33 @@ function ChangeBadge({ change }) {
   if (!Number.isFinite(num)) return null;
   if (num < 0) {
     return (
-      <span
-        data-testid="trend-delta-badge"
-        className="inline-flex items-center rounded-md border border-[#F3C5C5] bg-[#FDF2F2] px-2 py-0.5 font-mono text-[11px] font-bold text-[#800000]"
-      >
-        &darr; {Math.abs(num)} points vs previous period
+      <span data-testid="trend-delta-badge" className="font-mono text-xs font-bold text-[#800000]">
+        &darr; {Math.abs(num)} vs prior
       </span>
     );
   }
   if (num > 0) {
     return (
-      <span
-        data-testid="trend-delta-badge"
-        className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-700"
-      >
-        &uarr; {num} points vs previous period
+      <span data-testid="trend-delta-badge" className="font-mono text-xs font-bold text-emerald-700">
+        &uarr; {num} vs prior
       </span>
     );
   }
   return (
-    <span
-      data-testid="trend-delta-badge"
-      className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-[11px] font-bold text-[#64748B]"
-    >
-      No change vs previous period
+    <span data-testid="trend-delta-badge" className="font-mono text-xs font-bold text-[#64748B]">
+      No change vs prior
     </span>
+  );
+}
+
+/** One of the three stat tiles above the chart: Period Compliance, PUP Charter Target, On-Time Completed. */
+function Tile({ label, value, valueClassName = 'text-[#202938]', children }) {
+  return (
+    <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+      <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#64748B]">{label}</p>
+      <p className={`mt-1 font-mono text-xl font-bold tabular-nums ${valueClassName}`}>{value}</p>
+      {children ? <div className="mt-0.5">{children}</div> : null}
+    </div>
   );
 }
 
@@ -52,22 +54,23 @@ export default function ComplianceTrendChart({ pulse }) {
       ? `${missingPeriods.map((p) => p.label).join(', ')} have no completed transactions on record`
       : `All ${trend.length} months have completed transactions on record`;
 
+  // On-time completed count: the raw count isn't in this pulse payload, only the rate and the completed total, so the
+  // count is the two already-shown figures multiplied together (same derivation style as the risk percentages elsewhere).
+  const completedTotal = pulse.results ?? null;
+  const onTimeCompleted = completedTotal !== null && pulse.current !== null ? Math.round(completedTotal * (pulse.current / 100)) : null;
+
   return (
     <ChartCard
       id="pulse"
-      title="Compliance Trend"
-      badge={<ChangeBadge change={pulse.change} />}
+      title="Citizen's Charter On-Time Compliance"
+      badge={(
+        <span className="inline-flex items-center rounded-full border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-sans text-[10px] font-bold uppercase tracking-wide text-[#64748B]">
+          Period-Based
+        </span>
+      )}
       calculation={pulse.calculation ?? null}
       calculationSubject="the compliance trend"
-      description={
-        pulse.current !== null ? (
-          <>
-            Currently <span className="font-bold text-[#202938]">{pulse.current}%</span>, tracked monthly against {CHARTER_BENCHMARK}% Citizen&rsquo;s Charter benchmark.
-          </>
-        ) : (
-          `Share of transactions finished within their charter deadline, tracked against ${CHARTER_BENCHMARK}% Citizen's Charter benchmark.`
-        )
-      }
+      description={`Completed within official Citizen's Charter turnaround standards, tracked against the ${CHARTER_BENCHMARK}% benchmark.`}
       legend={(
         <>
           <LegendItem color={SERIES_COLORS.actual} label="Monthly Compliance" />
@@ -75,6 +78,8 @@ export default function ComplianceTrendChart({ pulse }) {
         </>
       )}
       empty={empty}
+      emptyIcon="chart"
+      emptyTitle="No Compliance History Yet"
       emptyMessage="There is no compliance history to show yet."
       table={{
         caption: 'Compliance by month',
@@ -88,15 +93,28 @@ export default function ComplianceTrendChart({ pulse }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span data-testid="trend-baseline-note">{baselineNote}</span>
           <a
-            href="#heatmap"
+            href="#charter"
             data-testid="compare-by-office-link"
             className="font-semibold text-[#800000] hover:underline"
           >
-            Compare by office &rarr;
+            View Service Charter Breakdown &rarr;
           </a>
         </div>
       )}
     >
+      {!empty ? (
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
+          <Tile label="Period Compliance" value={fmt(pulse.current)}>
+            <ChangeBadge change={pulse.change} />
+          </Tile>
+          <Tile label="PUP Charter Target" value={`${CHARTER_BENCHMARK}%`}>
+            <span className="font-sans text-xs text-[#64748B]">Citizen&rsquo;s Charter benchmark</span>
+          </Tile>
+          <Tile label="On-Time Completed" value={onTimeCompleted !== null ? onTimeCompleted.toLocaleString('en-PH') : '-'}>
+            <span className="font-sans text-xs text-[#64748B]">{completedTotal !== null ? `of ${completedTotal.toLocaleString('en-PH')} completed` : ''}</span>
+          </Tile>
+        </div>
+      ) : null}
       <TrendChart
         data={trend}
         series={[{ key: 'value', name: 'Monthly Compliance', color: SERIES_COLORS.actual }]}

@@ -6,7 +6,7 @@ import { GET as listRoute, POST as generateRoute } from '../src/app/api/reports/
 import { GET as oneRoute } from '../src/app/api/reports/[id]/route.js';
 import { GET as csvRoute } from '../src/app/api/reports/[id]/export.csv/route.js';
 import { POST as publishRoute } from '../src/app/api/reports/[id]/publish/route.js';
-import { OFFICE_A, OFFICE_B, USERS, call, req, setupTestEnv, switchState, tokens } from './helpers.js';
+import { OFFICE_A, OFFICE_B, USERS, call, fakeGate, req, setupTestEnv, switchState, tokens } from './helpers.js';
 
 let env;
 before(async () => { env = await setupTestEnv(); });
@@ -64,7 +64,17 @@ describe('CC056 Office Staff and reports', () => {
     const { createSwitchGate } = await import('ccms-shared');
     const { setSwitchGate } = await import('../src/lib/switches.js');
     setSwitchGate(createSwitchGate({ env: { IDENTITY_URL: 'http://127.0.0.1:9', SERVICE_KEY: 'k' }, timeoutMs: 300 }));
-    try { assert.equal((await list(tokens.officeStaffA)).status, 403); } finally { setSwitchGate({ all: async () => ({ ...switchState }), isEnabled: async (k) => switchState[k] === true, reset() {} }); }
+    try { assert.equal((await list(tokens.officeStaffA)).status, 403); } finally { setSwitchGate(fakeGate); }
+  });
+
+  it('office-scoped switch allows staff in selected office and blocks other offices', async () => {
+    const mine = await insert(OFFICE_A, 'PUBLISHED', '2026-10-01');
+    switchState.STAFF_VIEW_REPORTS = [OFFICE_B];
+    assert.equal((await list(tokens.officeStaffA)).status, 403);
+    switchState.STAFF_VIEW_REPORTS = [OFFICE_A];
+    const allowed = await list(tokens.officeStaffA);
+    assert.equal(allowed.status, 200);
+    assert.deepEqual(allowed.body.items.map((r) => r.report_id), [mine]);
   });
 
   it('the Executive and Office Head are not decided by the switch', async () => {

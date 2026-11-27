@@ -395,4 +395,26 @@ describe('page rules', () => {
     assert.match(dash, /onRunChange=/);
     assert.match(unusual, /r\.can_open[\s\S]*?<Link href=\{`\/transactions\/\$\{encodeURIComponent\(r\.transaction_id\)\}`\}/);
   });
+
+  it('the default "All Active" view moves every-service-too-few offices out of the main grid into a collapsed summary, so a handful of real findings are not buried under dozens of low-volume cards', () => {
+    const matrix = read('src/components/dashboard/ServiceLateRateMatrix.js');
+    assert.match(matrix, /const showTiered = filter === 'all'/);
+    assert.match(matrix, /const attentionRows = showTiered \? model\.officeRows\.filter\(\(row\) => !row\.low_volume\) : model\.officeRows/);
+    assert.match(matrix, /const lowVolumeRows = showTiered \? model\.officeRows\.filter\(\(row\) => row\.low_volume\) : \[\]/);
+    assert.match(matrix, /data-testid="low-volume-offices"/);
+    assert.match(matrix, /data-testid="low-volume-toggle"/);
+  });
+
+  it('a judged office\'s too-few-to-judge services collapse behind a toggle in the default view, but not when the Too Few filter is explicitly chosen', () => {
+    const matrix = read('src/components/dashboard/ServiceLateRateMatrix.js');
+    assert.match(matrix, /const collapseTooFew = showTiered/);
+    assert.match(matrix, /data-testid="office-row-show-too-few"/);
+    assert.match(matrix, /\+\{tooFewCards\.length\} too few to judge/);
+  });
+
+  it('both collapsed sections (low-volume offices, no-activity services) start closed, so opening the matrix shows the findings first', () => {
+    const matrix = read('src/components/dashboard/ServiceLateRateMatrix.js');
+    assert.match(matrix, /const \[inactiveOpen, setInactiveOpen\] = useState\(false\)/);
+    assert.match(matrix, /const \[lowVolumeOpen, setLowVolumeOpen\] = useState\(false\)/);
+  });
 });

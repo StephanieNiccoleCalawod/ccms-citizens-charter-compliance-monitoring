@@ -13,6 +13,8 @@ export default function ComplianceHeatmap({ heatmap, scope }) {
       calculationSubject="on-time compliance by office"
       description={scope.kind === 'office' ? 'Your office, by month.' : 'Each row is an office and each column is a month. Hover over or select a cell to see its value.'}
       empty={heatmap.rows.length === 0 || heatmap.periods.length === 0}
+      emptyIcon="chart"
+      emptyTitle="No Office Performance Data Yet"
       emptyMessage="No office data to show yet."
     >
       <div className="mb-3"><HeatLegend /></div>

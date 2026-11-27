@@ -4,7 +4,8 @@ import { ROLES } from './roles.js';
 
 export const LANDING_BY_ROLE = Object.freeze({
   [ROLES.SUPER_ADMIN]: '/accounts',
-  [ROLES.OFFICE_HEAD]: '/office',
+  // The Office Head's Office Home was merged into the Dashboard (/); Office Staff keeps the separate Office Home.
+  [ROLES.OFFICE_HEAD]: '/',
   [ROLES.OFFICE_STAFF]: '/office',
   [ROLES.EXECUTIVE]: '/campus',
 });
@@ -24,7 +25,8 @@ export const NAV_BY_ROLE = Object.freeze({
     SERVICES,
     CALENDAR,
   ],
-  [ROLES.OFFICE_HEAD]: [HOME, { section: 'Main', label: 'Office Home', href: '/office' }, SERVICES, CALENDAR],
+  // Office Home's content now lives on the Dashboard (HOME, relabeled "Dashboard" by AppShell) for the Office Head.
+  [ROLES.OFFICE_HEAD]: [HOME, SERVICES, CALENDAR],
   [ROLES.OFFICE_STAFF]: [HOME, { section: 'Main', label: 'Office Home', href: '/office' }, SERVICES, CALENDAR],
   [ROLES.EXECUTIVE]: [HOME, { section: 'Main', label: 'Campus Home', href: '/campus' }, SERVICES, CALENDAR],
 });

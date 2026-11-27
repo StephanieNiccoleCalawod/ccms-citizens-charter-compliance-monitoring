@@ -122,11 +122,13 @@ export default function SyncPanel({ refreshKey }) {
                     }
                   >
                     {data.recent.length === 0 ? (
-                      <TableState colSpan={5}>No changes have been shared yet.</TableState>
+                      <TableState colSpan={5} icon="sync" title="No Sync Activity Yet">
+                        No changes have been shared yet.
+                      </TableState>
                     ) : (
                       data.recent.map((row) => (
                         <tr key={row.sync_id} className={`tr-row ${row.status === 'FAILED' ? 'bg-red-50' : ''}`}>
-                          <td className="td font-semibold">
+                          <td className="td td-primary">
                             {externalSystemLabel(row.consumer_system)} <span className="badge bg-slate-100 text-slate-600">External system</span>
                           </td>
                           <td className="td">{row.event_type}</td>
@@ -139,8 +141,8 @@ export default function SyncPanel({ refreshKey }) {
                               </button>
                             ) : null}
                           </td>
-                          <td className="td">{formatDateTime(row.last_synced_at) || '-'}</td>
-                          <td className="td text-right">{row.attempts}</td>
+                          <td className="td td-num">{formatDateTime(row.last_synced_at) || '-'}</td>
+                          <td className="td text-right td-num">{row.attempts}</td>
                         </tr>
                       ))
                     )}

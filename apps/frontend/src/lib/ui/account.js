@@ -111,6 +111,54 @@ export function switchChanges(saved, draft) {
 
 export const switchValues = (switches) => Object.fromEntries((switches ?? []).map((s) => [s.key, s.enabled === true]));
 
+export const SWITCH_SCOPE_ALL = 'ALL';
+export const SWITCH_SCOPE_SPECIFIC = 'SPECIFIC';
+
+export const switchScopeOf = (switchInfo) => (switchInfo?.scope === SWITCH_SCOPE_SPECIFIC ? SWITCH_SCOPE_SPECIFIC : SWITCH_SCOPE_ALL);
+
+export const switchOfficeIdsOf = (switchInfo) => (
+  switchScopeOf(switchInfo) === SWITCH_SCOPE_SPECIFIC && Array.isArray(switchInfo?.office_ids)
+    ? [...new Set(switchInfo.office_ids.map((id) => String(id).trim().toLowerCase()).filter(Boolean))].sort()
+    : []
+);
+
+/**
+ * Builds the PUT /permission-switches value for one switch from the confirmation modal. Uses the plain boolean
+ * legacy shape when scope stays ALL so existing simple toggles keep their compact payload; sends the object shape
+ * whenever SPECIFIC offices are chosen or when resetting a previously SPECIFIC switch back to ALL.
+ */
+export function buildSwitchUpdate({ nextEnabled, scope = SWITCH_SCOPE_ALL, officeIds = [], currentSwitch = null }) {
+  const currentScope = switchScopeOf(currentSwitch);
+  if (!nextEnabled) {
+    return currentScope === SWITCH_SCOPE_SPECIFIC
+      ? { enabled: false, scope: SWITCH_SCOPE_ALL, office_ids: [] }
+      : false;
+  }
+  if (scope === SWITCH_SCOPE_SPECIFIC) {
+    const cleanIds = [...new Set((officeIds ?? []).map((id) => String(id).trim().toLowerCase()).filter(Boolean))].sort();
+    return { enabled: true, scope: SWITCH_SCOPE_SPECIFIC, office_ids: cleanIds };
+  }
+  return currentScope === SWITCH_SCOPE_SPECIFIC
+    ? { enabled: true, scope: SWITCH_SCOPE_ALL, office_ids: [] }
+    : true;
+}
+
+/** Short label + tooltip summarizing a switch's current office scope for the Roles matrix. */
+export function switchScopeSummary(switchInfo, offices = []) {
+  if (switchScopeOf(switchInfo) !== SWITCH_SCOPE_SPECIFIC) {
+    return { label: 'All offices', title: 'Applies to Office Staff in all offices — click to change scope' };
+  }
+  const ids = switchOfficeIdsOf(switchInfo);
+  const names = ids
+    .map((id) => offices.find((o) => String(o.office_id).toLowerCase() === id)?.office_name)
+    .filter(Boolean);
+  const count = ids.length;
+  return {
+    label: `${count} ${count === 1 ? 'office' : 'offices'}`,
+    title: names.length > 0 ? `${names.join(', ')} — click to edit offices` : `${count} selected ${count === 1 ? 'office' : 'offices'} — click to edit`,
+  };
+}
+
 /** Which switch-gated pages an Office Staff member may open now, from GET /me ("What I can do"). Anything unclear is "no". */
 export function staffAccessFrom(me) {
   const on = (key) => (me?.what_i_can_do ?? []).some((item) => item.switch_key === key && item.switch_on === true);

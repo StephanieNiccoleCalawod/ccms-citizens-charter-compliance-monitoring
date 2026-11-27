@@ -7,7 +7,8 @@ import { CAPABILITIES, SWITCH_KEYS, capabilitiesFor } from 'ccms-shared';
 import { ROLES } from 'ccms-shared/roles';
 import { changeMyPassword, getMe, getPermissionSwitches, savePermissionSwitches } from '../../src/lib/api/account.js';
 import { appNavForRole } from '../../src/lib/auth/permissions.js';
-import { LAST_SIGN_IN_NONE, accessBadgeMeta, accessLabel, affectedRolesForSwitch, countSwitchControlledRows, filterCapabilityRows, groupRows, isSwitchCell, isSwitchControlledRow, lastSignIn, myAccessLabel, passwordFormErrors, passwordServerErrors, roleMeta, summarizeCategories, switchChanges, switchValues } from '../../src/lib/ui/account.js';
+import { LAST_SIGN_IN_NONE, SWITCH_SCOPE_ALL, SWITCH_SCOPE_SPECIFIC, accessBadgeMeta, accessLabel, affectedRolesForSwitch, buildSwitchUpdate, countSwitchControlledRows, filterCapabilityRows, groupRows, isSwitchCell, isSwitchControlledRow, lastSignIn, myAccessLabel, passwordFormErrors, passwordServerErrors, roleMeta, summarizeCategories, switchChanges, switchOfficeIdsOf, switchScopeOf, switchScopeSummary, switchValues } from '../../src/lib/ui/account.js';
+import { roleAllowsPast } from '../../src/lib/ui/backdate.js';
 
 const read = (path) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8');
 
@@ -19,10 +20,12 @@ describe('CC056 calls', () => {
     await changeMyPassword({ current: 'old-pass-123', next: 'new-pass-456' }, fetcher);
     await getPermissionSwitches(fetcher);
     await savePermissionSwitches({ STAFF_BACKDATE: true }, fetcher);
+    await savePermissionSwitches({ STAFF_BACKDATE: { enabled: true, scope: 'SPECIFIC', office_ids: ['o1', 'o2'] } }, fetcher);
     assert.deepEqual(calls[0], ['/api/identity/me', undefined]);
     assert.deepEqual(calls[1], ['/api/identity/me/password', { method: 'PUT', body: { current_password: 'old-pass-123', new_password: 'new-pass-456' } }]);
     assert.deepEqual(calls[2], ['/api/identity/permission-switches', undefined]);
     assert.deepEqual(calls[3], ['/api/identity/permission-switches', { method: 'PUT', body: { switches: { STAFF_BACKDATE: true } } }]);
+    assert.deepEqual(calls[4], ['/api/identity/permission-switches', { method: 'PUT', body: { switches: { STAFF_BACKDATE: { enabled: true, scope: 'SPECIFIC', office_ids: ['o1', 'o2'] } } } }]);
   });
 });
 
@@ -57,6 +60,44 @@ describe('CC056 labels and switches', () => {
     const saved = switchValues([{ key: 'A', enabled: false }, { key: 'B', enabled: true }]);
     assert.deepEqual(switchChanges(saved, { A: true, B: true }), { A: true });
     assert.deepEqual(switchChanges(saved, saved), {});
+  });
+  it('office scope helpers read saved scope/offices and build minimal PUT payloads', () => {
+    assert.equal(switchScopeOf({ scope: 'SPECIFIC' }), SWITCH_SCOPE_SPECIFIC);
+    assert.equal(switchScopeOf({ scope: 'ALL' }), SWITCH_SCOPE_ALL);
+    assert.equal(switchScopeOf(null), SWITCH_SCOPE_ALL);
+    assert.deepEqual(switchOfficeIdsOf({ scope: 'SPECIFIC', office_ids: ['B', 'a', 'b'] }), ['a', 'b']);
+    assert.deepEqual(switchOfficeIdsOf({ scope: 'ALL', office_ids: ['a'] }), []);
+
+    assert.equal(buildSwitchUpdate({ nextEnabled: true, scope: 'ALL', currentSwitch: { scope: 'ALL' } }), true);
+    assert.equal(buildSwitchUpdate({ nextEnabled: false, scope: 'ALL', currentSwitch: { scope: 'ALL' } }), false);
+    assert.deepEqual(
+      buildSwitchUpdate({ nextEnabled: true, scope: 'SPECIFIC', officeIds: ['O2', 'o1'], currentSwitch: { scope: 'ALL' } }),
+      { enabled: true, scope: 'SPECIFIC', office_ids: ['o1', 'o2'] },
+    );
+    assert.deepEqual(
+      buildSwitchUpdate({ nextEnabled: true, scope: 'ALL', currentSwitch: { scope: 'SPECIFIC', office_ids: ['o1'] } }),
+      { enabled: true, scope: 'ALL', office_ids: [] },
+    );
+    assert.deepEqual(
+      buildSwitchUpdate({ nextEnabled: false, scope: 'SPECIFIC', officeIds: ['o1'], currentSwitch: { scope: 'SPECIFIC', office_ids: ['o1'] } }),
+      { enabled: false, scope: 'ALL', office_ids: [] },
+    );
+
+    const summary = switchScopeSummary(
+      { scope: 'SPECIFIC', office_ids: ['o1', 'o2'] },
+      [{ office_id: 'o1', office_name: 'Registrar' }, { office_id: 'o2', office_name: 'OSAS' }],
+    );
+    assert.equal(summary.label, '2 offices');
+    assert.match(summary.title, /Registrar, OSAS/);
+    assert.equal(switchScopeSummary({ scope: 'ALL' }).label, 'All offices');
+  });
+  it('roleAllowsPast keeps Super Admin and Office Head open and reads office-scoped STAFF_BACKDATE for Office Staff', () => {
+    assert.equal(roleAllowsPast(null, ROLES.SUPER_ADMIN), true);
+    assert.equal(roleAllowsPast(null, ROLES.OFFICE_HEAD), true);
+    assert.equal(roleAllowsPast(null, ROLES.EXECUTIVE), false);
+    assert.equal(roleAllowsPast(null, ROLES.OFFICE_STAFF), false);
+    assert.equal(roleAllowsPast({ what_i_can_do: [{ switch_key: 'STAFF_BACKDATE', switch_on: false }] }, ROLES.OFFICE_STAFF), false);
+    assert.equal(roleAllowsPast({ what_i_can_do: [{ switch_key: 'STAFF_BACKDATE', switch_on: true }] }, ROLES.OFFICE_STAFF), true);
   });
   it('groups keep the order the rows come in', () => {
     const groups = groupRows(CAPABILITIES.map((c) => ({ key: c.key, group: c.group })));
@@ -126,8 +167,15 @@ describe('CC056 screens (source checks)', () => {
     assert.doesNotMatch(matrix, /savePermissionSwitches/);
     const page = read('src/app/settings/roles/page.js');
     assert.match(page, /<PermissionConfirmModal/);
-    assert.match(page, /savePermissionSwitches\(\{ \[switchKey\]: nextEnabled \}\)/);
-    assert.match(read('src/components/account/PermissionConfirmModal.js'), /<ConfirmDialog/);
+    assert.match(page, /savePermissionSwitches\(\{ \[switchKey\]: payload \}\)/);
+    assert.match(matrix, /roles-scope-\$\{switchKey\}/);
+    const modal = read('src/components/account/PermissionConfirmModal.js');
+    assert.match(modal, /<ConfirmDialog/);
+    assert.match(modal, /<OfficeCheckboxList/);
+    assert.match(modal, /Specific Office\(s\)/);
+    assert.match(read('src/components/forms/OfficeCheckboxList.js'), /<Checkbox/);
+    assert.doesNotMatch(read('src/app/settings/transactions/page.js'), /OfficeBackdate/);
+    assert.match(read('src/components/transactions/StartTransactionForm.js'), /roleAllowsPast\(me, user\.role\)/);
     assert.ok(read('src/components/account/PermissionSwitches.js').includes('view.switches.map'));
   });
   it('the password form never shows a saved message before the server answers, and clears the passwords after', () => {

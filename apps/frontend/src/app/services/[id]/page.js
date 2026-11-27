@@ -9,9 +9,11 @@ import Link from 'next/link';
 import { ROLES } from 'ccms-shared/roles';
 import AppShell from '../../../components/layout/AppShell.js';
 import ConfirmDialog from '../../../components/dialogs/ConfirmDialog.js';
+import DiscardChangesDialog from '../../../components/dialogs/DiscardChangesDialog.js';
 import ErrorBanner from '../../../components/feedback/ErrorBanner.js';
 import Modal from '../../../components/modals/Modal.js';
 import RowActionMenu from '../../../components/ui/RowActionMenu.js';
+import Checkbox from '../../../components/ui/Checkbox.js';
 import StatusBadge from '../../../components/ui/StatusBadge.js';
 import DateHint from '../../../components/forms/DateHint.js';
 import ServiceForm, { formToBody, serviceToForm } from '../../../components/forms/ServiceForm.js';
@@ -20,6 +22,7 @@ import { formatDate } from '../../../lib/ui/date-format.js';
 import { CATALOGUE_API, classificationLabel, scopeLabel, standardText, standardWarning, transactionTypesText } from '../../../lib/api/catalogue.js';
 import { apiFetch } from '../../../lib/auth/session.js';
 import { useFormDirty } from '../../../lib/ui/useFormDirty.js';
+import { useDiscardGuard } from '../../../lib/ui/useDiscardGuard.js';
 import { useSingleSubmit } from '../../../lib/ui/useSingleSubmit.js';
 import { CHARTER_REFERENCE_MAX, durationErrors, serviceSaveError, standardToBody } from '../../../lib/ui/service-form.js';
 import { parseDocumentNotes, parseProcedureSteps, splitLinks } from '../../../lib/ui/parseProcedure.js';
@@ -63,6 +66,8 @@ function ServiceDetail({ user, id }) {
   const [saving, setSaving] = useState(false);
   const editDirty = useFormDirty(editForm);
   const docDirty = useFormDirty(doc);
+  const editGuard = useDiscardGuard(editDirty, () => setEditForm(null));
+  const docGuard = useDiscardGuard(docDirty, () => setDoc(null));
   const once = useSingleSubmit();
 
   const reload = useCallback(async () => {
@@ -578,10 +583,10 @@ function ServiceDetail({ user, id }) {
         title="Edit Service"
         dirty={editDirty}
         widthClass="max-w-2xl"
-        onClose={saving ? undefined : () => setEditForm(null)}
+        onClose={saving ? undefined : editGuard.requestClose}
         footer={
           <>
-            <button type="button" className="btn-secondary" onClick={() => setEditForm(null)} disabled={saving}>
+            <button type="button" className="btn-secondary" onClick={editGuard.requestClose} disabled={saving}>
               Cancel
             </button>
             <SubmitButton form="edit-service-form" busy={saving} label="Save" busyLabel="Updating…" />
@@ -599,10 +604,10 @@ function ServiceDetail({ user, id }) {
         open={doc !== null}
         title={doc?.document_id ? 'Edit Document' : 'Add Document'}
         dirty={docDirty}
-        onClose={saving ? undefined : () => setDoc(null)}
+        onClose={saving ? undefined : docGuard.requestClose}
         footer={
           <>
-            <button type="button" className="btn-secondary" onClick={() => setDoc(null)} disabled={saving}>
+            <button type="button" className="btn-secondary" onClick={docGuard.requestClose} disabled={saving}>
               Cancel
             </button>
             <SubmitButton form="doc-form" busy={saving} label="Save" busyLabel={doc?.document_id ? 'Updating…' : 'Creating…'} />
@@ -619,10 +624,7 @@ function ServiceDetail({ user, id }) {
               <input id="doc-name" className="input" value={doc.document_name} onChange={(e) => setDoc({ ...doc, document_name: e.target.value })} maxLength={200} autoFocus aria-required="true" aria-invalid={docErrors.document_name ? true : undefined} aria-describedby={docErrors.document_name ? 'doc-name-error' : undefined} />
               <FieldError id="doc-name-error">{docErrors.document_name}</FieldError>
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input type="checkbox" checked={doc.is_mandatory} onChange={(e) => setDoc({ ...doc, is_mandatory: e.target.checked })} />
-              Mandatory
-            </label>
+            <Checkbox label="Mandatory" checked={doc.is_mandatory} onChange={(e) => setDoc({ ...doc, is_mandatory: e.target.checked })} />
             <div>
               <label className="label" htmlFor="doc-notes">
                 Notes (optional, plain text)
@@ -633,6 +635,9 @@ function ServiceDetail({ user, id }) {
           </form>
         ) : null}
       </Modal>
+
+      <DiscardChangesDialog open={editGuard.askDiscard} onConfirm={editGuard.confirmDiscard} onCancel={editGuard.cancelDiscard} />
+      <DiscardChangesDialog open={docGuard.askDiscard} onConfirm={docGuard.confirmDiscard} onCancel={docGuard.cancelDiscard} />
 
       <ConfirmDialog
         open={confirm !== null}

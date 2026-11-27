@@ -6,13 +6,18 @@ import { ME_API, MY_PASSWORD_API, PERMISSION_SWITCHES_API, SESSION_POLICY_API } 
 
 export const getMe = (fetcher = apiFetch) => fetcher(ME_API);
 
-/** The permission keys of the extra access the signed-in person holds, asked at most once a minute (several screens need it). */
-let extraAccessCache = { at: 0, promise: null };
-export function getExtraAccessKeys({ fetcher = apiFetch, now = Date.now, force = false } = {}) {
-  if (!force && extraAccessCache.promise && now() - extraAccessCache.at < 60_000) return extraAccessCache.promise;
-  const promise = getMe(fetcher).then(extraAccessKeys).catch(() => []);
-  extraAccessCache = { at: now(), promise };
+/** Cached GET /me (asked at most once a minute) so screens can read both extra_access and office-scoped switches. */
+let meCache = { at: 0, promise: null };
+export function getCachedMe({ fetcher = apiFetch, now = Date.now, force = false } = {}) {
+  if (!force && meCache.promise && now() - meCache.at < 60_000) return meCache.promise;
+  const promise = getMe(fetcher).catch(() => null);
+  meCache = { at: now(), promise };
   return promise;
+}
+
+/** The permission keys of the extra access the signed-in person holds, asked at most once a minute (several screens need it). */
+export function getExtraAccessKeys(options) {
+  return getCachedMe(options).then(extraAccessKeys);
 }
 
 export const changeMyPassword = ({ current, next }, fetcher = apiFetch) =>
@@ -22,7 +27,7 @@ export const getSessionPolicy = (fetcher = apiFetch) => fetcher(SESSION_POLICY_A
 
 export const getPermissionSwitches = (fetcher = apiFetch) => fetcher(PERMISSION_SWITCHES_API);
 
-/** `changes` is { KEY: boolean } for only the switches that changed. */
+/** `changes` is { KEY: boolean | { enabled, scope, office_ids } } for only the switches that changed. */
 export const savePermissionSwitches = (changes, fetcher = apiFetch) => fetcher(PERMISSION_SWITCHES_API, { method: 'PUT', body: { switches: changes } });
 
 /** The name of the person's own office (the account only holds its id). Empty when it cannot be read. */

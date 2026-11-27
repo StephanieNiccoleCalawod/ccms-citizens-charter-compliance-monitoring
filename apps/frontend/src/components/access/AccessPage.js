@@ -16,6 +16,7 @@ import DateHint from '../forms/DateHint.js';
 import Modal from '../modals/Modal.js';
 import Button from '../ui/Button.js';
 import DataTable from '../ui/DataTable.js';
+import EmptyState from '../ui/EmptyState.js';
 import StatusBadge from '../ui/StatusBadge.js';
 import Tabs, { tabPanelProps } from '../ui/Tabs.js';
 
@@ -59,10 +60,10 @@ function AskForAccess({ initialKey }) {
   }
 
   const columns = [
-    { key: 'permission', header: 'Access', render: (r) => r.permission_label },
+    { key: 'permission', header: 'Access', render: (r) => <span className="td-primary">{r.permission_label}</span> },
     { key: 'status', header: 'Answer', render: (r) => <StatusBadge variant={STATUS_TONE[r.status] ?? 'neutral'}>{STATUS_LABEL[r.status] ?? r.status}</StatusBadge> },
-    { key: 'until', header: 'Works until', render: (r) => (r.status === 'GRANTED' ? until(r.ends_on) : '-') },
-    { key: 'asked', header: 'Asked on', render: (r) => formatDate(String(r.requested_at).slice(0, 10)) },
+    { key: 'until', header: 'Works until', className: 'tabular-nums', render: (r) => (r.status === 'GRANTED' ? until(r.ends_on) : '-') },
+    { key: 'asked', header: 'Asked on', className: 'tabular-nums', render: (r) => formatDate(String(r.requested_at).slice(0, 10)) },
   ];
   return (
     <div className="space-y-6">
@@ -89,7 +90,18 @@ function AskForAccess({ initialKey }) {
       </form>
       <section aria-labelledby="my-requests">
         <h2 id="my-requests" className="title-card mb-2">My requests</h2>
-        <DataTable label="My access requests" columns={columns} data={mine.items} keyExtractor={(r) => r.request_id} loading={mine.loading} error={mine.error || null} emptyMessage="You have not asked for any access yet." minWidth="36rem" />
+        <DataTable
+          label="My access requests"
+          columns={columns}
+          data={mine.items}
+          keyExtractor={(r) => r.request_id}
+          loading={mine.loading}
+          error={mine.error || null}
+          emptyIcon="shield"
+          emptyTitle="No Access Requests Yet"
+          emptyMessage="You have not asked for any access yet."
+          minWidth="36rem"
+        />
       </section>
     </div>
   );
@@ -126,10 +138,10 @@ function ManageAccess() {
   const bounds = endsOnBounds(today);
 
   const requestColumns = [
-    { key: 'who', header: 'Person', render: (r) => r.account_name ?? '-' },
-    { key: 'what', header: 'Access', render: (r) => r.permission_label },
+    { key: 'who', header: 'Person', render: (r) => <span className="td-primary">{r.account_name ?? '-'}</span> },
+    { key: 'what', header: 'Access', render: (r) => <span className="td-medium">{r.permission_label}</span> },
     { key: 'why', header: 'Why', render: (r) => r.reason },
-    { key: 'asked', header: 'Asked on', render: (r) => formatDate(String(r.requested_at).slice(0, 10)) },
+    { key: 'asked', header: 'Asked on', className: 'tabular-nums', render: (r) => formatDate(String(r.requested_at).slice(0, 10)) },
     { key: 'status', header: 'Answer', render: (r) => <StatusBadge variant={STATUS_TONE[r.status] ?? 'neutral'}>{STATUS_LABEL[r.status] ?? r.status}</StatusBadge> },
     { key: 'act', header: <span className="sr-only">Actions</span>, align: 'right', render: (r) => (r.status === 'PENDING' ? (
       <span className="inline-flex gap-2">
@@ -138,10 +150,10 @@ function ManageAccess() {
       </span>) : null) },
   ];
   const grantColumns = [
-    { key: 'who', header: 'Person', render: (g) => g.account_name },
-    { key: 'what', header: 'Access', render: (g) => g.permission_label },
+    { key: 'who', header: 'Person', render: (g) => <span className="td-primary">{g.account_name}</span> },
+    { key: 'what', header: 'Access', render: (g) => <span className="td-medium">{g.permission_label}</span> },
     { key: 'why', header: 'Why', render: (g) => g.reason },
-    { key: 'until', header: 'Works until', render: (g) => <span>{until(g.ends_on)}{g.ends_soon ? <StatusBadge variant="warning" className="ml-2">Ends soon</StatusBadge> : null}</span> },
+    { key: 'until', header: 'Works until', className: 'tabular-nums', render: (g) => <span>{until(g.ends_on)}{g.ends_soon ? <StatusBadge variant="warning" className="ml-2">Ends soon</StatusBadge> : null}</span> },
     { key: 'act', header: <span className="sr-only">Actions</span>, align: 'right', render: (g) => <button type="button" className="row-action" onClick={() => setRevoking(g)} data-testid="access-revoke">Remove</button> },
   ];
   const pending = requests.items.filter((r) => r.status === 'PENDING').length;
@@ -151,8 +163,33 @@ function ManageAccess() {
       <Tabs label="Access sections" idPrefix="access" value={tab} onChange={setTab} tabs={[{ id: 'requests', label: pending ? `Access requests (${pending})` : 'Access requests' }, { id: 'active', label: 'Active access' }]} />
       <div {...tabPanelProps('access', tab)} className="focus:outline-none">
         {tab === 'requests'
-          ? <DataTable label="Access requests" columns={requestColumns} data={requests.items} keyExtractor={(r) => r.request_id} loading={requests.loading} error={requests.error || null} emptyMessage="No one has asked for access yet." minWidth="52rem" />
-          : <DataTable label="Active access" columns={grantColumns} data={grants.items} keyExtractor={(g) => g.grant_id} loading={grants.loading} error={grants.error || null} emptyMessage="No one has extra access right now." minWidth="44rem" />}
+          ? (
+            <DataTable
+              label="Access requests"
+              columns={requestColumns}
+              data={requests.items}
+              keyExtractor={(r) => r.request_id}
+              loading={requests.loading}
+              error={requests.error || null}
+              emptyIcon="shield"
+              emptyTitle="No Pending Access Requests"
+              emptyMessage="No one has asked for access yet."
+              minWidth="52rem"
+            />
+          ) : (
+            <DataTable
+              label="Active access"
+              columns={grantColumns}
+              data={grants.items}
+              keyExtractor={(g) => g.grant_id}
+              loading={grants.loading}
+              error={grants.error || null}
+              emptyIcon="shield"
+              emptyTitle="No Active Temporary Access"
+              emptyMessage="No one has extra access right now."
+              minWidth="44rem"
+            />
+          )}
       </div>
       <Modal open={granting !== null} title="Grant access" onClose={() => !busy && setGranting(null)} showClose
         footer={<><Button variant="secondary" onClick={() => setGranting(null)} disabled={busy}>Cancel</Button><Button onClick={confirmGrant} loading={busy} loadingLabel="Saving…" data-testid="access-grant-confirm">Grant access</Button></>}>
@@ -182,5 +219,9 @@ function ManageAccess() {
 export default function AccessPage({ user, initialKey = '' }) {
   if (canManageAccess(user.role)) return <ManageAccess />;
   if (canRequestAccess(user.role)) return <AskForAccess initialKey={initialKey} />;
-  return <p className="text-sm text-slate-500">There is nothing to request for your role.</p>;
+  return (
+    <EmptyState surface="card" icon="shield" title="No Access Requests Available">
+      There is nothing to request for your role.
+    </EmptyState>
+  );
 }

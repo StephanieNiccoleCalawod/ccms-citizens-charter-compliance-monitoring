@@ -102,8 +102,8 @@ describe('the dialog and the detail (source checks)', () => {
     assert.ok(detail.includes('type="radio" name="complete-outcome"'));
     assert.ok(detail.includes("outcomeChoice.outcome === 'DISAPPROVED' ? ("));
     assert.ok(detail.includes('maxLength={DISAPPROVAL_REASON_MAX}'));
-    assert.ok(detail.includes('id="complete-disapproval-notice" type="checkbox"'));
-    assert.ok(detail.includes('{NOTICE_LABEL}'));
+    assert.ok(detail.includes('id="complete-disapproval-notice"'));
+    assert.ok(detail.includes('label={NOTICE_LABEL}'));
   });
 
   it('checks the outcome before sending, sends one completion with the outcome, and shows the server\'s field errors', () => {

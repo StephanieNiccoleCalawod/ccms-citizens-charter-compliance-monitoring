@@ -153,7 +153,7 @@ export default function Modal({
   if (!open) return null;
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center ${fullScreenOnMobile ? 'p-0 sm:p-4' : 'p-4'}`}>
-      <div className="absolute inset-0 bg-slate-900/50" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-slate-900/50" aria-hidden="true" />
       <div
         ref={panelRef}
         role={role}

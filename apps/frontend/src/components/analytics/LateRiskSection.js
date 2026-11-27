@@ -506,10 +506,20 @@ export function LateRiskDetailDrawer({
   );
 }
 
-export function LateRiskTable({ data, loading, showProbability, itemsOverride, onSelectAction }) {
+export function LateRiskTable({
+  data,
+  loading,
+  showProbability,
+  itemsOverride,
+  onSelectAction,
+  totalCount = null,
+  filtered = false,
+  onClearFilters = null,
+}) {
   const [sort, setSort] = useState({ key: 'risk', direction: 'desc' });
   const rows = useMemo(() => sortRows(itemsOverride ?? data?.items ?? [], sort), [itemsOverride, data, sort]);
   const changeSort = (key) => setSort((current) => (current?.key === key ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: key === 'minutes' ? 'asc' : 'desc' }));
+  const emptyFiltered = filtered && (totalCount === null || totalCount > 0);
 
   const columns = [
     {
@@ -520,14 +530,14 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
       render: (row) => (
         <div className="min-w-0 space-y-0.5 whitespace-normal">
           {row.can_open ? (
-            <Link href={`/transactions/${encodeURIComponent(row.transaction_id)}`} className="row-action px-0 font-mono text-xs font-bold text-[#800000]">
+            <Link href={`/transactions/${encodeURIComponent(row.transaction_id)}`} className="row-action px-0 tabular-nums">
               {row.tracking_no}
             </Link>
           ) : (
-            <span className="block font-mono text-xs font-bold text-[#202938]">{row.tracking_no}</span>
+            <span className="block td-id">{row.tracking_no}</span>
           )}
-          <p className="font-sans text-xs leading-snug text-[#64748B]">{row.service_name}</p>
-          <p className="font-sans text-[11px] leading-snug text-[#475569]" data-testid="late-risk-main-reason">{mainReasonText(row.main_reason_code)}</p>
+          <p className="td-secondary">{row.service_name}</p>
+          <p className="td-secondary" data-testid="late-risk-main-reason">{mainReasonText(row.main_reason_code)}</p>
         </div>
       ),
     },
@@ -553,7 +563,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
         return (
           <div className="space-y-1.5 whitespace-normal">
             <div className="flex flex-wrap items-center justify-between gap-1.5 font-sans text-xs">
-              <span className="font-mono font-semibold text-[#202938]">
+              <span className="td-num font-semibold">
                 {m.overdueText ?? (m.pctUsed !== null ? `${Math.round(m.pctUsed).toLocaleString('en-PH')}% used` : row.reason)}
               </span>
               {m.isOverLimit ? (
@@ -589,7 +599,7 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
         const breached = mins <= 0;
         return (
           <div className="space-y-0.5 text-right">
-            <span className={`block font-mono text-xs font-bold tabular-nums ${breached ? 'text-[#800000]' : 'text-[#202938]'}`}>
+            <span className={`block td-num font-semibold ${breached ? 'text-pup-maroon' : 'text-ink'}`}>
               {mins.toLocaleString('en-PH')} min
             </span>
             <span className={`block font-sans text-[11px] ${breached ? 'font-semibold text-rose-700' : 'text-[#64748B]'}`}>
@@ -636,7 +646,15 @@ export function LateRiskTable({ data, loading, showProbability, itemsOverride, o
       keyExtractor={(row) => row.transaction_id}
       loading={loading}
       loadingMessage="Loading scores…"
-      emptyMessage="No open transactions in this office."
+      emptyVariant={emptyFiltered ? 'search' : 'success'}
+      emptyTitle={emptyFiltered ? 'No Matching Open Transactions' : 'No Open Transactions'}
+      emptyMessage={
+        emptyFiltered
+          ? 'No open transactions match your current search or risk level filter.'
+          : 'No open transactions in this office.'
+      }
+      emptyActionLabel={emptyFiltered && onClearFilters ? 'Clear Filters' : null}
+      onEmptyAction={emptyFiltered ? onClearFilters : null}
       minWidth="36rem"
       sort={sort}
       onSortChange={changeSort}
@@ -824,7 +842,7 @@ export default function LateRiskSection({
       </div>
 
       {!activeOfficeId ? (
-        <EmptyState role="status">
+        <EmptyState role="status" surface="card" icon="building" title="Select an Office">
           {embedded ? 'Choose an office above to see its open transactions ranked by deadline risk.' : 'Select an office to see its open transactions ranked by risk.'}
         </EmptyState>
       ) : (
@@ -842,7 +860,7 @@ export default function LateRiskSection({
               </h2>
               <span
                 data-testid="late-risk-queue-count"
-                className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-mono text-xs font-semibold text-[#64748B]"
+                className="inline-flex items-center rounded-md border border-[#E2E8F0] bg-[#F4F5F8] px-2 py-0.5 font-sans text-xs font-semibold tabular-nums text-[#64748B]"
               >
                 Showing {filteredItems.length} of {counts.total}
               </span>
@@ -861,6 +879,12 @@ export default function LateRiskSection({
             loading={loading}
             showProbability={isAdmin}
             itemsOverride={filteredItems}
+            totalCount={counts.total}
+            filtered={riskFilter !== 'ALL' || Boolean(searchQuery.trim())}
+            onClearFilters={() => {
+              setRiskFilter('ALL');
+              setSearchQuery('');
+            }}
             onSelectAction={(row, mode) => setDetailTarget({ item: row, mode })}
           />
 

@@ -7,60 +7,58 @@ import { buildUnusualEmptyState, filterScopedUnusual, minutesText } from '../../
 import StatusBanner from '../feedback/StatusBanner.js';
 import Card from '../ui/Card.js';
 import DataTable from '../ui/DataTable.js';
+import EmptyState from '../ui/EmptyState.js';
 import LoadingState from '../ui/LoadingState.js';
 
 const label = (id, map, fallback) => map?.[id] ?? fallback;
 
 function UnusualEmptyContent({ emptyState }) {
-  const { topService, minCompleted } = emptyState;
+  const { topService, minCompleted, reason } = emptyState;
+  const isSuccess = reason === 'none_detected';
+  const title = isSuccess
+    ? 'No Unusual Delays Found'
+    : reason === 'insufficient_data'
+      ? 'Not Enough Completed Data Yet'
+      : 'No Completed Transactions Yet';
+  const description = reason === 'no_transactions' ? (
+    'Transactions that took far longer than is normal for their service are listed here. No completed transactions were recorded in the selected period.'
+  ) : reason === 'insufficient_data' ? (
+    <>
+      Transactions that took far longer than is normal for their service are listed here. To keep the results reliable, this is checked only for services with at least{' '}
+      <span className="font-semibold text-ink">{minCompleted} completed transactions</span> in the selected period.
+    </>
+  ) : (
+    <>
+      Transactions that took far longer than is normal for their service are listed here. No unusual delays were detected among services with at least{' '}
+      <span className="font-semibold text-ink">{minCompleted} completed transactions</span> in the selected period.
+    </>
+  );
+  const support = topService ? (
+    <>
+      Highest single-service volume this period:{' '}
+      <span className="font-semibold tabular-nums text-ink">{topService.completed} completed</span>{' '}
+      (<span className="font-medium tabular-nums text-ink">{topService.service_code}</span>)
+    </>
+  ) : (
+    'No completed transactions recorded in this period'
+  );
+
   return (
-    <div
+    <EmptyState
       role="status"
+      surface="plain"
+      variant={isSuccess ? 'success' : 'neutral'}
+      icon={isSuccess ? 'check' : 'chart'}
+      title={title}
+      description={description}
+      supportingInfo={support}
       data-testid="unusual-empty-state"
-      data-reason={emptyState.reason}
-      className="mx-auto flex max-w-lg flex-col items-center text-center"
-    >
-      <div
-        aria-hidden="true"
-        data-testid="unusual-empty-icon"
-        className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-600"
-      >
-        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" />
-          <path d="m8.5 12.2 2.3 2.3 4.8-4.8" />
-        </svg>
-      </div>
-
-      <h3 className="font-sans text-base font-semibold text-[#202938] sm:text-lg" data-testid="unusual-empty-heading">
-        No Unusual Delays Found
-      </h3>
-
-      <p className="mt-2 font-sans text-xs leading-relaxed text-[#64748B] sm:text-sm" data-testid="unusual-empty-description">
-        Transactions that took far longer than is normal for their service are listed here. To keep the results reliable, this is checked only for services with at least{' '}
-        <span className="font-semibold text-[#202938]">{minCompleted} completed transactions</span> in the selected period.
-      </p>
-
-      <div className="mt-5 flex max-w-full justify-center">
-        <div
-          data-testid="unusual-empty-badge"
-          className="inline-flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-1.5 font-sans text-xs text-[#64748B]"
-        >
-          <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0 text-[#64748B]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="10" cy="10" r="8" />
-            <path d="M10 9v4M10 6.5h.01" />
-          </svg>
-          {topService ? (
-            <span>
-              Highest single-service volume this period:{' '}
-              <span className="font-mono font-semibold text-[#202938]">{topService.completed} completed</span>{' '}
-              (<span className="font-mono text-[#202938]">{topService.service_code}</span>)
-            </span>
-          ) : (
-            <span>No completed transactions recorded in this period</span>
-          )}
-        </div>
-      </div>
-    </div>
+      data-reason={reason}
+      iconTestId="unusual-empty-icon"
+      titleTestId="unusual-empty-heading"
+      descriptionTestId="unusual-empty-description"
+      supportTestId="unusual-empty-badge"
+    />
   );
 }
 
@@ -100,13 +98,13 @@ export default function UnusualCasesPanel({
       key: 'tracking_no',
       header: 'Transaction',
       render: (r) => (r.can_open
-        ? <Link href={`/transactions/${encodeURIComponent(r.transaction_id)}`} className="row-action px-0 font-mono">{r.tracking_no}</Link>
-        : <span className="font-mono">{r.tracking_no}</span>),
+        ? <Link href={`/transactions/${encodeURIComponent(r.transaction_id)}`} className="row-action px-0 tabular-nums">{r.tracking_no}</Link>
+        : <span className="td-id">{r.tracking_no}</span>),
     },
-    { key: 'service', header: 'Service', render: (r) => label(r.service_id, names.services, r.service_code) },
-    { key: 'elapsed', header: 'Took', align: 'right', render: (r) => minutesText(r.elapsed_minutes) },
-    { key: 'limit', header: 'Charter limit', align: 'right', render: (r) => minutesText(r.limit_minutes) },
-    { key: 'ended', header: 'Finished', render: (r) => formatDateTime(r.ended_at) },
+    { key: 'service', header: 'Service', render: (r) => <span className="td-medium">{label(r.service_id, names.services, r.service_code)}</span> },
+    { key: 'elapsed', header: 'Took', align: 'right', render: (r) => <span className="td-num font-semibold">{minutesText(r.elapsed_minutes)}</span> },
+    { key: 'limit', header: 'Charter limit', align: 'right', className: 'tabular-nums', render: (r) => minutesText(r.limit_minutes) },
+    { key: 'ended', header: 'Finished', className: 'tabular-nums', render: (r) => formatDateTime(r.ended_at) },
   ];
 
   const description = (

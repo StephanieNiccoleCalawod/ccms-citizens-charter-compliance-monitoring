@@ -8,6 +8,7 @@ import { canRequestAccess } from '../../lib/ui/access.js';
 import ConfirmDialog from '../dialogs/ConfirmDialog.js';
 import StatusBanner from '../feedback/StatusBanner.js';
 import Button from '../ui/Button.js';
+import EmptyState from '../ui/EmptyState.js';
 import LoadingState from '../ui/LoadingState.js';
 import StatusBadge from '../ui/StatusBadge.js';
 import { listPublicOffices } from '../../lib/api/complaints.js';
@@ -1091,27 +1092,17 @@ export default function QueuePanel({ user }) {
               </div>
 
               {data.called.length === 0 ? (
-                <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC]/60 px-6 py-12 text-center">
-                  <div
-                    aria-hidden="true"
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B]"
-                  >
-                    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="8" cy="7" r="3" />
-                      <path d="M3 16c0-2.5 2.2-4.5 5-4.5" />
-                      <circle cx="14.5" cy="13.5" r="2.5" />
-                      <path d="m16.5 15.5 2 2" />
-                    </svg>
-                  </div>
-                  <p className="mt-3 font-sans text-sm font-bold text-[#202938]">
-                    No ticket is being called
-                  </p>
-                  <p className="mt-1 font-sans text-xs text-[#64748B]">
-                    {data.waiting.length === 0
-                      ? 'Waiting queue is currently empty.'
-                      : 'Select "Call Next Ticket" above to call the next waiting visitor.'}
-                  </p>
-                </div>
+                <EmptyState
+                  surface="subtle"
+                  size="compact"
+                  icon="clock"
+                  title="No Ticket Currently Called"
+                  className="flex flex-1 flex-col justify-center"
+                >
+                  {data.waiting.length === 0
+                    ? 'The waiting queue is currently empty.'
+                    : 'Select "Call Next Ticket" above to call the next waiting visitor.'}
+                </EmptyState>
               ) : (
                 <ul className="space-y-3">
                   {data.called.map((t) => {
@@ -1203,24 +1194,15 @@ export default function QueuePanel({ user }) {
               </div>
 
               {data.waiting.length === 0 ? (
-                <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC]/60 px-6 py-12 text-center">
-                  <div
-                    aria-hidden="true"
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B]"
-                  >
-                    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 11V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v5" />
-                      <path d="M3.5 11h13v3H3.5z" />
-                      <path d="M5 14v2.5M15 14v2.5" />
-                    </svg>
-                  </div>
-                  <p className="mt-3 font-sans text-sm font-bold text-[#202938]">
-                    No one is waiting
-                  </p>
-                  <p className="mt-1 max-w-md font-sans text-xs text-[#64748B]">
-                    Issue a walk-in ticket using the control bar above, or load a sample queue to preview priority call ordering.
-                  </p>
-                </div>
+                <EmptyState
+                  surface="subtle"
+                  size="compact"
+                  icon="users"
+                  title="No Visitors Waiting"
+                  className="flex flex-1 flex-col justify-center"
+                >
+                  Issue a walk-in ticket using the control bar above, or load a sample queue to preview priority call ordering.
+                </EmptyState>
               ) : (
                 <ol className="grid gap-2.5 sm:grid-cols-2">
                   {data.waiting.map((t, i) => {
@@ -1321,9 +1303,9 @@ export default function QueuePanel({ user }) {
                 className="border-t border-[#E2E8F0] bg-[#F8FAFC] px-5 py-4"
               >
                 {officeHistory.length === 0 ? (
-                  <p className="font-sans text-xs text-[#64748B]">
-                    No served or skipped no-show tickets logged in this session yet.
-                  </p>
+                  <EmptyState surface="plain" size="compact" icon="clock" title="No Queue Activity Yet">
+                    No served or skipped no-show tickets have been logged in this session yet.
+                  </EmptyState>
                 ) : (
                   <ul className="divide-y divide-[#E2E8F0] rounded-xl border border-[#E2E8F0] bg-white">
                     {officeHistory.map((item) => (

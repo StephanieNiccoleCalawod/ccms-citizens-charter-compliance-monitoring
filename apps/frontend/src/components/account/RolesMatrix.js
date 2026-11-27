@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import SearchInput from '../forms/SearchInput.js';
 import TableShell, { GroupRow, RowHeader, Table, Th } from '../ui/TableShell.js';
 import TableState from '../ui/TableState.js';
+import Checkbox from '../ui/Checkbox.js';
 import {
   accessBadgeMeta,
   countSwitchControlledRows,
@@ -13,6 +14,7 @@ import {
   isSwitchControlledRow,
   roleMeta,
   summarizeCategories,
+  switchScopeSummary,
 } from '../../lib/ui/account.js';
 
 function ModuleIcon({ group }) {
@@ -141,6 +143,7 @@ export default function RolesMatrix({
   matrix,
   switches = [],
   switchOn = {},
+  offices = [],
   roleCounts = null,
   canToggle = false,
   busySwitchKey = null,
@@ -262,13 +265,11 @@ export default function RolesMatrix({
                   : 'border-[#E2E8F0] bg-white text-[#202938] hover:bg-[#F8FAFC]'
               }`}
             >
-              <input
+              <Checkbox
                 id="roles-highlight-switches"
                 data-testid="roles-highlight-switches"
-                type="checkbox"
                 checked={highlightSwitch}
                 onChange={(e) => setHighlightSwitch(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-slate-300"
               />
               <span>Highlight Switch-Controlled ({switchCount})</span>
             </label>
@@ -326,12 +327,10 @@ export default function RolesMatrix({
           className="table-fixed"
           head={
             <tr>
-              <Th className="w-[38%] border-b border-[#E2E8F0] bg-white align-middle">
-                <div className="normal-case tracking-normal">
-                  <span className="block font-sans text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-                    CAPABILITY / ACTION
-                  </span>
-                  <span className="mt-0.5 block font-sans text-[11px] font-normal text-[#64748B]">
+              <Th className="w-[38%] align-middle">
+                <div>
+                  <span className="block">CAPABILITY / ACTION</span>
+                  <span className="mt-0.5 block font-sans text-[11px] font-normal normal-case tracking-normal text-white/75">
                     Grouped by system module
                   </span>
                 </div>
@@ -345,21 +344,18 @@ export default function RolesMatrix({
                   <Th
                     key={r.role}
                     align="center"
-                    className="w-[15.5%] border-b border-l border-[#E2E8F0] bg-white align-middle"
+                    className="w-[15.5%] align-middle"
                   >
-                    <div className="normal-case tracking-normal text-[#202938]">
+                    <div>
                       <div className="inline-flex flex-wrap items-center justify-center gap-1.5">
-                        <span aria-hidden="true" className={`h-2 w-2 rounded-full ${meta.dotClass}`} />
-                        <span className="font-sans text-xs font-bold text-[#202938]">
-                          {r.label}
-                        </span>
+                        <span>{r.label}</span>
                         {isStaff && switchCount > 0 ? (
-                          <span className="rounded border border-[#F0DDB0] bg-[#FEF3C7] px-1.5 py-0.2 font-sans text-[10px] font-bold text-[#92400E]">
+                          <span className="rounded bg-white/15 px-1.5 py-0.5 font-sans text-[10px] font-semibold normal-case tracking-normal text-gold-400">
                             {switchCount} switches
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-0.5 font-sans text-[11px] font-normal text-[#64748B]">
+                      <p className="mt-0.5 font-sans text-[11px] font-normal normal-case tracking-normal tabular-nums text-white/75">
                         {meta.description}
                         {count !== null ? ` · ${count.toLocaleString('en-PH')} ${count === 1 ? 'user' : 'users'}` : ''}
                       </p>
@@ -371,7 +367,13 @@ export default function RolesMatrix({
           }
         >
           {groups.length === 0 ? (
-            <TableState colSpan={matrix.roles.length + 1}>
+            <TableState
+              colSpan={matrix.roles.length + 1}
+              variant="search"
+              title="No Matching Capabilities"
+              actionLabel="Clear Search"
+              onAction={() => setQuery('')}
+            >
               No capabilities match &ldquo;{query.trim()}&rdquo;.
             </TableState>
           ) : (
@@ -386,7 +388,7 @@ export default function RolesMatrix({
                   <div className="flex items-center justify-between gap-3 normal-case tracking-normal">
                     <span className="inline-flex items-center gap-2">
                       <ModuleIcon group={group.name} />
-                      <span className="font-sans text-xs font-bold uppercase tracking-wider text-[#202938]">
+                      <span className="font-sans text-[11px] font-bold uppercase tracking-wider text-ink">
                         {group.name}
                       </span>
                       <span className="rounded border border-[#E2E8F0] bg-white px-1.5 py-0.2 font-sans text-[10px] font-bold tabular-nums text-[#64748B]">
@@ -442,9 +444,9 @@ export default function RolesMatrix({
                           className={`tr-row ${rowBg}`}
                         >
                           <RowHeader
-                            className={`whitespace-normal font-sans text-sm font-medium text-[#202938] ${
+                            className={`whitespace-normal font-medium ${
                               highlightSwitch && isSwitchRow ? 'border-l-2 border-l-[#D97706]' : ''
-                            }`}
+                            }`.trim()}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span
@@ -474,13 +476,15 @@ export default function RolesMatrix({
                             const isEnabled = switchKey ? switchOn?.[switchKey] === true : false;
                             const isBusy = busySwitchKey !== null;
                             const showInteractiveSwitch = switchGated && canToggle && typeof onToggleSwitch === 'function';
+                            const cellSwitchMeta = switchKey ? switchInfoMap.get(switchKey) : null;
+                            const scopeBadge = isEnabled && cellSwitchMeta ? switchScopeSummary(cellSwitchMeta, offices) : null;
                             return (
                               <td
                                 key={r.role}
                                 className="td border-l border-[#E2E8F0] text-center align-middle"
                               >
                                 {showInteractiveSwitch ? (
-                                  <div className="inline-flex items-center justify-center">
+                                  <div className="inline-flex flex-col items-center justify-center gap-1">
                                     <button
                                       type="button"
                                       role="switch"
@@ -504,6 +508,18 @@ export default function RolesMatrix({
                                         {isEnabled ? 'Yes (switch on)' : 'Off (switch off)'}
                                       </span>
                                     </button>
+                                    {scopeBadge ? (
+                                      <button
+                                        type="button"
+                                        disabled={isBusy}
+                                        data-testid={`roles-scope-${switchKey}`}
+                                        title={scopeBadge.title}
+                                        onClick={() => onToggleSwitch({ row, role: r, switchKey, nextEnabled: true })}
+                                        className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-sans text-[11px] font-medium text-slate-600 transition-colors hover:border-[#800000]/40 hover:bg-maroon-50 hover:text-maroon-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        {scopeBadge.label}
+                                      </button>
+                                    ) : null}
                                   </div>
                                 ) : (
                                   <PermissionCellBadge cell={cellVal} switchOn={switchOn} />

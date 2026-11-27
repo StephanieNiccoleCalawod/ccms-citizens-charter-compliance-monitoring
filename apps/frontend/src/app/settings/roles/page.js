@@ -79,17 +79,25 @@ export function RolesAndPermissions({ user }) {
     setPendingToggle(target);
   }
 
-  async function confirmSwitchToggle() {
+  async function confirmSwitchToggle(value) {
     if (!pendingToggle || !canManageSwitches) return;
     const { row, switchKey, nextEnabled } = pendingToggle;
+    const payload = value !== undefined ? value : nextEnabled;
     await once(async () => {
       setSavingSwitchKey(switchKey);
       setSaveError(null);
       try {
-        const nextView = await savePermissionSwitches({ [switchKey]: nextEnabled });
+        const nextView = await savePermissionSwitches({ [switchKey]: payload });
         setView(nextView);
         setPendingToggle(null);
-        notify.success(`${row.label} ${nextEnabled ? 'enabled' : 'disabled'}.`);
+        if (!nextEnabled) {
+          notify.success(`${row.label} disabled.`);
+        } else if (payload && typeof payload === 'object' && payload.scope === 'SPECIFIC') {
+          const count = payload.office_ids?.length ?? 0;
+          notify.success(`${row.label} enabled for ${count} ${count === 1 ? 'office' : 'offices'}.`);
+        } else {
+          notify.success(`${row.label} enabled.`);
+        }
       } catch (err) {
         const message = err?.message || 'Could not update permission switch. Please try again.';
         setSaveError(message);
@@ -136,6 +144,7 @@ export function RolesAndPermissions({ user }) {
         matrix={view.matrix}
         switches={view.switches}
         switchOn={switchValues(view.switches)}
+        offices={offices}
         roleCounts={roleCounts}
         canToggle={canManageSwitches}
         busySwitchKey={savingSwitchKey}
@@ -143,7 +152,7 @@ export function RolesAndPermissions({ user }) {
       />
 
       <PermissionConfirmModal
-        key={pendingToggle ? `${pendingToggle.switchKey}-${pendingToggle.nextEnabled}` : 'closed'}
+        key={pendingToggle ? `${pendingToggle.switchKey}-${pendingToggle.nextEnabled}-${pendingSwitchInfo?.scope ?? 'ALL'}-${(pendingSwitchInfo?.office_ids ?? []).join(',')}` : 'closed'}
         open={Boolean(pendingToggle)}
         pending={pendingToggle}
         switchInfo={pendingSwitchInfo}

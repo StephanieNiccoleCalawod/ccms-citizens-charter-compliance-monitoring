@@ -5,11 +5,11 @@ import { formatDateTime } from '../../lib/ui/date-format.js';
 const n = (value) => Number(value).toLocaleString('en-PH');
 
 const COLUMNS = [
-  { key: 'at', header: 'Date & time', render: (row) => formatDateTime(row.at) || '-' },
-  { key: 'processed', header: 'Processed', align: 'right', render: (row) => n(row.processed) },
-  { key: 'added', header: 'Added', align: 'right', render: (row) => n(row.added) },
-  { key: 'updated', header: 'Updated', align: 'right', render: (row) => n(row.updated) },
-  { key: 'unchanged', header: 'Unchanged', align: 'right', render: (row) => n(Math.max(0, row.processed - row.added - row.updated)) },
+  { key: 'at', header: 'Date & time', className: 'tabular-nums', render: (row) => formatDateTime(row.at) || '-' },
+  { key: 'processed', header: 'Processed', align: 'right', className: 'tabular-nums font-semibold', render: (row) => n(row.processed) },
+  { key: 'added', header: 'Added', align: 'right', className: 'tabular-nums', render: (row) => n(row.added) },
+  { key: 'updated', header: 'Updated', align: 'right', className: 'tabular-nums', render: (row) => n(row.updated) },
+  { key: 'unchanged', header: 'Unchanged', align: 'right', className: 'tabular-nums', render: (row) => n(Math.max(0, row.processed - row.added - row.updated)) },
   {
     key: 'status',
     header: 'Status',
@@ -37,6 +37,8 @@ export default function ImportHistory({ history }) {
         loading={loading}
         loadingMessage="Loading history…"
         error={error ? 'The import history could not be loaded.' : null}
+        emptyIcon="clock"
+        emptyTitle="No Imports Yet"
         emptyMessage="No imports yet."
         minWidth="40rem"
       />

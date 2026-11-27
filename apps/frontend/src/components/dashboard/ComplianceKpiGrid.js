@@ -43,7 +43,15 @@ function Kpi({ k }) {
 export default function ComplianceKpiGrid({ kpis }) {
   if (kpis.length === 0) {
     return (
-      <EmptyState data-testid="pulse-kpis-empty">No indicators yet.</EmptyState>
+      <EmptyState
+        role="status"
+        surface="card"
+        icon="chart"
+        title="No Indicators Available"
+        data-testid="pulse-kpis-empty"
+      >
+        No compliance indicators are available for the selected scope yet.
+      </EmptyState>
     );
   }
   return (

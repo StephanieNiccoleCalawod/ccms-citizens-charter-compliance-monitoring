@@ -68,9 +68,18 @@ export default function ComplaintForm() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-slate-50">
       <PublicHeader />
-      <main className="mx-auto max-w-2xl px-4 py-8">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
+        <div className="mb-4">
+          <Link
+            href="/"
+            data-testid="complaint-back-link"
+            className="inline-flex items-center gap-2 rounded text-sm font-semibold text-[#800000] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#800000] focus-visible:ring-offset-2"
+          >
+            <span aria-hidden="true">&larr;</span> Back
+          </Link>
+        </div>
         {done ? (
           <section className="card space-y-3 p-6" role="status" data-testid="complaint-done">
             <h1 className="text-xl font-bold text-maroon-950">Your complaint was received</h1>

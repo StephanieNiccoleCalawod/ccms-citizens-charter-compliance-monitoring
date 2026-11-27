@@ -5,6 +5,7 @@ import { RequiredMark } from '../../components/forms/Field.js';
 import { useCallback, useEffect, useState } from 'react';
 import { ROLES } from 'ccms-shared/roles';
 import ConfirmDialog from '../../components/dialogs/ConfirmDialog.js';
+import DiscardChangesDialog from '../../components/dialogs/DiscardChangesDialog.js';
 import ErrorBanner from '../../components/feedback/ErrorBanner.js';
 import TableShell, { Table, Th } from '../../components/ui/TableShell.js';
 import Modal from '../../components/modals/Modal.js';
@@ -16,6 +17,7 @@ import { deactivateCounter, listCounters, reactivateCounter } from '../../lib/ap
 import { apiFetch } from '../../lib/auth/session.js';
 import { COUNTER_LABEL_MAX, counterErrorResult, saveCounter } from '../../lib/ui/transaction-settings.js';
 import { useFormDirty } from '../../lib/ui/useFormDirty.js';
+import { useDiscardGuard } from '../../lib/ui/useDiscardGuard.js';
 
 /**
  * Counters of one office. Shown by the settings page only while Counters Enabled is on. Super Admin picks
@@ -36,6 +38,7 @@ export default function Counters({ user, canWrite }) {
   const [confirm, setConfirm] = useState(null); // counter being deactivated
   const [saving, setSaving] = useState(false);
   const formDirty = useFormDirty(form);
+  const formGuard = useDiscardGuard(formDirty, () => setForm(null));
 
   // Super Admin: every office, to pick from. Everyone else: just the name of their own office, as a label.
   useEffect(() => {
@@ -174,13 +177,28 @@ export default function Counters({ user, canWrite }) {
               {showLoading ? (
                 <TableState colSpan={columns} kind="loading">Loading counters…</TableState>
               ) : !officeId ? (
-                <TableState colSpan={columns}>{noOffice ? 'Your account is not linked to an office.' : 'Choose an office to see its counters.'}</TableState>
+                <TableState colSpan={columns} icon="building" title={noOffice ? 'No Office Assigned' : 'Select an Office'}>
+                  {noOffice ? 'Your account is not linked to an office.' : 'Choose an office to see its counters.'}
+                </TableState>
               ) : rows.length === 0 ? (
-                <TableState colSpan={columns}>{list.error ? 'The counters could not be loaded.' : 'This office has no counters yet.'}</TableState>
+                list.error ? (
+                  <TableState colSpan={columns} kind="error">The counters could not be loaded.</TableState>
+                ) : (
+                  <TableState
+                    colSpan={columns}
+                    icon="building"
+                    title="No Counters Yet"
+                    actionLabel={canWrite ? '+ Add Counter' : null}
+                    onAction={canWrite ? () => openForm(null) : null}
+                    actionVariant="primary"
+                  >
+                    This office has no counters yet.
+                  </TableState>
+                )
               ) : (
                 rows.map((counter) => (
                   <tr key={counter.counter_id} className={`tr-row ${counter.is_active ? '' : 'bg-table-hover'}`}>
-                    <td className="td font-semibold text-slate-900">{counter.label}</td>
+                    <td className="td td-primary">{counter.label}</td>
                     <td className="td">
                       <StatusBadge variant={counter.is_active ? 'active' : 'inactive'}>{counter.is_active ? 'Active' : 'Inactive'}</StatusBadge>
                     </td>
@@ -209,10 +227,10 @@ export default function Counters({ user, canWrite }) {
         open={form !== null}
         title={form?.id ? 'Edit Counter' : 'Add Counter'}
         dirty={formDirty}
-        onClose={saving ? undefined : () => setForm(null)}
+        onClose={saving ? undefined : formGuard.requestClose}
         footer={
           <>
-            <button type="button" className="btn-secondary" onClick={() => setForm(null)} disabled={saving}>
+            <button type="button" className="btn-secondary" onClick={formGuard.requestClose} disabled={saving}>
               Cancel
             </button>
             <button type="submit" form="counter-form" className="btn-save" disabled={saving}>
@@ -248,6 +266,8 @@ export default function Counters({ user, canWrite }) {
           </form>
         ) : null}
       </Modal>
+
+      <DiscardChangesDialog open={formGuard.askDiscard} onConfirm={formGuard.confirmDiscard} onCancel={formGuard.cancelDiscard} />
 
       <ConfirmDialog
         open={confirm !== null}

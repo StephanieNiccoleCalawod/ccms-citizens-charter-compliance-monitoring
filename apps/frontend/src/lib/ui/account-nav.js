@@ -9,6 +9,9 @@ const ADMIN = [ROLES.SUPER_ADMIN];
 const BELL = [ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF]; // the Executive has no notification bell
 const ACCESS_ROLES = [ROLES.SUPER_ADMIN, ROLES.OFFICE_HEAD, ROLES.OFFICE_STAFF];
 
+/** Heading of a sub-tree (items sharing `group`). It is a collapsible label only: no page, no route, no link. */
+export const SUBGROUP_LABELS = Object.freeze({ workflow: 'Office & Access Management' });
+
 export const ACCOUNT_NAV_GROUPS = Object.freeze([
   {
     id: 'account',
@@ -20,20 +23,17 @@ export const ACCOUNT_NAV_GROUPS = Object.freeze([
     id: 'settings',
     title: 'Settings',
     collapsible: true,
-    // Simple configuration settings (General, Transaction settings, Notification Center) stay a section of the one
-    // scrollable /settings page: each names a `scrollId`, so on /settings itself the item scrolls to that section
-    // instead of navigating (see AccountShell's `scrollSpy`); from anywhere else it still navigates to `href` as a
-    // normal link. The remaining items are complex management pages with their own tables/workflows (Connected
-    // systems, Roles and permissions, Access requests, Security and sessions) - they have no `scrollId` and are
-    // never part of that scroll, even while on /settings: clicking them always navigates to their own route.
+    // Every Settings item opens its own dedicated route/page directly.
     items: [
-      // "General" scrolls to the Offices section of /settings; its own content is Super Admin only.
-      { id: 'general', label: 'General', href: '/settings', scrollId: 'offices', roles: ADMIN, enabled: true },
-      { id: 'transactions', label: 'Transaction settings', href: '/settings/transactions', scrollId: 'transactions', roles: ALL, enabled: true },
-      { id: 'notifications', label: 'Notification Center', href: '/settings/notifications', scrollId: 'notifications', roles: BELL, enabled: true },
+      { id: 'institution-code', label: 'Institution code', href: '/settings/institution-code', roles: ADMIN, enabled: true },
+      // Transaction settings, Roles and permissions, and Access requests are consecutive and share `group:
+      // 'workflow'`, so AccountShell draws one subtle connector beside the three - they stay full, separate
+      // pages/routes; this only changes how the sidebar visually relates them to each other.
+      { id: 'transactions', label: 'Transaction settings', href: '/settings/transactions', roles: ALL, enabled: true, group: 'workflow' },
+      { id: 'roles', label: 'Roles and permissions', href: '/settings/roles', roles: ADMIN, enabled: true, group: 'workflow' },
+      { id: 'access', label: 'Access requests', href: '/access', roles: ACCESS_ROLES, enabled: true, group: 'workflow' },
+      { id: 'notifications', label: 'Notification Center', href: '/settings/notifications', roles: BELL, enabled: true },
       { id: 'connected-systems', label: 'Connected systems', href: '/settings/connected-systems', roles: ADMIN, enabled: true },
-      { id: 'roles', label: 'Roles and permissions', href: '/settings/roles', roles: ADMIN, enabled: true },
-      { id: 'access', label: 'Access requests', href: '/access', roles: ACCESS_ROLES, enabled: true },
       { id: 'security', label: 'Security and sessions', href: '/settings/security', roles: ADMIN, enabled: true },
     ],
   },
@@ -46,7 +46,33 @@ export function accountNavGroups(role) {
     .filter((g) => g.items.length > 0);
 }
 
+/** The first Settings page a role can open (used by the account menu's "Settings" link and /settings redirect). */
+export function defaultSettingsHref(role) {
+  return accountNavGroups(role).find((g) => g.id === 'settings')?.items[0]?.href ?? null;
+}
+
 /** Every item a role sees, flattened, in configured order (for active-item matching). */
 export function accountNavItems(role) {
   return accountNavGroups(role).flatMap((g) => g.items);
+}
+
+/**
+ * Splits a group's items into render segments: a run of consecutive items sharing the same `group` tag becomes
+ * one `{ kind: 'group', items }` segment (so the sidebar can draw one shared connector beside them); everything
+ * else stays its own `{ kind: 'single', item }`. Purely a rendering hint - every item is still its own page and
+ * route, and an item whose `group` sibling was filtered out for the role just renders alone.
+ */
+export function navSegments(items) {
+  const segments = [];
+  for (const item of items) {
+    const last = segments[segments.length - 1];
+    if (item.group && last?.kind === 'group' && last.groupKey === item.group) {
+      last.items.push(item);
+    } else if (item.group) {
+      segments.push({ kind: 'group', groupKey: item.group, label: SUBGROUP_LABELS[item.group] ?? '', items: [item] });
+    } else {
+      segments.push({ kind: 'single', item });
+    }
+  }
+  return segments;
 }

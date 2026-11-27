@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import DiscardChangesDialog from '../dialogs/DiscardChangesDialog.js';
 import Modal from '../modals/Modal.js';
 import Switch from '../ui/Switch.js';
 import SubmitButton from '../ui/SubmitButton.js';
@@ -8,6 +9,7 @@ import StatusBanner from '../feedback/StatusBanner.js';
 import { formatDateTime } from '../../lib/ui/date-format.js';
 import { switchChanges, switchValues } from '../../lib/ui/account.js';
 import { notify } from '../../lib/ui/notify.js';
+import { useDiscardGuard } from '../../lib/ui/useDiscardGuard.js';
 
 /**
  * The four staff permission switches, as the "Manage Staff Permissions" modal opened from the Roles and permissions page.
@@ -41,24 +43,22 @@ export default function PermissionSwitches({ open, onClose, view, onSaved, save 
     }
   }
 
-  // Cancel, the X and Escape all do the same thing: close without saving. Never while a save is in flight, so the
-  // person cannot lose track of whether it went through.
-  function requestClose() {
-    if (busy) return;
-    onClose();
-  }
+  // Cancel, the X and Escape all do the same thing: close, asking first if a switch was toggled and not
+  // yet saved. Never while a save is in flight, so the person cannot lose track of whether it went through.
+  const closeGuard = useDiscardGuard(dirty, onClose);
 
   return (
+    <>
     <Modal
       open={open}
-      onClose={busy ? undefined : requestClose}
+      onClose={busy ? undefined : closeGuard.requestClose}
       title="Staff Permission Settings"
       showClose
       dirty={dirty}
       widthClass="max-w-lg"
       footer={
         <>
-          <button type="button" className="btn-secondary" onClick={requestClose} disabled={busy}>Cancel</button>
+          <button type="button" className="btn-secondary" onClick={closeGuard.requestClose} disabled={busy}>Cancel</button>
           <SubmitButton form="staff-permissions-form" busy={busy} disabled={!dirty} label="Save changes" />
         </>
       }
@@ -76,5 +76,7 @@ export default function PermissionSwitches({ open, onClose, view, onSaved, save 
         </div>
       </form>
     </Modal>
+    <DiscardChangesDialog open={closeGuard.askDiscard} onConfirm={closeGuard.confirmDiscard} onCancel={closeGuard.cancelDiscard} />
+    </>
   );
 }

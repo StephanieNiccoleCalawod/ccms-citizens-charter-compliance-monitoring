@@ -43,7 +43,7 @@ export default function Heatmap({ periods, rows, caption }) {
           const byPeriod = new Map(row.cells.map((c) => [c.period, c.value]));
           return (
             <tr key={row.officeId || row.officeName}>
-              <td role="rowheader" className="td sticky left-0 z-10 whitespace-nowrap bg-white font-semibold text-slate-900">{row.officeName}</td>
+              <td role="rowheader" className="td sticky left-0 z-10 whitespace-nowrap bg-white font-semibold text-ink">{row.officeName}</td>
               {periods.map((p) => {
                 const value = byPeriod.get(p.key) ?? null;
                 const band = heatBand(value);
@@ -53,7 +53,7 @@ export default function Heatmap({ periods, rows, caption }) {
                     <div
                       tabIndex={0}
                       aria-label={label}
-                      className="rounded-md px-1 py-2 text-xs font-bold outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon"
+                      className="rounded-md px-1 py-2 font-sans text-xs font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-pup-maroon"
                       style={band ? { background: band.bg, color: band.fg } : { background: NO_DATA_FILL, color: '#52514e' }}
                     >
                       {value === null ? '-' : `${value}%`}

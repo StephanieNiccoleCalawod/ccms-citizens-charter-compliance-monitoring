@@ -8,7 +8,6 @@ import { assertCanAccess } from './access.js';
 import { computeCompliance } from './compliance.js';
 import { parseBackdate } from './time.js';
 import { requireStaffSwitch } from './switches.js';
-import { assertOfficeBackdateAllowed } from './backdate-permission.js';
 import { issueRatingCode } from '../ratings/ratings.js';
 
 /**
@@ -107,7 +106,6 @@ export async function completeTransaction(dataSource, { core, now = () => new Da
   const endedAt = backdate.endedAt ?? requestTime;
   const backdated = backdate.endedAt !== null;
   if (backdated && !(user.role === ROLES.OFFICE_STAFF && await hasGrant(user, 'RECORD_PAST_TRANSACTIONS'))) await requireStaffSwitch(user, 'STAFF_BACKDATE'); // CC056; S8-52: the granted permission replaces the switch
-  if (backdated) await assertOfficeBackdateAllowed(core, user, existing.office_id);
 
   const completed = await dataSource.transaction(async (manager) => {
     const rows = rowsOf(

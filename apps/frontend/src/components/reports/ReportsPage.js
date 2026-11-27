@@ -146,11 +146,11 @@ export default function ReportsPage({ user }) {
   }
 
   const columns = [
-    { key: 'office', header: 'Office', render: (r) => r.office_name ?? officeName.get(r.office_id) ?? '-' },
+    { key: 'office', header: 'Office', render: (r) => <span className="td-primary">{r.office_name ?? officeName.get(r.office_id) ?? '-'}</span> },
     { key: 'period', header: 'Period', render: (r) => `${periodTypeLabel(r.period_type)}, ${periodText(r)}` },
-    { key: 'version', header: 'Version', align: 'right', render: (r) => r.version },
+    { key: 'version', header: 'Version', align: 'right', className: 'tabular-nums', render: (r) => r.version },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge variant={r.status}>{STATUS_LABEL[r.status] ?? r.status}</StatusBadge> },
-    { key: 'published', header: 'Published', render: (r) => (r.published_at ? formatDate(r.published_at.slice(0, 10)) : '-') },
+    { key: 'published', header: 'Published', className: 'tabular-nums', render: (r) => (r.published_at ? formatDate(r.published_at.slice(0, 10)) : '-') },
     { key: 'open', header: <span className="sr-only">Actions</span>, align: 'right', render: (r) => <button type="button" className="row-action" onClick={() => open(r)} disabled={opening}>Open</button> },
   ];
 
@@ -182,9 +182,23 @@ export default function ReportsPage({ user }) {
           </select>
         </div>
       </FilterBar>
-      <DataTable label="Reports" columns={columns} data={list.items} keyExtractor={(r) => r.report_id} loading={list.loading} error={list.error || null}
-        emptyMessage={manage ? 'No reports yet. Generate one above.' : 'No published reports yet.'} minWidth="44rem"
-        pagination={{ page, pageSize, total: list.total, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }} />
+      <DataTable
+        label="Reports"
+        columns={columns}
+        data={list.items}
+        keyExtractor={(r) => r.report_id}
+        loading={list.loading}
+        error={list.error || null}
+        emptyVariant={filters.status ? 'search' : 'neutral'}
+        emptyIcon={filters.status ? 'search' : 'document'}
+        emptyTitle={filters.status ? 'No Matching Reports Found' : (manage ? 'No Reports Yet' : 'No Published Reports Yet')}
+        emptyMessage={filters.status ? 'No reports match the selected status filter.' : (manage ? 'No reports yet. Generate one above.' : 'No published reports yet.')}
+        emptyActionLabel={filters.status ? 'Clear Filter' : (manage || seesPeopleReport ? 'Generate Report' : null)}
+        onEmptyAction={filters.status ? () => { setFilters({ status: '' }); setPage(1); } : (manage || seesPeopleReport ? openGenerateModal : null)}
+        emptyActionVariant={filters.status ? 'secondary' : 'primary'}
+        minWidth="44rem"
+        pagination={{ page, pageSize, total: list.total, onPage: setPage, onPageSizeChange: (n) => { setPageSize(n); setPage(1); } }}
+      />
       {manage || seesPeopleReport ? (
         <Modal
           open={reportModalOpen}
