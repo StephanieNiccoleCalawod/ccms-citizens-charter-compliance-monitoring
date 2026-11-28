@@ -1,0 +1,61 @@
+{
+  "synthetic": true,
+  "decision": "Keep outgoing feed formats unchanged; reason remains in CCMS.",
+  "cal10": {
+    "messageId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "schemaVersion": "cal-1.0",
+    "entityId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "entityRevision": 1,
+    "changeKind": "UPSERT",
+    "entryType": "REGULAR_HOLIDAY",
+    "date": "2026-12-08",
+    "description": "Synthetic holiday verification",
+    "officeId": null,
+    "appliesTo": [
+      "CLASSES",
+      "WORK"
+    ],
+    "interval": {
+      "start": "2026-12-08T00:00:00+08:00",
+      "end": "2026-12-08T24:00:00+08:00",
+      "allDay": true
+    },
+    "mode": null,
+    "effect": "SUSPENDED"
+  },
+  "fms3": {
+    "schemaVersion": 3,
+    "messageId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "entityId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "entityRevision": 1,
+    "changeKind": "UPSERT",
+    "sourceTimestamp": "2026-11-28T00:00:00Z",
+    "scope": {
+      "termId": "sms:ccms-test:term:2026-1S"
+    },
+    "provenance": {
+      "artifactRevision": "ccms-fms-calendar-v3",
+      "synthetic": false
+    },
+    "declaration": {
+      "occurrenceId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "appliesTo": [
+        "CLASSES",
+        "WORK"
+      ],
+      "scope": "CAMPUS",
+      "interval": {
+        "startsAt": "2026-12-08T00:00:00+08:00",
+        "endsAt": "2026-12-08T24:00:00+08:00",
+        "timeZone": "Asia/Manila",
+        "wholeDay": true
+      },
+      "mode": [],
+      "effect": "SUSPENDED",
+      "entryType": "REGULAR_HOLIDAY",
+      "date": "2026-12-08",
+      "description": "Synthetic holiday verification",
+      "officeId": null
+    }
+  }
+}
