@@ -229,7 +229,7 @@ export function computeDeadline(calendar, { startMs, workingDays, heldMinutes = 
     throw new EngineError('INVALID_WORKING_DAYS', `Working days must be a whole number from 1 to ${MAX_WORKING_DAYS}`);
   }
   if (!Number.isInteger(heldMinutes) || heldMinutes < 0) {
-    throw new EngineError('INVALID_HELD_MINUTES', 'Held minutes must be a whole number of 0 or more');
+    throw new EngineError('INVALID_HELD_MINUTES', 'Enter the time paused (waiting for the client) as a whole number of minutes, zero or more');
   }
   let counted = 0;
   const startDay = dayIndexOfInstant(startMs);

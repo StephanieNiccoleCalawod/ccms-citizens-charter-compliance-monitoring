@@ -190,8 +190,8 @@ export async function setOfficeBackdatePermission(dataSource, actor, id, input, 
   if (actor.role !== ROLES.SUPER_ADMIN) throw Errors.forbidden();
   if (!input || typeof input.allow_backdated_transactions !== 'boolean' ||
       Object.keys(input).some((key) => key !== 'allow_backdated_transactions')) {
-    throw Errors.validation('Provide allow_backdated_transactions as true or false', {
-      allow_backdated_transactions: 'Only a boolean permission value is accepted',
+    throw Errors.validation('Choose whether this office can record past transactions', {
+      allow_backdated_transactions: 'Choose either allow or do not allow',
     });
   }
   const dto = await dataSource.transaction(async (manager) => {

@@ -68,7 +68,7 @@ describe('CC026 backdated start', () => {
     for (const backdate_reason of [undefined, '', '   ', 'x'.repeat(501)]) {
       const bad = await start({ started_at: iso('2026-10-06', '10:00'), backdate_reason }, tokens.officeStaffA2);
       assert.equal(bad.status, 400, String(backdate_reason));
-      assert.equal(bad.body.error.details.backdate_reason, 'Enter why this time is entered after the fact');
+      assert.equal(bad.body.error.details.backdate_reason, 'Enter the reason for recording a past transaction (up to 500 characters)');
     }
   });
 
@@ -171,7 +171,7 @@ describe('CC026 backdated end', () => {
     const t = await insertTransaction(env.ds, { started_by: USERS.staffA, started_at: new Date(at('2026-10-06', '10:00')) });
     const noReason = await complete(t.transaction_id, { ended_at: iso('2026-10-06', '12:00') });
     assert.equal(noReason.status, 400);
-    assert.equal(noReason.body.error.details.backdate_reason, 'Enter why this time is entered after the fact');
+    assert.equal(noReason.body.error.details.backdate_reason, 'Enter the reason for recording a past transaction (up to 500 characters)');
     const before = await complete(t.transaction_id, { ended_at: iso('2026-10-06', '09:00'), backdate_reason: 'x' });
     assert.equal(before.body.error.details.ended_at, 'End must be after start');
     const future = await complete(t.transaction_id, { ended_at: new Date(Date.now() + 3600_000).toISOString(), backdate_reason: 'x' });

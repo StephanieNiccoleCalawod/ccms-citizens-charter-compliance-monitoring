@@ -142,8 +142,8 @@ export async function readPeopleReport(db, user, params, { now = new Date(), ros
   items.sort((a, b) => String(a.person_name ?? '').localeCompare(String(b.person_name ?? '')) || String(a.person_id ?? '').localeCompare(String(b.person_id ?? '')));
   return { scope: q.scope, office_id: q.officeId, person_id: q.personId, from: q.from, to: q.to, generated_at: now.toISOString(),
     totals: metrics(total, totalComplaints), items: q.scope === 'office' ? [] : await withCurrentAccountNames(items, { identity, idField: 'person_id', nameField: 'person_name' }), excluded_seed_count: Number(total.excluded_seed_count ?? 0),
-    note: 'Seeded rows are excluded from these figures (K17).',
-    basis: 'Transactions received in the selected Manila start-date period, attributed to the person who started them. Paused minutes are completed holds recorded so far.',
+    note: 'Sample transactions are excluded from these figures.',
+    basis: 'Transactions received in the selected Manila start-date period, attributed to the person who started them. Paused minutes are recorded periods spent waiting for the client that have ended.',
     attribution: { person: 'started_by', ratings: 'Service ratings linked to handled transactions; not a rating of the staff member.',
       complaints: counts ? 'Complaints that name the tracking number of a transaction the person started (counted by Oversight).' : 'Complaint counts are not available right now.' } };
 }

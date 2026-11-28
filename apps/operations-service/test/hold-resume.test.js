@@ -32,7 +32,7 @@ describe('CC022 hold', () => {
     const r = await hold(t.transaction_id);
     assert.equal(r.status, 409);
     assert.equal(r.body.error.code, 'HOLD_DISABLED');
-    assert.equal(r.body.error.message, 'Hold is turned off for this institution');
+    assert.equal(r.body.error.message, 'Pausing transactions is turned off for this institution. Ask the Super Admin for assistance.');
     assert.equal((await stateOf(t.transaction_id)).status, 'IN_PROGRESS');
   });
 
@@ -41,7 +41,7 @@ describe('CC022 hold', () => {
     for (const reason of ['', '   ', null, 5, 'x'.repeat(501)]) {
       const r = await hold(t.transaction_id, reason);
       assert.equal(r.status, 400, String(reason));
-      assert.equal(r.body.error.details.reason, 'Enter a reason for the hold');
+      assert.equal(r.body.error.details.reason, 'Enter a reason for pausing the transaction while waiting for the client');
     }
     assert.equal((await hold(t.transaction_id, `  ${'x'.repeat(500)}  `)).status, 200);
   });
@@ -162,7 +162,7 @@ describe('CC022 resume', () => {
     const open = await mine();
     const notHeld = await resume(open.transaction_id);
     assert.equal(notHeld.status, 409);
-    assert.equal(notHeld.body.error.message, 'This transaction is not on hold');
+    assert.equal(notHeld.body.error.message, 'This transaction is not paused (waiting for the client). Refresh the transaction to check its current status.');
     const t = await insertTransaction(env.ds, { status: 'ON_HOLD', hold_started_at: new Date(Date.now() - 600_000) });
     const results = await Promise.all([resume(t.transaction_id, tokens.officeHeadA), resume(t.transaction_id, tokens.officeHeadA)]);
     assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);

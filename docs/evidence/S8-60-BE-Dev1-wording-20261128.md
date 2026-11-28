@@ -1,0 +1,60 @@
+# S8-60 - BE Dev 1 wording pass
+
+Date: November 28, 2026 (Asia/Manila).
+
+Source: Row 38 and glossary supplied by the user in this session. Scope: Core catalogue permission/calendar validation; Operations transaction errors, queue validation, notifications and people-report notes; Oversight notification errors and CSV report labels. Identity and frontend work belong to other owners.
+
+## Change table
+
+File entries below are the edited files for this run. Source lines retain identifiers to show that only their displayed wording changed.
+
+| File | Old | New | Rule |
+| --- | --- | --- | --- |
+| apps/core-service/src/lib/calendar/engine/working-time.js | throw new EngineError('INVALID_HELD_MINUTES', 'Held minutes must be a whole number of 0 or more'); | throw new EngineError('INVALID_HELD_MINUTES', 'Enter the time paused (waiting for the client) as a whole number of minutes, zero or more'); | Plain words; approved glossary; preserve API fields and logic |
+| apps/core-service/src/lib/catalogue/offices.js | throw Errors.validation('Provide allow_backdated_transactions as true or false', { | throw Errors.validation('Choose whether this office can record past transactions', { | Plain words; approved glossary; preserve API fields and logic |
+| apps/core-service/src/lib/catalogue/offices.js | allow_backdated_transactions: 'Only a boolean permission value is accepted', | allow_backdated_transactions: 'Choose either allow or do not allow', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/notifications/notifications.js | overdue: (i) => \`${i.tracking_no} (${i.service_name}) has used all of its time limit.\`, | overdue: (i) => \`${i.tracking_no} (${i.service_name}) has reached its promised processing time. Review the transaction and complete it when processing is finished.\`, | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/notifications/notifications.js | deadline: (i) => \`${i.tracking_no} (${i.service_name}) has used ${Math.round(i.share_used * 100)}% of its time limit.\`, | deadline: (i) => \`${i.tracking_no} (${i.service_name}) has used ${Math.round(i.share_used * 100)}% of its promised processing time. Review the transaction before the remaining time ends.\`, | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/notifications/notifications.js | high_risk: (i) => \`${i.tracking_no} (${i.service_name}) is at high risk of being late.\`, | high_risk: (i) => \`${i.tracking_no} (${i.service_name}) has a high chance of finishing late. Review the transaction and the remaining work.\`, | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/queue/now-serving.js | if (!isUuid(officeId)) throw Errors.validation('Choose an office.', { office_id: 'office_id must be a valid UUID' }); | if (!isUuid(officeId)) throw Errors.validation('Choose an office.', { office_id: 'Choose a valid office.' }); | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/reports/people.js | note: 'Seeded rows are excluded from these figures (K17).', | note: 'Sample transactions are excluded from these figures.', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/reports/people.js | basis: 'Transactions received in the selected Manila start-date period, attributed to the person who started them. Paused minutes are completed holds recorded so far.', | basis: 'Transactions received in the selected Manila start-date period, attributed to the person who started them. Paused minutes are recorded periods spent waiting for the client that have ended.', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/transaction/constants.js | CATALOGUE_DOWN: 'Cannot reach the service catalogue right now. Try again, or record the transaction later as a backdated entry.', | CATALOGUE_DOWN: 'The service catalogue is unavailable. Try again, or record a past transaction when the service is available.', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/transaction/constants.js | CALENDAR_DOWN: 'Cannot reach the calendar right now. The transaction stays on hold; try again.', | CALENDAR_DOWN: 'Cannot reach the calendar right now. The transaction remains paused (waiting for the client). Try again.', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/transaction/constants.js | HOLD_OFF: 'Hold is turned off for this institution', | HOLD_OFF: 'Pausing transactions is turned off for this institution. Ask the Super Admin for assistance.', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/transaction/constants.js | HOLD_REASON: 'Enter a reason for the hold', | HOLD_REASON: 'Enter a reason for pausing the transaction while waiting for the client', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/transaction/constants.js | NOT_ON_HOLD: 'This transaction is not on hold', | NOT_ON_HOLD: 'This transaction is not paused (waiting for the client). Refresh the transaction to check its current status.', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/transaction/constants.js | BACKDATE_REASON: 'Enter why this time is entered after the fact', | BACKDATE_REASON: 'Enter the reason for recording a past transaction (up to 500 characters)', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/transaction/constants.js | CALENDAR_START_DOWN: 'Cannot reach the calendar right now. Try again, or record the transaction later as a backdated entry.', | CALENDAR_START_DOWN: 'The calendar is unavailable. Try again, or record a past transaction when the calendar is available.', | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/src/modules/transaction/time.js | else if (!start && allowStart) details.started_at ??= 'Enter the start time of a transaction recorded after the fact'; | else if (!start && allowStart) details.started_at ??= 'Enter the start time to record a past transaction'; | Plain words; approved glossary; preserve API fields and logic |
+| apps/operations-service/test/backdated.test.js | assert.equal(bad.body.error.details.backdate_reason, 'Enter why this time is entered after the fact'); | assert.equal(bad.body.error.details.backdate_reason, 'Enter the reason for recording a past transaction (up to 500 characters)'); | Update existing wording assertion |
+| apps/operations-service/test/backdated.test.js | assert.equal(noReason.body.error.details.backdate_reason, 'Enter why this time is entered after the fact'); | assert.equal(noReason.body.error.details.backdate_reason, 'Enter the reason for recording a past transaction (up to 500 characters)'); | Update existing wording assertion |
+| apps/oversight-service/src/modules/analytics/kpi.js | start_flags: explain('Requests started with the displayed status or registry flag.', ['Select requests by start date.', 'Count cancellations, auto-closures and registry flags; backdated starts are not also counted as outside-hours starts.'], figures.received, 'counts by recorded flags'), | start_flags: explain('Requests started with the displayed status or registry flag.', ['Select requests by start date.', 'Count cancellations, auto-closures and registry flags; past transactions recorded are not also counted as starts outside working hours.'], figures.received, 'counts by recorded flags'), | Plain words; approved glossary; preserve API fields and logic |
+| apps/oversight-service/src/modules/notifications/notifications.js | throw Errors.validation('Send between 1 and 200 notification keys.', { keys: 'Send between 1 and 200 notification keys.' }); | throw Errors.validation('Select between 1 and 200 valid notifications.', { keys: 'Select between 1 and 200 valid notifications.' }); | Plain words; approved glossary; preserve API fields and logic |
+| apps/oversight-service/src/modules/notifications/notifications.js | throw Errors.validation('Send between 1 and 200 notification keys.', { keys: 'Send between 1 and 200 notification keys.' }); | throw Errors.validation('Select between 1 and 200 valid notifications.', { keys: 'Select between 1 and 200 valid notifications.' }); | Plain words; approved glossary; preserve API fields and logic |
+| apps/oversight-service/src/modules/reports/csv.js | 'Closed automatically', 'On-time rate (%)', 'Cancelled', 'Pending now', 'Not in registry', 'Backdated', 'Started outside hours', | 'Closed automatically', '% finished on time', 'Cancelled', 'Pending now', 'Not in registry', 'Past transactions recorded', 'Started outside hours', | Plain words; approved glossary; preserve API fields and logic |
+| apps/oversight-service/src/modules/reports/csv.js | 'Average working minutes', 'Median working minutes', '90th percentile working minutes', | 'Average processing time (working minutes)', 'Typical processing time (working minutes)', 'Processing time for 90% of transactions (working minutes)', | Plain words; approved glossary; preserve API fields and logic |
+
+| apps/operations-service/test/hold-resume.test.js | Hold is turned off for this institution | Pausing transactions is turned off for this institution. Ask the Super Admin for assistance. | Update existing wording assertion |
+| apps/operations-service/test/hold-resume.test.js | Enter a reason for the hold | Enter a reason for pausing the transaction while waiting for the client | Update existing wording assertion |
+| apps/operations-service/test/hold-resume.test.js | This transaction is not on hold | This transaction is not paused (waiting for the client). Refresh the transaction to check its current status. | Update existing wording assertion |
+
+## Text deliberately unchanged
+
+- Citizen's Charter text, service names and stored client-provided content: authoritative/user-authored content, not UI labels.
+- API fields, error codes, enum values, routes, audit actions, test IDs, permissions and calculations: preserved contracts. Frontend must display the human-readable message rather than these machine fields.
+- Internal comments, migration identifiers and developer logs: not screen text.
+- Calculation-panel metadata may retain statistical terms under AC1; one past-entry explanation was aligned for consistency.
+- Identity messages and frontend screens: outside this BE Dev 1 pass. This evidence does not assert an all-screen frontend audit.
+
+## Verification
+
+- PASS: 7 existing tests, 0 failures: node --test apps/core-service/test/s8-53-office-backdate.test.js apps/oversight-service/test/s8-55-csv.test.js. Covers permission/audit behavior, CSV encoding, filename, dates and formula protection.
+- PASS: runtime smoke checks of outage messages, actual past-entry validation, notification kinds/order/text, generated CSV headings and both invalid notification selection paths; no database or hosted writes.
+- Existing backdated.test.js and hold-resume.test.js expected text updated; database-backed suites not run in this pass.
+- PASS: ESLint on all 10 edited source files and both updated test files, using each service's eslint.config.mjs (all exit 0). Initial invocation from the repository root had no ESLint config; reruns from each service directory passed.
+- Browser e2e and screenshots: NOT RUN; no authenticated running local full stack was established for this wording pass. Hosted verification remains pending after deployment.
+- PASS: git diff --check for the edited files.
+- Scope review: string-only source changes; no route, API-key, test-ID, permission or Charter-content changes. No migration required.
+
+Status: BE Dev 1 implementation saved locally. Full S8-60 acceptance remains pending frontend/BE Dev 2 coverage and browser evidence.

@@ -12,9 +12,9 @@ export const DEADLINE_SHARE = 0.8;
 // S8-50 (c): many likely-late at once. N is the D-AC-3 value (proposed 5); the Office Head and the Super Admin get one notice for the office.
 export const MANY_HIGH_RISK = 5;
 const TEXT = {
-  overdue: (i) => `${i.tracking_no} (${i.service_name}) has used all of its time limit.`,
-  deadline: (i) => `${i.tracking_no} (${i.service_name}) has used ${Math.round(i.share_used * 100)}% of its time limit.`,
-  high_risk: (i) => `${i.tracking_no} (${i.service_name}) is at high risk of being late.`,
+  overdue: (i) => `${i.tracking_no} (${i.service_name}) has reached its promised processing time. Review the transaction and complete it when processing is finished.`,
+  deadline: (i) => `${i.tracking_no} (${i.service_name}) has used ${Math.round(i.share_used * 100)}% of its promised processing time. Review the transaction before the remaining time ends.`,
+  high_risk: (i) => `${i.tracking_no} (${i.service_name}) has a high chance of finishing late. Review the transaction and the remaining work.`,
 };
 
 export function notificationsFromRisk(items, { now = new Date(), role = null, manyHighRisk = MANY_HIGH_RISK } = {}) {

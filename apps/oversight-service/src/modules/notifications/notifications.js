@@ -94,7 +94,7 @@ export async function markNotificationsRead(db, actor, body, { now = new Date() 
   if (actor.role === ROLES.EXECUTIVE) throw Errors.forbidden();
   const keys = body?.keys;
   if (!Array.isArray(keys) || keys.length < 1 || keys.length > 200 || !keys.every((k) => typeof k === 'string' && k.length <= 200 && KEY_PATTERN.test(k))) {
-    throw Errors.validation('Send between 1 and 200 notification keys.', { keys: 'Send between 1 and 200 notification keys.' });
+    throw Errors.validation('Select between 1 and 200 valid notifications.', { keys: 'Select between 1 and 200 valid notifications.' });
   }
   const unique = [...new Set(keys)];
   await db.query(
@@ -110,7 +110,7 @@ export async function deleteNotifications(db, actor, body, { now = new Date() } 
   const keys = body?.keys;
   const max = 200 - DELETED_PREFIX.length; // the stored key must fit the column
   if (!Array.isArray(keys) || keys.length < 1 || keys.length > 200 || !keys.every((k) => typeof k === 'string' && k.length <= max && KEY_PATTERN.test(k) && !k.startsWith(DELETED_PREFIX))) {
-    throw Errors.validation('Send between 1 and 200 notification keys.', { keys: 'Send between 1 and 200 notification keys.' });
+    throw Errors.validation('Select between 1 and 200 valid notifications.', { keys: 'Select between 1 and 200 valid notifications.' });
   }
   const unique = [...new Set(keys)];
   await db.query(

@@ -26,6 +26,6 @@ export async function limitNowServingRequest(request, correlationId, env = proce
 /** GET /queue/public/now-serving?office_id= : { queue_date, current, next[3] }. An office with no tickets today answers empty, not an error. */
 export async function publicNowServing(db, params, { now = new Date() } = {}) {
   const officeId = params.get('office_id');
-  if (!isUuid(officeId)) throw Errors.validation('Choose an office.', { office_id: 'office_id must be a valid UUID' });
+  if (!isUuid(officeId)) throw Errors.validation('Choose an office.', { office_id: 'Choose a valid office.' });
   return readNowServing(db, officeId.toLowerCase(), { now });
 }

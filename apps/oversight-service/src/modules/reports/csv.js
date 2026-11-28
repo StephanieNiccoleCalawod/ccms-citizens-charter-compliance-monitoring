@@ -28,8 +28,8 @@ export function cell(value) {
 
 const HEAD = [
   'Office', 'Period', 'From', 'To', 'Version', 'Status', 'Service', 'Received', 'On time', 'Late (including closed automatically)',
-  'Closed automatically', 'On-time rate (%)', 'Cancelled', 'Pending now', 'Not in registry', 'Backdated', 'Started outside hours',
-  'Average working minutes', 'Median working minutes', '90th percentile working minutes',
+  'Closed automatically', '% finished on time', 'Cancelled', 'Pending now', 'Not in registry', 'Past transactions recorded', 'Started outside hours',
+  'Average processing time (working minutes)', 'Typical processing time (working minutes)', 'Processing time for 90% of transactions (working minutes)',
   // CC040: separate from compliance. Empty in a report generated before CC040 (its frozen figures have no queue_wait).
   'Queue waits measured', 'Average queue wait (minutes)',
 ];

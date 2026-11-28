@@ -36,7 +36,7 @@ export function parseBackdate(body, { now, storedStart = null, allowStart = true
     const start = startedAt ?? storedStart;
     if (!endedAt) details.ended_at = 'Enter the end as a date and time';
     else if (endedAt.getTime() > now.getTime()) details.ended_at = MSG.FUTURE;
-    else if (!start && allowStart) details.started_at ??= 'Enter the start time of a transaction recorded after the fact';
+    else if (!start && allowStart) details.started_at ??= 'Enter the start time to record a past transaction';
     else if (start && endedAt.getTime() <= start.getTime()) details.ended_at = MSG.END_AFTER_START;
   }
 

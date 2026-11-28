@@ -89,7 +89,7 @@ function finish(bucket, nowMs, from, to) {
     outcomes: explain('Completed requests grouped by their recorded decision.', ['Select completions by end date.', 'Count granted, disapproved and not-recorded decisions separately.'], figures.outcomes.completed, 'count by outcome'),
     early: explain('How far before the limit early requests finished.', ['Select on-time completions with negative variance.', 'Average the absolute variance in working minutes.'], _margins.length, 'mean early margin'),
     queue_wait: explain('Average clock minutes between ticket issue and request start.', ['Use requests started in the period with a measured queue wait, including zero.', 'Divide total queue minutes by the number measured.'], _waits.length, 'arithmetic mean'),
-    start_flags: explain('Requests started with the displayed status or registry flag.', ['Select requests by start date.', 'Count cancellations, auto-closures and registry flags; backdated starts are not also counted as outside-hours starts.'], figures.received, 'counts by recorded flags'),
+    start_flags: explain('Requests started with the displayed status or registry flag.', ['Select requests by start date.', 'Count cancellations, auto-closures and registry flags; past transactions recorded are not also counted as starts outside working hours.'], figures.received, 'counts by recorded flags'),
   };
   if (Object.hasOwn(figures, 'user_id')) {
     figures.calculations.attribution = explain('Figures attributed to this staff account.', ['Attribute starts and open requests to the starter.', 'Attribute completions to the ender, or the starter when the ender is unknown.'], null, 'starter / ender attribution', { basis: 'Each metric uses its own date basis and record count above.' });
