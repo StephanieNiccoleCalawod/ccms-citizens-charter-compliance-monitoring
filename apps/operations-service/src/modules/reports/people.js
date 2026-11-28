@@ -1,5 +1,6 @@
 import { Errors, ROLES, isUuid, serviceApiBase, toManilaDate } from 'ccms-shared';
 import { identityBaseUrl } from '../transaction/identity-client.js';
+import { withCurrentAccountNames } from '../transaction/current-names.js';
 
 const lower = (v) => typeof v === 'string' ? v.toLowerCase() : v;
 const validDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && Number(v.slice(0, 4)) >= 1 && Number.isFinite(Date.parse(`${v}T00:00:00Z`)) &&
@@ -104,7 +105,7 @@ function metrics(row = {}, linkedComplaints = null) {
 }
 
 // BE Dev 1 source data. Oversight owns composing, publishing and freezing the final reports.
-export async function readPeopleReport(db, user, params, { now = new Date(), roster = fetchOfficePeople, complaintCounts = fetchComplaintCounts } = {}) {
+export async function readPeopleReport(db, user, params, { now = new Date(), roster = fetchOfficePeople, complaintCounts = fetchComplaintCounts, identity } = {}) {
   const q = parsePeopleReport(params, user, now);
   // The all-offices "Whole office" report (q.officeId null, Super Admin only) never lists people - items stays
   // empty below, same as any other "office" scope - so there is no roster to read.
@@ -140,7 +141,7 @@ export async function readPeopleReport(db, user, params, { now = new Date(), ros
   if (q.scope === 'person' && !items.length) items.push({ person_id: q.personId, person_name: names.get(q.personId) ?? null, ...metrics({}, complaintsOf(q.personId)) });
   items.sort((a, b) => String(a.person_name ?? '').localeCompare(String(b.person_name ?? '')) || String(a.person_id ?? '').localeCompare(String(b.person_id ?? '')));
   return { scope: q.scope, office_id: q.officeId, person_id: q.personId, from: q.from, to: q.to, generated_at: now.toISOString(),
-    totals: metrics(total, totalComplaints), items: q.scope === 'office' ? [] : items, excluded_seed_count: Number(total.excluded_seed_count ?? 0),
+    totals: metrics(total, totalComplaints), items: q.scope === 'office' ? [] : await withCurrentAccountNames(items, { identity, idField: 'person_id', nameField: 'person_name' }), excluded_seed_count: Number(total.excluded_seed_count ?? 0),
     note: 'Seeded rows are excluded from these figures (K17).',
     basis: 'Transactions received in the selected Manila start-date period, attributed to the person who started them. Paused minutes are completed holds recorded so far.',
     attribution: { person: 'started_by', ratings: 'Service ratings linked to handled transactions; not a rating of the staff member.',

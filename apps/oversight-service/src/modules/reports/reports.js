@@ -4,6 +4,7 @@ import { loadKpis } from '../analytics/kpi.js';
 import { resolvePeriod } from '../analytics/period.js';
 import { resolveTermQuery } from '../analytics/term-period.js';
 import { loadNames } from './names.js';
+import { withCurrentPublisherNames } from './current-names.js';
 
 // CC029 / CC030 / CC031: an office's accomplishment report for a period.
 //   DRAFT       generated from the KPI module (the same figures as the dashboards); generating again refreshes it.
@@ -135,7 +136,8 @@ export function canRead(actor, row) {
 export async function fetchReport(db, actor, id) {
   const row = await loadRow(db, id);
   if (!canRead(actor, row)) throw Errors.notFound('Report not found', 'REPORT_NOT_FOUND');
-  return reportDto(row, actor);
+  const [report] = await withCurrentPublisherNames([reportDto(row, actor)]);
+  return report;
 }
 
 /** GET /reports?office_id=&period_type=&status=&page=&page_size= : newest period first, without the figures. */
@@ -176,7 +178,8 @@ export async function listReports(db, actor, params) {
     `SELECT ${SELECT} FROM reports r ${clause} ORDER BY period_from DESC, period_to DESC, office_name NULLS LAST, version DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
     values,
   ));
-  return { items: rows.map((row) => reportDto(row, actor, { withFigures: false })), total, page, page_size: pageSize };
+  const items = await withCurrentPublisherNames(rows.map((row) => reportDto(row, actor, { withFigures: false })));
+  return { items, total, page, page_size: pageSize };
 }
 
 async function writeAudit(manager, actor, row, extra = {}) {
@@ -213,7 +216,7 @@ export async function publishReport(db, actor, id, body, { now = new Date() } = 
       [row.report_id, actor.id, actor.fullName ? String(actor.fullName).slice(0, 200) : null, now],
     );
     await writeAudit(manager, actor, row, row.supersedes_report_id ? { replaces_report_id: row.supersedes_report_id, reason: row.supersede_reason } : {});
-    return reportDto(await loadRow(manager, id), actor);
+    return fetchReport(manager, actor, id);
   });
 }
 

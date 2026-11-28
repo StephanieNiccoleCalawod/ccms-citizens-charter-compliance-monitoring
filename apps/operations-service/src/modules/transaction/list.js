@@ -3,6 +3,7 @@ import { OPEN_STATUSES, STATUS_LIST } from './constants.js';
 import { TRANSACTION_SELECT, loadTransactionRow, notFound } from './db.js';
 import { transactionDtoFor } from './dto.js';
 import { assertCanRead } from './access.js';
+import { withCurrentAccountNames } from './current-names.js';
 
 /** page / page_size from query parameters (defaults 1 / 20, size at most 100): the same shape as GET /services. */
 export function parsePaging(params, { defaultSize = 20, maxSize = 100 } = {}) {
@@ -37,7 +38,7 @@ const likePattern = (text) => `${text.replace(/[%_\\]/g, '\\$&')}%`;
  * The list never carries the client's email or reference (they are on the detail page only), and never any field outside
  * the Executive allowlist when the caller is an Executive.
  */
-export async function listTransactions(dataSource, user, params) {
+export async function listTransactions(dataSource, user, params, { identity } = {}) {
   const { page, pageSize } = parsePaging(params);
   const details = {};
   const status = params.get('status');
@@ -101,13 +102,15 @@ export async function listTransactions(dataSource, user, params) {
     ) + ` ORDER BY ${order}`,
     values,
   );
-  return { items: rows.map((row) => transactionDtoFor(user, row, { detail: false })), page, page_size: pageSize, total };
+  const items = await withCurrentAccountNames(rows.map((row) => transactionDtoFor(user, row, { detail: false })), { identity });
+  return { items, page, page_size: pageSize, total };
 }
 
 /** GET /transactions/:id. Outside the caller's scope: 403 and no data. An Executive gets the allowlisted view of any office's. */
-export async function getTransaction(dataSource, user, id) {
+export async function getTransaction(dataSource, user, id, { identity } = {}) {
   const row = isUuid(id) ? await loadTransactionRow(dataSource, id) : null;
   if (!row) throw notFound();
   assertCanRead(user, row);
-  return transactionDtoFor(user, row);
+  const [item] = await withCurrentAccountNames([transactionDtoFor(user, row)], { identity });
+  return item;
 }

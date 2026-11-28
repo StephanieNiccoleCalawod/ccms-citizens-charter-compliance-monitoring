@@ -1,5 +1,6 @@
 import { Errors, ROLES, calculation, endOfManilaDay, fromManila, manilaWeekday, toManilaDate } from 'ccms-shared';
 import { canReadTransaction } from '../transaction/access.js';
+import { withCurrentAccountNames } from '../transaction/current-names.js';
 import { coreBaseUrl } from '../transaction/core-client.js';
 import { slowCaseIds } from './slow-cases.js';
 import { classify, features, MODEL_THRESHOLDS, predict, RULE_THRESHOLDS, sampleFraction, train } from './late-risk-model.js';
@@ -235,22 +236,25 @@ function score(row, times, context, model) {
 
 const riskOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
-export async function readLateRisk(db, officeId, user, { now = new Date(), timing } = {}) {
+export async function readLateRisk(db, officeId, user, { now = new Date(), timing, identity } = {}) {
   const [run, [cache]] = await Promise.all([latestRun(db), db.query('SELECT scored_at, run_id, payload FROM late_risk_score_cache WHERE office_id = $1', [officeId])]);
   const status = modelStatus(run, now.getTime());
   const runId = run?.run_id ?? null;
-  const present = (payload, at, stale) => ({ ...payload, as_of: iso(at), stale,
+  const present = async (payload, at, stale) => {
+    const named = await currentRiskNames(db, payload.items, officeId, user, { identity });
+    return ({ ...payload, as_of: iso(at), stale,
     calculations: payload.calculations ?? { late_risk: calculation({
       shows: 'Previously saved late-risk scores.', steps: ['Read the previously saved scores.', 'The date range was not recorded by this older cache; refresh when the calendar is available.'],
       count: payload.items.length, basis: 'Legacy score cache; source date range unavailable.', source: 'late_risk_score_cache',
       method: payload.model.method === 'trained' ? 'logistic regression' : 'allowed-time-share rule', at,
     }) },
-    items: payload.items.map(({ started_by, probability, ...item }) => ({ ...item,
+    items: named.map(({ started_by, probability, ...item }) => ({ ...item,
       // Old trained caches did not save contributions, so do not invent a winning factor during an outage.
       main_reason_code: item.main_reason_code ?? (item.rule_based ? RULE_REASON_CODES[item.level] : null) ?? 'MAIN_REASON_UNAVAILABLE',
       can_open: canReadTransaction(user, { office_id: officeId, started_by }),
       ...(user.role === ROLES.SUPER_ADMIN ? { probability } : {}),
     })) });
+  };
   if (cache?.payload.calculations && cache.payload.items.every((item) => item.main_reason_code) &&
       cache.run_id === runId && cache.payload.model.method === status.method && now.getTime() - instant(cache.scored_at) < CACHE_TTL) {
     return present(cache.payload, cache.scored_at, false);
@@ -281,4 +285,21 @@ export async function readLateRisk(db, officeId, user, { now = new Date(), timin
     ON CONFLICT (office_id) DO UPDATE SET scored_at = EXCLUDED.scored_at, run_id = EXCLUDED.run_id, payload = EXCLUDED.payload
     WHERE late_risk_score_cache.scored_at < EXCLUDED.scored_at`, [officeId, now, runId, JSON.stringify(payload)]);
   return present(payload, now, false);
+}
+
+/** Names are resolved after scoring, including cache hits; they never enter the model or score cache. */
+export async function currentRiskNames(db, items, officeId, user, { identity } = {}) {
+  items = items.map((r) => { const copy = { ...r }; delete copy.started_by_name; return copy; });
+  if (user.role === ROLES.EXECUTIVE) return items;
+  const ids = items.filter((r) => canReadTransaction(user, { office_id: officeId, started_by: r.started_by })).map((r) => r.transaction_id);
+  if (!ids.length) return items;
+  let rows;
+  try {
+    rows = await db.query(`SELECT transaction_id, started_by, started_by_name FROM transactions
+      WHERE office_id=$1 AND transaction_id=ANY($2::uuid[])`, [officeId, ids]);
+  } catch { return items; }
+  const current = await withCurrentAccountNames(rows, { identity });
+  const names = new Map(current.map((r) => [r.transaction_id, r.started_by_name]));
+  return items.map((r) => typeof names.get(r.transaction_id) === 'string'
+    ? { ...r, started_by_name: names.get(r.transaction_id) } : r);
 }
