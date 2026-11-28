@@ -12,6 +12,7 @@
     "apps/*"
   ],
   "scripts": {
+    "test:tt3": "node scripts/tt3-verify.mjs",
     "dev": "node scripts/run-apps.mjs dev",
     "start": "node scripts/run-apps.mjs start",
     "build": "npm run build:shared && npm run build --workspaces --if-present",

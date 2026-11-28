@@ -26,6 +26,9 @@ export function cell(value) {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
+/** Keep the full Charter name verbatim; a missing name must never fall back to a code or ID. */
+const displayName = (value, kind) => typeof value === 'string' && value.trim() ? value : `${kind} name unavailable (historical record)`;
+
 const HEAD = [
   'Office', 'Period', 'From', 'To', 'Version', 'Status', 'Service', 'Received', 'On time', 'Late (including closed automatically)',
   'Closed automatically', '% finished on time', 'Cancelled', 'Pending now', 'Not in registry', 'Past transactions recorded', 'Started outside hours',
@@ -37,8 +40,8 @@ const HEAD = [
 function row(report, label, b) {
   const r = b.results ?? {};
   return [
-    report.office_name ?? '', PERIOD_LABEL[report.period_type] ?? report.period_type, usDate(report.from), usDate(report.to), report.version,
-    STATUS_LABEL[report.status] ?? report.status, label, b.received, r.on_time, r.late_total, r.late_auto_closed, r.on_time_rate,
+    displayName(report.office_name, 'Office'), PERIOD_LABEL[report.period_type] ?? 'Period not recorded', usDate(report.from), usDate(report.to), report.version,
+    STATUS_LABEL[report.status] ?? 'Status not recorded', label, b.received, r.on_time, r.late_total, r.late_auto_closed, r.on_time_rate,
     b.cancelled, b.pending?.count, b.not_in_registry, b.backdated, b.started_outside_hours,
     b.time?.average_minutes, b.time?.median_minutes, b.time?.p90_minutes,
     b.queue_wait?.measured, b.queue_wait?.average_minutes,
@@ -48,6 +51,6 @@ function row(report, label, b) {
 /** `report` is the DTO of reports.js (from/to as YYYY-MM-DD). */
 export function reportToCsv(report) {
   const figures = report.figures ?? {};
-  const lines = [HEAD, ...(figures.services ?? []).map((s) => row(report, s.service_name ?? 'Service (name not available)', s)), row(report, 'Total (all services)', figures.total ?? {})];
+  const lines = [HEAD, ...(figures.services ?? []).map((s) => row(report, displayName(s.service_name, 'Service'), s)), row(report, 'Total (all services)', figures.total ?? {})];
   return BOM + lines.map((line) => line.map(cell).join(',')).join('\r\n') + '\r\n';
 }

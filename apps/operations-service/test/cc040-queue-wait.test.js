@@ -4,6 +4,7 @@ import { strict as assert } from 'node:assert';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { POST as startRoute } from '../src/app/api/transactions/route.js';
 import { GET as detailRoute } from '../src/app/api/transactions/[id]/route.js';
+import { POST as completeRoute } from '../src/app/api/transactions/[id]/complete/route.js';
 import { setQueueLimiter } from '../src/modules/queue/limit.js';
 import { createCoreClient } from '../src/modules/transaction/core-client.js';
 import { computeAndStoreResult } from '../src/modules/transaction/complete.js';
@@ -186,6 +187,41 @@ describe('CC040 AC2: compliance does not depend on the queue wait', () => {
 });
 
 describe('CC040 AC3: Start without a ticket is unchanged', () => {
+  it('TT3: ticket issuance unavailable does not block ticket-free Start and Complete or create partial/duplicate rows', async () => {
+    // Fail only the ticket issuer's office lookup; Catalogue and Calendar stay up.
+    env.core.override(`GET /offices/${OFFICE_A}`, () => ({
+      status: 503, body: { error: { code: 'SERVICE_UNAVAILABLE', message: 'Mock ticket eligibility outage' } },
+    }));
+    const expectNoTickets = async () => {
+      for (const table of ['queue_tickets', 'queue_sequences']) {
+        assert.equal((await env.ds.query(`SELECT count(*)::int AS n FROM ${table}`))[0].n, 0, table);
+      }
+    };
+    await assert.rejects(issue(), (error) => error.code === 'QUEUE_UNAVAILABLE');
+    await expectNoTickets();
+    assert.equal(await txCount(), 0);
+    const started = await start();
+    assert.equal(started.status, 201, JSON.stringify(started.body));
+    const id = started.body.transaction_id;
+    const complete = () => call(completeRoute, req('POST', `/transactions/${id}/complete`, { token: tokens.officeStaffA, body: {} }), ctx(id));
+    assert.equal((await complete()).status, 200);
+    assert.equal((await complete()).status, 409, 'a repeated Complete does not create a second completion');
+    await assert.rejects(issue(), (error) => error.code === 'QUEUE_UNAVAILABLE', 'ticket outage is still active after completion');
+    await expectNoTickets();
+    assert.equal(await txCount(), 1);
+    const row = await loadTransactionRow(env.ds, id);
+    assert.equal(row.status, 'COMPLETED');
+    assert.equal(row.queue_ticket_id, null);
+    assert.equal(row.queue_wait_minutes, null);
+    assert.equal((await env.ds.query('SELECT count(*)::int AS n FROM transaction_emails'))[0].n, 0, 'no email requested, no phantom row');
+    for (const action of ['TRANSACTION_STARTED', 'TRANSACTION_COMPLETED']) {
+      assert.equal((await env.ds.query("SELECT count(*)::int AS n FROM audit_outbox WHERE payload->>'action' = $1 AND payload->>'entity_id' = $2", [action, id]))[0].n, 1, action);
+    }
+    env.core.clearOverrides();
+    await issue();
+    assert.equal((await env.ds.query('SELECT count(*)::int AS n FROM queue_tickets'))[0].n, 1, 'ticket issuance recovers');
+    assert.equal(await txCount(), 1, 'recovery creates no extra transaction');
+  });
   it('the existing body starts normally and the ticket and wait stay null (and out of the analytics payload)', async () => {
     const r = await start({ client_type: 'STUDENT', ...NOT_IN_REGISTRY });
     assert.equal(r.status, 201, JSON.stringify(r.body));

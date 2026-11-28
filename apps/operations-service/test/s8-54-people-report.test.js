@@ -47,7 +47,7 @@ test('S8-54 staff query is restricted in SQL and never requests the office roste
   assert.equal(response.items[0].person_id, person);
   assert.equal(response.items[0].linked_complaints, null);
   assert.equal(response.excluded_seed_count, 2);
-  assert.match(response.note, /Seeded rows are excluded/);
+  assert.equal(response.note, 'Sample transactions are excluded from these figures.');
 });
 test('S8-54 membership lookup fails closed on an unavailable or malformed Identity roster', async () => {
   const oldUrl = process.env.IDENTITY_URL, oldKey = process.env.SERVICE_KEY;

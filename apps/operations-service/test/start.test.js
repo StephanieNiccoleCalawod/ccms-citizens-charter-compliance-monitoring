@@ -123,7 +123,7 @@ describe('CC021 start with the standard snapshot', () => {
     const r = await start();
     assert.equal(r.status, 503);
     assert.equal(r.body.error.code, 'CATALOGUE_UNAVAILABLE');
-    assert.equal(r.body.error.message, 'Cannot reach the service catalogue right now. Try again, or record the transaction later as a backdated entry.');
+    assert.equal(r.body.error.message, 'The service catalogue is unavailable. Try again, or record a past transaction when the service is available.');
     assert.equal(env.core.callsTo('GET', '/standard').length, 2, 'one try and one retry');
     assert.equal(await rowCount(), 0);
     assert.equal(await lastSeq(), 0, 'no tracking number was consumed');

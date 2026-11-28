@@ -85,7 +85,9 @@ export function createGateway({ targets = serviceTargets(), requireTls = false, 
       return errorResponse(
         timedOut ? 504 : 502,
         timedOut ? 'SERVICE_TIMEOUT' : 'SERVICE_UNAVAILABLE',
-        timedOut ? 'The service took too long to answer. Please try again.' : 'The service is not available right now. Please try again.',
+        !['GET', 'HEAD', 'OPTIONS'].includes(request.method)
+          ? 'We could not confirm whether your changes were saved. Check the transaction list before submitting again.'
+          : timedOut ? 'The service took too long to answer. Please try again.' : 'The service is not available right now. Please try again.',
         correlationId,
       );
     }
