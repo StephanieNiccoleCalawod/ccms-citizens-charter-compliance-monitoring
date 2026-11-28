@@ -13,7 +13,10 @@ async function database(service, fn) {
   const { migrations } = await import(`../apps/${service}-service/migrations/index.js`);
   const db = await createTestDatabase({ entities: [] });
   try {
-    for (const Migration of migrations) await new Migration().up(db.dataSource);
+    // Match the migration runner: locks and data/audit updates share a transaction and connection.
+    for (const Migration of migrations) {
+      await db.dataSource.transaction((manager) => new Migration().up(manager));
+    }
     await fn(db.dataSource);
   } finally { await db.drop(); }
 }
