@@ -220,20 +220,20 @@ function LiveDashboardAnalytics({ user }) {
     [overview, effectiveScope],
   );
   // S8: ratings of the same dates, for flag 5 (low rating) and the Client Satisfaction tab. A failed read just means no ratings are shown.
-  const [ratings, setRatings] = useState([]);
-  const [ratingsLoading, setRatingsLoading] = useState(false);
+  const [ratingsResult, setRatingsResult] = useState({ items: [], key: null });
   const ratingFrom = overview?.from;
   const ratingTo = overview?.to;
+  const ratingKey = JSON.stringify([selectedOfficeId || null, ratingFrom || null, ratingTo || null]);
+  const ratings = ratingsResult.items;
+  const ratingsLoading = Boolean(ratingFrom && ratingTo) && ratingsResult.key !== ratingKey;
   useEffect(() => {
     if (!ratingFrom || !ratingTo) return undefined;
     let cancelled = false;
-    setRatingsLoading(true);
     getRatingSummary({ officeId: selectedOfficeId || undefined, from: ratingFrom, to: ratingTo })
-      .then((data) => !cancelled && setRatings(data?.items ?? []))
-      .catch(() => !cancelled && setRatings([]))
-      .finally(() => !cancelled && setRatingsLoading(false));
+      .then((data) => !cancelled && setRatingsResult({ key: ratingKey, items: data?.items ?? [] }))
+      .catch(() => !cancelled && setRatingsResult({ key: ratingKey, items: [] }));
     return () => { cancelled = true; };
-  }, [ratingFrom, ratingTo, selectedOfficeId]);
+  }, [ratingFrom, ratingTo, selectedOfficeId, ratingKey]);
   const showSatisfaction = hasSatisfaction(ratings);
   const dashboardTabs = useMemo(
     () => withSatisfactionTab(buildDashboardTabs(tabCounts), showSatisfaction, lowRatingRows(ratings, effectiveScope).length),
