@@ -462,6 +462,9 @@ describe('Sprint 5 numbered migrations', () => {
         assert.match(cli(service, db.url, ['revert']).out, /Reverted: Cc043Registry1794441600000/);
       }
       if (service === 'core') {
+        const feeBackfillRevert = cli(service, db.url, ['revert']);
+        assert.equal(feeBackfillRevert.code, 0, feeBackfillRevert.out);
+        assert.match(feeBackfillRevert.out, /Reverted: S858CharterFeeBackfill1795852800000/);
         const academicYearRevert = cli(service, db.url, ['revert']);
         assert.equal(academicYearRevert.code, 0, academicYearRevert.out);
         assert.match(academicYearRevert.out, /Reverted: S864TermAcademicYear1795679000000/);

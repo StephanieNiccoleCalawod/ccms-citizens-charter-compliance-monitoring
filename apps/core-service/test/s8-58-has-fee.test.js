@@ -13,4 +13,20 @@ describe('S8-58 has_fee on a service', () => {
     assert.equal(toServiceDto({ has_fee: false }).has_fee, false);
     assert.equal(toServiceDto({}).has_fee, true);
   });
+  it('derives new and imported service flags from fees and the approved exceptions', () => {
+    for (const fees of [undefined, null, '', '\t None \n']) {
+      assert.equal(parseServiceFields({ fees }).hasFee, false);
+    }
+    assert.equal(parseServiceFields({ fees: 'PHP 150' }).hasFee, true);
+    assert.equal(parseServiceFields({ fees: 'None. See other fees below.' }).hasFee, true);
+    assert.equal(parseServiceFields({ service_code: 'PUP-REG-CRD-005', fees: 'NONE (covered by RA 10931)' }, {}, { mode: 'seed' }).hasFee, false);
+    for (const service_code of ['PUP-ACCT-CLR-001', 'PUP-ADMREG-ACC-003', 'PUP-ADMREG-ADM-001']) {
+      assert.equal(parseServiceFields({ service_code, fees: 'None' }, {}, { mode: 'seed' }).hasFee, true);
+    }
+  });
+  it('preserves explicit administrator flags and leaves existing flags alone on an ordinary edit', () => {
+    assert.equal(parseServiceFields({ fees: 'None', has_fee: true }).hasFee, true);
+    assert.equal(parseServiceFields({ fees: 'PHP 150', has_fee: false }).hasFee, false);
+    assert.equal(parseServiceFields({ fees: 'None' }, {}, { mode: 'edit' }).hasFee, undefined);
+  });
 });

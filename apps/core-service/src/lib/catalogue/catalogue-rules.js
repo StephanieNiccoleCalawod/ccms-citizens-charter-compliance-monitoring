@@ -8,6 +8,12 @@ export const OFFICE_INACTIVE = 'Office not found or inactive';
 export const NAME_TAKEN = 'This office already has a service with this name';
 export const CODE_TAKEN = 'Service code already exists';
 export const PAST_STANDARD = 'A new standard cannot start in the past';
+const APPROVED_SERVICE_FEES = Object.freeze({
+  'PUP-REG-CRD-005': false,
+  'PUP-ACCT-CLR-001': true,
+  'PUP-ADMREG-ACC-003': true,
+  'PUP-ADMREG-ADM-001': true,
+});
 export const STANDARD_DATE_TAKEN = 'A standard version already starts on this date';
 
 /** "7 minutes", "4 hours", "2 working days, 5 hours, 30 minutes" (singular for 1). */
@@ -107,6 +113,10 @@ export function parseServiceFields(body, details = {}, { mode = 'create' } = {})
   else if (typeof body.fees !== 'string') details.fees = 'Fees must be text';
   else if (body.fees.length > 500) details.fees = 'Fees must be 500 characters or fewer';
   else fees = body.fees.trim() === '' ? null : body.fees.trim();
+
+  if (hasFee === undefined && ['create', 'seed'].includes(mode)) {
+    hasFee = APPROVED_SERVICE_FEES[serviceCode.toUpperCase()] ?? !['', 'none'].includes((fees ?? '').toLowerCase());
+  }
 
   let whoMayAvail;
   if (body.who_may_avail === undefined) whoMayAvail = undefined;

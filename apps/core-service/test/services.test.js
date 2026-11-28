@@ -1002,7 +1002,7 @@ describe('TT1 standard as-of lookup', () => {
       office_name: registrar.office_name,
       classification: 'SIMPLE',
       allowed_client_types: ['STUDENT', 'ALUMNI', 'EMPLOYEE', 'EXTERNAL'],
-      has_fee: true, // S8-58
+      has_fee: false, // S8-58: omitted fees default to no fee.
     });
     const lastDay = await asOf(id, addDays(today(), 9));
     assert.equal(lastDay.body.standard_id, service.current_standard.standard_id);
