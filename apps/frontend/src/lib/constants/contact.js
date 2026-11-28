@@ -7,15 +7,16 @@ export const CONTACT = Object.freeze({
   website: 'https://www.pup.edu.ph/quezoncity/',
 });
 
-/**
- * The link to PUP's own published Citizen's Charter. The page is not copied here. It shows only when both the exact link and the edition
- * are set (NEXT_PUBLIC_CHARTER_URL, NEXT_PUBLIC_CHARTER_EDITION), so no link is ever added for a page that was not confirmed.
- */
+export const APPROVED_CHARTER_URL = 'https://drive.google.com/file/d/0B1BuDAuN0r8SbmFEU1RJUDFYU1E/view?usp=drivesdk&resourcekey=0-ntyYkBAnyIFKdRJWhiKEcw';
+
+/** PM-approved published link. Add the edition to the note when the client confirms it. */
 export function charterReference(env = process.env) {
-  const url = String(env.NEXT_PUBLIC_CHARTER_URL ?? '').trim();
+  const url = String(env.NEXT_PUBLIC_CHARTER_URL ?? APPROVED_CHARTER_URL).trim();
   const edition = String(env.NEXT_PUBLIC_CHARTER_EDITION ?? '').trim();
-  if (!/^https:\/\//.test(url) || !edition) return null;
-  return { url, edition, note: `Standards follow the PUP Citizen's Charter, ${edition}.` };
+  if (!/^https:\/\//.test(url)) return null;
+  return { url, edition, note: edition
+    ? `Standards follow the PUP Citizen's Charter, ${edition}.`
+    : "Standards follow the PUP Citizen's Charter." };
 }
 
 export const PRIVACY_PATH = '/privacy';

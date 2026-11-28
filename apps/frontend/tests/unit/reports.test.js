@@ -145,7 +145,7 @@ describe('the on-screen report and the official printed document are separate la
     assert.match(sheet, /pup-logo\.png/);
     assert.match(sheet, /Polytechnic University of the Philippines, Quezon City/);
     assert.match(sheet, /<FiguresTable report=\{report\} \/>/);
-    assert.match(sheet, /<SignatureLines \/>/);
+    assert.match(sheet, /<SignatureLines allOffices=\{report\.office_id === null\} \/>/);
   });
 
   it('the official page is forced to A4 landscape, not left to the printer', () => {

@@ -25,7 +25,13 @@ export const REASON_MAX = 500;
 
 /** AC-10: printed signature titles under each blank line on a report sheet. No printed names - one place to change
  * either title. "Noted by"'s title is not yet confirmed by the client, so it stays blank until it is. */
-export const SIGNATURE_LINES = Object.freeze({ preparedBy: 'Office Head', notedBy: '' });
+export const SIGNATURE_LINES = Object.freeze({
+  preparedByLabel: 'Prepared by',
+  preparedBy: 'Office Head',
+  preparedByAllOffices: 'Super Admin',
+  notedByLabel: 'Noted by',
+  notedBy: '',
+});
 
 export const periodTypeLabel = (value) => PERIOD_TYPES.find((p) => p.value === value)?.label ?? value;
 export const periodText = (report) => formatDateRange(report?.from, report?.to) || '-';

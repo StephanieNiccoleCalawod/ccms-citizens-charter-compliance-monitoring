@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { CONTACT, charterReference, copyrightLine } from '../../src/lib/constants/contact.js';
+import { APPROVED_CHARTER_URL, CONTACT, charterReference, copyrightLine } from '../../src/lib/constants/contact.js';
 
 const read = (p) => readFileSync(new URL(`../../src/${p}`, import.meta.url), 'utf8');
 
@@ -11,9 +11,10 @@ describe('S8-16 public footer and privacy notice', () => {
     assert.match(CONTACT.address, /Don Fabian St\., Commonwealth, Quezon City/);
     assert.equal(CONTACT.website, 'https://www.pup.edu.ph/quezoncity/');
   });
-  it('shows the Charter link only when both the exact link and the edition are set', () => {
-    assert.equal(charterReference({}), null);
-    assert.equal(charterReference({ NEXT_PUBLIC_CHARTER_URL: 'https://example.edu/charter' }), null);
+  it('shows the approved Charter link while the edition is pending and allows a confirmed edition', () => {
+    assert.equal(charterReference({}).url, APPROVED_CHARTER_URL);
+    assert.equal(charterReference({}).note, "Standards follow the PUP Citizen's Charter.");
+    assert.equal(charterReference({ NEXT_PUBLIC_CHARTER_URL: '' }), null);
     assert.equal(charterReference({ NEXT_PUBLIC_CHARTER_URL: 'http://insecure', NEXT_PUBLIC_CHARTER_EDITION: '2025' }), null);
     const ok = charterReference({ NEXT_PUBLIC_CHARTER_URL: 'https://example.edu/charter', NEXT_PUBLIC_CHARTER_EDITION: '2nd Edition, 2025' });
     assert.equal(ok.note, "Standards follow the PUP Citizen's Charter, 2nd Edition, 2025.");

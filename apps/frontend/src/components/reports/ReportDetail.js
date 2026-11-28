@@ -154,7 +154,7 @@ export default function ReportDetail({ report, role, generatedBy, onBack, onOpen
         <FiguresTable report={report} />
         <RatingsSection officeId={report.office_id} from={report.period_from} to={report.period_to} />
         <div className="text-xs text-ink-muted"><ReportNotesList report={report} /></div>
-        <SignatureLines />
+        <SignatureLines allOffices={report.office_id === null} />
       </article>
 
       <ConfirmDialog open={confirm === 'publish'} title="Publish this report?" confirmLabel="Publish" busy={busy === 'publish'} busyLabel="Publishing…" onConfirm={doPublish} onCancel={() => setConfirm(null)}

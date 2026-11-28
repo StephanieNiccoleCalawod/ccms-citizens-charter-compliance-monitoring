@@ -37,7 +37,7 @@ export default function PeopleReportSheet({ report, officeName, personName, gene
       <p className="text-xs text-ink-muted">{SEED_NOTE}{report.excluded_seed_count > 0 ? ` (${report.excluded_seed_count.toLocaleString('en-PH')} left out.)` : ''}</p>
       <p className="text-xs text-ink-muted">{report.basis}</p>
       <p className="text-xs text-ink-muted">{complaintsNote(report)}</p>
-      <SignatureLines />
+      <SignatureLines allOffices={report.office_id === null} />
     </article>
   );
 }
